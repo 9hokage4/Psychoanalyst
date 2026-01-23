@@ -1,32 +1,42 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel
 
-# Создаём приложение
-app = QApplication(sys.argv)
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Psychological Test Analyzer")
+        self.resize(800, 600)
 
-# Главное окно
-window = QMainWindow()
-window.setWindowTitle("Минимализм")
-window.setFixedSize(400, 300)  # Фиксированный размер
+        # * Центральный виджет
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-# Центральный виджет
-central_widget = QWidget()
-layout = QVBoxLayout()
-layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # * Layout
+        layout = QVBoxLayout()
+        central_widget.setLayout(layout)
 
-# Надпись
-label = QLabel("Привет, PyQt6!")
-label.setFont(QFont("Segoe UI", 16))
-label.setStyleSheet("color: #333;")  # Тёмно-серый текст
+        # * Tab widget
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
 
-layout.addWidget(label)
-central_widget.setLayout(layout)
-window.setCentralWidget(central_widget)
+        # * Вкладки
+        self.process_tab = QWidget()
+        self.analyze_tab = QWidget()
 
-# Показываем окно
-window.show()
+        self.tabs.addTab(self.process_tab, "Process")
+        self.tabs.addTab(self.analyze_tab, "Analyze")
 
-# Запуск цикла обработки событий
-sys.exit(app.exec())
+        # * Заполним заглушками
+        process_layout = QVBoxLayout()
+        process_layout.addWidget(QLabel("Process Tab: Select file and run analysis"))
+        self.process_tab.setLayout(process_layout)
+
+        analyze_layout = QVBoxLayout()
+        analyze_layout.addWidget(QLabel("Analyze Tab: View and filter results"))
+        self.analyze_tab.setLayout(analyze_layout)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

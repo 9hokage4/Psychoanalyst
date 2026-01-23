@@ -16,19 +16,26 @@ for i in range(num_students):
     fio = f"Студент{i+1} Фамилия{i+1}"
     course = random.choice(courses)
     direction = random.choice(directions)
-    # Группа: МКН-24-1 → направление + год + курс
     group = f"{direction}-24-{course}"
     answers = [random.randint(1, 5) for _ in range(10)]
-    risk_percent = round((sum(answers) / 50) * 100, 1)
     
-    row = [date.strftime("%Y-%m-%d"), fio, course, direction, group, risk_percent] + answers
+    # Расчёт риска
+    total_score = sum(answers)
+    risk_percent = round((total_score / 50) * 100, 1)
+    if risk_percent < 50:
+        risk_level = "Низкий риск"
+    elif risk_percent < 70:
+        risk_level = "Средний риск"
+    else:
+        risk_level = "Высокий риск"
+    
+    row = [date.strftime("%Y-%m-%d"), fio, course, direction, group, risk_percent, risk_level] + answers
     data.append(row)
 
-# Столбцы: добавлено "Направление"
-columns = ["Дата", "ФИО", "Курс", "Направление", "Группа", "% риска"] + questions
+columns = ["Дата", "ФИО", "Курс", "Направление", "Группа", "% риска", "Risk Level"] + questions
 df_all = pd.DataFrame(data, columns=columns)
 
-# === Лист "По курсу" ===
+# === Листы ===
 rows_course = []
 for course in sorted(df_all["Курс"].unique()):
     rows_course.append([f"{course} курс"] + [""] * (len(columns) - 1))
@@ -38,7 +45,6 @@ for course in sorted(df_all["Курс"].unique()):
 
 df_by_course = pd.DataFrame(rows_course, columns=columns)
 
-# === Лист "По направлению" ===
 rows_dir = []
 for direction in sorted(df_all["Направление"].unique()):
     rows_dir.append([direction] + [""] * (len(columns) - 1))

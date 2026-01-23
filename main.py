@@ -63,7 +63,7 @@ class ProcessTab(QWidget):
 
         # * Добавляем правый блок в основной layout
         main_layout.addWidget(scroll_area, 3)  # 3 — правый блок шире левого
-        
+         
     def select_file(self):
         # * Открываем диалог выбора Excel-файла
         file_path, _ = QFileDialog.getOpenFileName(
@@ -87,7 +87,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Psychological Test Analyzer")
-        self.resize(900, 700)
+        self.showMaximized()
 
         # * Центральный виджет для размещения контента
         central_widget = QWidget()

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from ui.components.excel_preview import ExcelPreviewTable
+from ui.components.analyze_tab import AnalyzeTab
 
 class ProcessTab(QWidget):
     def __init__(self, parent=None):
@@ -101,7 +102,7 @@ class MainWindow(QMainWindow):
 
         # * Инициализация вкладок
         self.process_tab = ProcessTab()
-        self.analyze_tab = QWidget()  # ! Заглушка — будет заменена на AnalyzeTab
+        self.analyze_tab = AnalyzeTab()
 
         self.tabs.addTab(self.process_tab, "Обработка")
         self.tabs.addTab(self.analyze_tab, "Анализ")

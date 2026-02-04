@@ -9,42 +9,33 @@ from ui.components.history_frame import HistoryFrame
 class PsychoTestApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.title("Анализатор тестов")
+        self.state('zoomed')
 
-        # * Полноэкранный режим при запуске
-        self.title("Анализатор психологических тестов")
-        self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}")
-        
-        # * Разрешаем растягивание контента
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        # * Shared state
+        self.current_raw_data = None
+        self.current_processed_data = None
+        self.table_cache = {}  # кэш: file_path -> (raw_df, processed_df)
 
-        # * Создаём TabView
+        # * TabView
         self.tabview = ctk.CTkTabview(self, anchor="nw")
         self.tabview.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
-        # * Добавляем вкладки
-        self.tabview.add("Загрузка")
-        self.tabview.add("Анализ")
-        self.tabview.add("Графики")
-        self.tabview.add("История")
+        for name in ["Загрузка", "Анализ", "Графики", "История"]:
+            self.tabview.add(name)
+            self.tabview.tab(name).grid_rowconfigure(0, weight=1)
+            self.tabview.tab(name).grid_columnconfigure(0, weight=1)
 
-        # * Настройка сетки внутри каждой вкладки
-        for tab_name in ["Загрузка", "Анализ", "Графики", "История"]:
-            self.tabview.tab(tab_name).grid_rowconfigure(0, weight=1)
-            self.tabview.tab(tab_name).grid_columnconfigure(0, weight=1)
-
-        # * Создаём фреймы и привязываем к вкладкам
-        self.upload_frame = UploadFrame(self.tabview.tab("Загрузка"))
+        self.upload_frame = UploadFrame(self.tabview.tab("Загрузка"), app=self)
         self.upload_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.analyze_frame = AnalyzeFrame(self.tabview.tab("Анализ"))
+        self.analyze_frame = AnalyzeFrame(self.tabview.tab("Анализ"), app=self)
         self.analyze_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.chart_frame = ChartFrame(self.tabview.tab("Графики"))
+        self.chart_frame = ChartFrame(self.tabview.tab("Графики"), app=self)
         self.chart_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.history_frame = HistoryFrame(self.tabview.tab("История"))
+        self.history_frame = HistoryFrame(self.tabview.tab("История"), app=self)
         self.history_frame.grid(row=0, column=0, sticky="nsew")
 
-        # * Активируем первую вкладку
         self.tabview.set("Загрузка")

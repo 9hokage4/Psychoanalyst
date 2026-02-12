@@ -1,9 +1,22 @@
 # main.py
-import customtkinter as ctk
-from ui.app import PsychoTestApp
+import sys
+import os
+from PyQt6.QtWidgets import QApplication
+from ui.main_window import MainWindow
+
+
+def main():
+    app = QApplication(sys.argv)
+    
+    # Применяем стиль
+    style_file = os.path.join(os.path.dirname(__file__), "style.qss")
+    with open(style_file, "r") as f:
+        app.setStyleSheet(f.read())
+    
+    window = MainWindow()
+    window.showMaximized()  # Полноэкранный режим
+    sys.exit(app.exec())
+
 
 if __name__ == "__main__":
-    ctk.set_appearance_mode("Light")
-    app = PsychoTestApp()
-    app.state('zoomed')  
-    app.mainloop()
+    main()

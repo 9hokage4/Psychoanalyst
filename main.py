@@ -10,7 +10,7 @@ def main():
     
     # Применяем стиль
     style_file = os.path.join(os.path.dirname(__file__), "style.qss")
-    with open(style_file, "r") as f:
+    with open(style_file, "r", encoding="utf-8") as f:
         app.setStyleSheet(f.read())
     
     window = MainWindow()

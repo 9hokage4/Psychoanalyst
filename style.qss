@@ -5,8 +5,7 @@ QMainWindow {
 
 /* Вкладки */
 QTabWidget::pane {
-    border: 1px solid #d0d0d0;
-    border-radius: 8px;
+    border: none;  
     background: white;
     margin: 0px;
 }
@@ -105,10 +104,25 @@ QScrollBar::handle:horizontal:hover {
 
 /* Таблица */
 QTableView {
-    gridline-color: #dee2e6;
-    background-color: white;
+    background-color: transparent;
 }
 
 QTableView::item {
-    padding: 4px;
+    padding: 4px 8px;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+}
+
+QTableView::item:selected {
+    background-color: #a9d6e5;
+}
+
+/* Заголовки таблицы */
+QHeaderView::section {
+    background-color: #e9ecef;
+    color: #212529;
+    font: bold 12px "Arial";
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 0px;
 }

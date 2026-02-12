@@ -26,9 +26,11 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.analyze_tab, "Анализ")
         self.tab_widget.addTab(self.chart_tab, "Графики")
         self.tab_widget.addTab(self.history_tab, "История")
+        self.analyze_tab.file_saved.connect(self.history_tab.add_saved_file)
         
         # Подключаем сигнал загрузки файла
         self.upload_tab.file_loaded.connect(self.on_file_loaded)
+        self.upload_tab.filename_updated.connect(self.analyze_tab.set_original_filename)
         
         # Размещение
         layout = QVBoxLayout(central_widget)

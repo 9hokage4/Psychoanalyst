@@ -3,12 +3,6 @@ QMainWindow {
     background-color: #f0f0f0;
 }
 
-/* Вкладки */
-QTabWidget::pane {
-    border: none;  
-    background: white;
-    margin: 0px;
-}
 
 QTabBar::tab {
     background: #f8f9fa;

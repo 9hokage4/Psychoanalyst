@@ -13,3 +13,7 @@ class HistoryWidget(QWidget):
     def add_to_history(self, df):
         # Пока просто заглушка
         print(f"Добавлено в историю: {len(df)} строк")
+    
+    def add_saved_file(self, file_path):
+        # Заглушка для сохранённых файлов
+        print(f"Сохранён файл: {file_path}")

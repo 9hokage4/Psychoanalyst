@@ -1,0 +1,56 @@
+/* Глобальные стили */
+QWidget {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 10pt;
+    background-color: #ffffff;
+}
+
+/* Все кнопки */
+QPushButton {
+    background-color: #4A90E2;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    min-height: 30px;
+}
+
+QPushButton:checked {
+    background-color: #50C878;
+    color: white;
+    border: 2px solid #3CB371;
+}
+
+QPushButton:checked:hover {
+    background-color: #3CB371;
+}
+
+QPushButton:hover {
+    background-color: #357ABD;
+}
+
+QPushButton:disabled {
+    background-color: #cccccc;
+    color: #666666;
+}
+
+/* Метки */
+QLabel {
+    background-color: transparent;
+    padding: 2px;
+}
+
+/* Особая кнопка — по objectName */
+#selectFileButton {
+    background-color: #50C878;
+    color: white;
+    font-size: 12pt;
+    font-weight: bold;
+    padding: 12px 20px;
+    border-radius: 8px;
+    min-height: 45px;
+}
+
+#selectFileButton:hover {
+    background-color: #3CB371;
+}

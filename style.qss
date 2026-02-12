@@ -1,0 +1,122 @@
+/* Главное окно */
+QMainWindow {
+    background-color: #f0f0f0;
+}
+
+
+QTabBar::tab {
+    background: #f8f9fa;
+    border: 1px solid #d0d0d0;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 10px 20px;
+    margin-right: 2px;
+    font: bold 14px "Arial";
+    color: #495057;
+}
+
+QTabBar::tab:selected {
+    background: white;
+    border-color: #a0a0a0;
+    color: #212529;
+}
+
+QTabBar::tab:hover {
+    background: #e9ecef;
+}
+
+/* Кнопки */
+QPushButton {
+    background-color: #3a7ebf;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font: bold 14px "Arial";
+    min-width: 120px;
+}
+
+QPushButton:hover {
+    background-color: #2a5d8f;
+}
+
+QPushButton:pressed {
+    background-color: #1a4c7f;
+}
+
+QPushButton:disabled {
+    background-color: #cccccc;
+    color: #666666;
+}
+
+/* Метки */
+QLabel {
+    font: 12px "Arial";
+    color: #212529;
+}
+
+QLabel#file_label {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font: bold 12px "Arial";
+}
+
+/* Скроллбары */
+QScrollBar:vertical {
+    width: 12px;
+    background: #f0f0f0;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #c0c0c0;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #a0a0a0;
+}
+
+QScrollBar:horizontal {
+    height: 12px;
+    background: #f0f0f0;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #c0c0c0;
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #a0a0a0;
+}
+
+/* Таблица */
+QTableView {
+    background-color: transparent;
+}
+
+QTableView::item {
+    padding: 4px 8px;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+}
+
+QTableView::item:selected {
+    background-color: #a9d6e5;
+}
+
+/* Заголовки таблицы */
+QHeaderView::section {
+    background-color: #e9ecef;
+    color: #212529;
+    font: bold 12px "Arial";
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 0px;
+}

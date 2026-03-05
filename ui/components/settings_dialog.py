@@ -186,7 +186,6 @@ class SettingsDialog(QDialog):
         return tab
     
     def _create_levels_tab(self):
-        """Вкладка 2: Уровни показателей — вертикальный список"""
         tab = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
@@ -219,7 +218,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(add_btn)
         
         self.levels_container = QWidget()
-        self.levels_layout = QVBoxLayout()  # ← Вертикальный список
+        self.levels_layout = QVBoxLayout()
         self.levels_layout.setSpacing(15)
         self.levels_container.setLayout(self.levels_layout)
         
@@ -333,8 +332,6 @@ class SettingsDialog(QDialog):
         level_layout.setContentsMargins(15, 15, 15, 15)
         level_layout.setSpacing(15)
         
-        # ← УБРАЛИ label с номером уровня
-        
         level_layout.addWidget(QLabel("Название:"))
         name_input = QLineEdit()
         name_input.setPlaceholderText("например, 'Низкий'")
@@ -354,28 +351,7 @@ class SettingsDialog(QDialog):
         """)
         level_layout.addWidget(name_input)
         
-        level_layout.addWidget(QLabel("Граница (баллов):"))
-        boundary_spin = QSpinBox()
-        boundary_spin.setRange(0, 1000)
-        boundary_spin.setValue(level_index * 25)
-        boundary_spin.setFixedWidth(100)
-        boundary_spin.setStyleSheet("""
-            QSpinBox {
-                border: 2px solid #dee2e6;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-                background-color: white;
-                color: #212529;
-            }
-            QSpinBox:focus {
-                border-color: #4a90d9;
-            }
-        """)
-        level_layout.addWidget(boundary_spin)
-        
-        # Подсказка про границы
-        hint_label = QLabel("💡 Верхняя граница уровня")
+        hint_label = QLabel("💡 Границы настраиваются во вкладке 'Шкалы'")
         hint_label.setStyleSheet("color: #666; font-size: 12px; font-style: italic;")
         level_layout.addWidget(hint_label)
         
@@ -392,7 +368,7 @@ class SettingsDialog(QDialog):
             }
             QPushButton:hover {
                 background-color: #c82333;
-                }
+            }
         """)
         remove_btn.clicked.connect(lambda: self.remove_level(level_frame, level_key))
         level_layout.addWidget(remove_btn)
@@ -406,7 +382,7 @@ class SettingsDialog(QDialog):
         self.levels.append({
             "key": level_key,
             "name_input": name_input,
-            "boundary": boundary_spin,
+            "boundary": None,
             "widget": level_frame
         })
     
@@ -418,29 +394,77 @@ class SettingsDialog(QDialog):
         widget.deleteLater()
         self.level_order.remove(level_key)
         self.levels = [l for l in self.levels if l["key"] != level_key]
-       
     
-    def _parse_questions_input(self, text):
+    def _parse_questions_input(self, text, validate=True):
+        """Парсит ввод вопросов с валидацией"""
         questions = set()
         parts = text.split(',')
+        errors = []
+        
         for part in parts:
             part = part.strip()
+            if not part:
+                continue
             if '-' in part:
                 try:
                     start, end = map(int, part.split('-'))
+                    if start > end:
+                        errors.append(f"Неверный диапазон: {start}-{end}")
+                        continue
                     questions.update(range(start, end + 1))
                 except ValueError:
+                    errors.append(f"Неверный формат: {part}")
                     continue
             else:
                 try:
                     questions.add(int(part))
                 except ValueError:
+                    errors.append(f"Неверное число: {part}")
                     continue
         
         max_questions = self.questions_spin.value()
-        questions = {q for q in questions if 1 <= q <= max_questions}
         
-        return sorted(questions)
+        if validate:
+            invalid_questions = {q for q in questions if q < 1 or q > max_questions}
+            if invalid_questions:
+                errors.append(f"Вопросы вне диапазона (1-{max_questions}): {sorted(invalid_questions)}")
+            questions = {q for q in questions if 1 <= q <= max_questions}
+        
+        return sorted(list(questions)), errors
+    
+    def _on_questions_input_changed(self, scale_data):
+        """Обновляет выбранные вопросы при изменении текстового ввода"""
+        selected, errors = self._parse_questions_input(scale_data["questions_input"].text(), validate=True)
+        scale_data["selected_questions"] = set(selected)
+        
+        if errors:
+            scale_data["questions_input"].setStyleSheet("""
+                QLineEdit {
+                    border: 2px solid #dc3545;
+                    border-radius: 6px;
+                    padding: 8px;
+                    font-size: 13px;
+                    background-color: #fff5f5;
+                    color: #212529;
+                }
+                QLineEdit:focus {
+                    border-color: #dc3545;
+                }
+            """)
+        else:
+            scale_data["questions_input"].setStyleSheet("""
+                QLineEdit {
+                    border: 2px solid #dee2e6;
+                    border-radius: 6px;
+                    padding: 8px;
+                    font-size: 13px;
+                    background-color: white;
+                    color: #212529;
+                }
+                QLineEdit:focus {
+                    border-color: #4a90d9;
+                }
+            """)
     
     def add_scale(self):
         if len(self.levels) == 0:
@@ -463,7 +487,6 @@ class SettingsDialog(QDialog):
         scale_layout.setContentsMargins(15, 15, 15, 15)
         scale_layout.setSpacing(15)
         
-        # Название шкалы
         name_layout = QHBoxLayout()
         name_layout.addWidget(QLabel("<b style='color: #4a90d9; font-size: 14px;'>Название шкалы:</b>"))
         name_input = QLineEdit()
@@ -486,7 +509,6 @@ class SettingsDialog(QDialog):
         name_layout.addStretch()
         scale_layout.addLayout(name_layout)
         
-        # Выбор вопросов - ТОЛЬКО текстовое поле (без чекбоксов)
         questions_group = QGroupBox("Вопросы для этой шкалы:")
         questions_group.setStyleSheet("""
             QGroupBox {
@@ -528,7 +550,6 @@ class SettingsDialog(QDialog):
         input_layout.addWidget(self.questions_input)
         questions_layout.addLayout(input_layout)
         
-        # Подсказка
         hint_label = QLabel("💡 Формат: отдельные числа (1, 5, 10) или диапазоны (1-20, 30-40)")
         hint_label.setStyleSheet("color: #666; font-size: 12px; font-style: italic;")
         questions_layout.addWidget(hint_label)
@@ -536,7 +557,6 @@ class SettingsDialog(QDialog):
         questions_group.setLayout(questions_layout)
         scale_layout.addWidget(questions_group)
         
-        # Границы уровней для этой шкалы - СЕТКА (5 в ряд)
         bounds_group = QGroupBox("Границы уровней для шкалы:")
         bounds_group.setStyleSheet("""
             QGroupBox {
@@ -555,10 +575,10 @@ class SettingsDialog(QDialog):
         """)
         bounds_layout = QGridLayout()
         bounds_layout.setSpacing(15)
-
+        
         bounds_inputs = {}
-        previous_boundary = 0  #  Для отслеживания предыдущей границы
-
+        bounds_labels = {}
+        
         for i, level_data in enumerate(self.levels):
             level_name = level_data["name_input"].text()
             if not level_name:
@@ -567,17 +587,19 @@ class SettingsDialog(QDialog):
             row = i // 5
             col = i % 5
             
-            # * Показываем диапазон (например, "26-60:")
             if i == 0:
-                range_label = QLabel(f"<b>{level_name} (0-{level_data['boundary'].value()}):</b>")
+                range_text = f"{level_name} (0-25):"
             else:
-                range_label = QLabel(f"<b>{level_name} ({previous_boundary + 1}-{level_data['boundary'].value()}):</b>")
+                range_text = f"{level_name} (26-50):"
             
+            range_label = QLabel(f"<b>{range_text}</b>")
+            range_label.setObjectName(f"range_label_{level_data['key']}")
             bounds_layout.addWidget(range_label, row, col * 2)
+            bounds_labels[level_data["key"]] = range_label
             
             bound_spin = QSpinBox()
             bound_spin.setRange(0, 1000)
-            bound_spin.setValue(level_data["boundary"].value())
+            bound_spin.setValue((i + 1) * 25)
             bound_spin.setFixedWidth(80)
             bound_spin.setStyleSheet("""
                 QSpinBox {
@@ -592,15 +614,13 @@ class SettingsDialog(QDialog):
                     border-color: #4a90d9;
                 }
             """)
+            bound_spin.valueChanged.connect(lambda: self._update_bounds_labels(scale_data, bounds_labels))
             bounds_layout.addWidget(bound_spin, row, col * 2 + 1)
             bounds_inputs[level_data["key"]] = bound_spin
-            
-            previous_boundary = level_data["boundary"].value()  # Запоминаем для следующего
-
+        
         bounds_group.setLayout(bounds_layout)
         scale_layout.addWidget(bounds_group)
         
-        # Удаление
         remove_layout = QHBoxLayout()
         remove_layout.addStretch()
         remove_btn = QPushButton("🗑️ Удалить шкалу")
@@ -628,15 +648,35 @@ class SettingsDialog(QDialog):
             "name_input": name_input,
             "questions_input": self.questions_input,
             "bounds_inputs": bounds_inputs,
+            "bounds_labels": bounds_labels,
             "widget": scale_frame,
             "selected_questions": set()
         }
         self.scales.append(scale_data)
+        
+        self._update_bounds_labels(scale_data, bounds_labels)
     
-    def _on_questions_input_changed(self, scale_data):
-        """Обновляет выбранные вопросы при изменении текстового ввода"""
-        selected = self._parse_questions_input(scale_data["questions_input"].text())
-        scale_data["selected_questions"] = set(selected)
+    def _update_bounds_labels(self, scale_data, bounds_labels):
+        previous_boundary = 0
+        
+        for i, level_data in enumerate(self.levels):
+            level_key = level_data["key"]
+            level_name = level_data["name_input"].text()
+            if not level_name:
+                level_name = f"Уровень {self.levels.index(level_data) + 1}"
+            
+            bound_spin = scale_data["bounds_inputs"][level_key]
+            current_boundary = bound_spin.value()
+            
+            if i == 0:
+                range_text = f"{level_name} (0-{current_boundary}):"
+            else:
+                range_text = f"{level_name} ({previous_boundary + 1}-{current_boundary}):"
+            
+            if level_key in bounds_labels:
+                bounds_labels[level_key].setText(f"<b>{range_text}</b>")
+            
+            previous_boundary = current_boundary
     
     def remove_scale(self, widget):
         if len(self.scales) <= 1:
@@ -679,7 +719,7 @@ class SettingsDialog(QDialog):
                 new_scale = self.scales[-1]
                 new_scale["name_input"].setText(saved["name"])
                 new_scale["questions_input"].setText(saved["questions_text"])
-                selected = self._parse_questions_input(saved["questions_text"])
+                selected, _ = self._parse_questions_input(saved["questions_text"])
                 new_scale["selected_questions"] = set(selected)
                 self.all_selected_questions.update(selected)
     
@@ -780,11 +820,27 @@ class SettingsDialog(QDialog):
                 scale_data["name_input"].setFocus()
                 return
             
-            selected_questions = list(scale_data["selected_questions"])
+            selected_questions, errors = self._parse_questions_input(
+                scale_data["questions_input"].text(),
+                validate=True
+            )
+            
+            if errors:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    f"Шкала '{name}':\n" + "\n".join(errors)
+                )
+                self.tabs.setCurrentIndex(2)
+                scale_data["questions_input"].setFocus()
+                return
+            
             if not selected_questions:
                 QMessageBox.warning(self, "Ошибка", f"Шкала '{name}': не выбраны вопросы")
                 self.tabs.setCurrentIndex(2)
                 return
+            
+            scale_data["selected_questions"] = set(selected_questions)
         
         scales_config = {}
         for scale_data in self.scales:

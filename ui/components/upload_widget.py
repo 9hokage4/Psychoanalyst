@@ -1,17 +1,17 @@
 # ui/components/upload_widget.py
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QLabel,
-    QTableView, QHeaderView, QAbstractItemView,
     QFileDialog, QHBoxLayout, QComboBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QFont
 import pandas as pd
 from ui.components.table_widget import ExcelTable
+
 
 class UploadWidget(QWidget):
     file_loaded = pyqtSignal(object)
     filename_updated = pyqtSignal(str)
+    settings_requested = pyqtSignal()  # ← НОВЫЙ СИГНАЛ
 
     def __init__(self):
         super().__init__()
@@ -22,20 +22,22 @@ class UploadWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 10, 0, 0)
 
-        # === Верхняя панель: кнопка + имя файла + выбор листа ===
+        # === Верхняя панель ===
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.setSpacing(10)
 
+        # Кнопка загрузки
         self.load_button = QPushButton("📂 Загрузить Excel")
         self.load_button.clicked.connect(self.load_file)
         top_layout.addWidget(self.load_button)
 
+        # Имя файла
         self.file_label = QLabel("Файл: не выбран")
         self.file_label.setObjectName("file_label")
         top_layout.addWidget(self.file_label)
 
-        # Выбор листа (изначально скрыт) — кастомный стиль
+        # Выбор листа
         self.sheet_combo = QComboBox()
         self.sheet_combo.setVisible(False)
         self.sheet_combo.setStyleSheet("""
@@ -65,7 +67,13 @@ class UploadWidget(QWidget):
         self.sheet_combo.currentTextChanged.connect(self.on_sheet_changed)
         top_layout.addWidget(self.sheet_combo)
 
-        top_layout.addStretch()
+        # === Кнопка настройки (справа) ===
+        top_layout.addStretch()  # ← Сдвигает всё, что после, вправо
+
+        self.settings_button = QPushButton("⚙️ Настройка")
+        self.settings_button.clicked.connect(self.settings_requested.emit)
+        top_layout.addWidget(self.settings_button)
+
         main_layout.addLayout(top_layout)
 
         # === Таблица ===
@@ -95,7 +103,6 @@ class UploadWidget(QWidget):
         )
         if file_path:
             try:
-                # Получаем список листов
                 self.sheet_names = pd.ExcelFile(file_path).sheet_names
                 self.current_file_path = file_path
 
@@ -117,7 +124,6 @@ class UploadWidget(QWidget):
                 self.file_label.setText("Ошибка загрузки файла")
 
     def load_sheet(self, sheet_name):
-        """Загружает данные из указанного листа"""
         try:
             df = pd.read_excel(self.current_file_path, sheet_name=sheet_name)
             self.current_df = df
@@ -127,6 +133,5 @@ class UploadWidget(QWidget):
             print(f"Ошибка загрузки листа: {e}")
 
     def on_sheet_changed(self, sheet_name):
-        """Обработчик смены листа"""
         if sheet_name:
             self.load_sheet(sheet_name)

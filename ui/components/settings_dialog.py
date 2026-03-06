@@ -13,7 +13,7 @@ from utils.profile_manager import ProfileManager
 from ui.components.profile_dialog import ProfileDialog
 
 class SettingsDialog(QDialog):
-    config_saved = pyqtSignal(dict, dict, list, dict)
+    config_saved = pyqtSignal(dict, list, dict, dict)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -704,7 +704,7 @@ class SettingsDialog(QDialog):
         for i, scale_data in enumerate(self.scales):
             name = scale_data["name_input"].text().strip()
             if not name:
-                self._show_error_message( "Ошибка", f"Шкала {i + 1} не имеет названия")
+                self._show_error_message("Ошибка", f"Шкала {i + 1} не имеет названия")
                 self.tabs.setCurrentIndex(2)
                 scale_data["name_input"].setFocus()
                 return
@@ -723,27 +723,60 @@ class SettingsDialog(QDialog):
                 return
             
             if not selected_questions:
-                self._show_error_message( "Ошибка", f"Шкала '{name}': не выбраны вопросы")
+                self._show_error_message("Ошибка", f"Шкала '{name}': не выбраны вопросы")
                 self.tabs.setCurrentIndex(2)
                 return
             
             scale_data["selected_questions"] = set(selected_questions)
         
+        # === 1. SCALES (ключи - русские названия шкал) ===
         scales_config = {}
         for scale_data in self.scales:
-            name = scale_data["name_input"].text().strip()
+            scale_name = scale_data["name_input"].text().strip()
             selected_questions = sorted(list(scale_data["selected_questions"]))
-            scales_config[name] = {
-                "title_ru": name,
+            
+            # ← Формируем bounds в правильном формате (low_max, mid_low_min, etc.)
+            bounds = {}
+            level_values = []
+            
+            # Собираем значения границ по порядку уровней
+            for level_key in self.level_order:
+                if level_key in scale_data["bounds_inputs"]:
+                    level_values.append(scale_data["bounds_inputs"][level_key].value())
+            
+            # Создаём границы (low_max, mid_low_min, mid_low_max, etc.)
+            for i, level_key in enumerate(self.level_order):
+                if i < len(level_values):
+                    if i == 0:
+                        # Первый уровень: только max
+                        bounds[f"{level_key}_max"] = level_values[i]
+                    else:
+                        # Остальные уровни: min и max
+                        bounds[f"{level_key}_min"] = level_values[i-1] + 1
+                        bounds[f"{level_key}_max"] = level_values[i]
+            
+            # ← Ключ шкалы - полное русское название!
+            scales_config[scale_name] = {
+                "title_ru": scale_name,
                 "qnums": selected_questions,
-                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()}
+                "bounds": bounds
             }
         
-        levels_config = {}
-        for level_data in self.levels:
-            name = level_data["name_input"].text().strip()
-            levels_config[level_data["key"]] = name
+        # === 2. LEVEL_ORDER (технические ключи) ===
+        level_order = self.level_order.copy()  # ["low", "mid_low", "mid_high", "high"]
         
+        # === 3. LEVEL_RU (названия от пользователя) ===
+        level_ru = {}
+        for i, level_data in enumerate(self.levels):
+            level_name = level_data["name_input"].text().strip()
+            
+            # Сопоставляем индекс уровня с ключом из level_order
+            if i < len(self.level_order):
+                level_ru[self.level_order[i]] = level_name
+            else:
+                level_ru[level_data["key"]] = level_name
+        
+        # === 4. ANSWER_WEIGHTS ===
         answer_weights = {}
         if self.same_weights_checkbox.isChecked():
             weight = self.single_weight_spin.value()
@@ -753,9 +786,44 @@ class SettingsDialog(QDialog):
             for i, spin in self.weight_spins.items():
                 answer_weights[i] = spin.value()
         
-        self.config_saved.emit(scales_config, levels_config, self.level_order, answer_weights)
+        # === ПРОВЕРКА НА ПОВТОРЯЮЩИЕСЯ ВОПРОСЫ ===
+        if not self.shared_checkbox.isChecked():
+            all_questions = {}  # {вопрос: [список шкал где встречается]}
+            
+            for scale_data in self.scales:
+                scale_name = scale_data["name_input"].text().strip()
+                selected_questions = sorted(list(scale_data["selected_questions"]))
+                
+                for question in selected_questions:
+                    if question not in all_questions:
+                        all_questions[question] = []
+                    all_questions[question].append(scale_name)
+            
+            # Находим повторяющиеся вопросы
+            duplicate_questions = {q: scales for q, scales in all_questions.items() if len(scales) > 1}
+            
+            if duplicate_questions:
+                # Формируем сообщение об ошибке
+                error_messages = []
+                for question, scales in sorted(duplicate_questions.items()):
+                    error_messages.append(f"Вопрос {question}: {', '.join(scales)}")
+                
+                error_text = (
+                    "Вопросы не должны повторяться между шкалами!\n\n"
+                    "Повторяющиеся вопросы:\n" + "\n".join(error_messages)
+                )
+                
+                self._show_error_message("Ошибка валидации", error_text)
+                self.tabs.setCurrentIndex(2)
+                return
+            
+        # === 🆕 СОХРАНЯЕМ В JSON ДЛЯ ПРОВЕРКИ ===
+        self._save_debug_config(scales_config, level_order, level_ru, answer_weights)
+        
+        # === ОТПРАВЛЯЕМ В PROCESSOR.PY ===
+        self.config_saved.emit(scales_config, level_order, level_ru, answer_weights)
         self.accept()
-    
+        
     def open_profile_dialog(self):
         self.current_config = self._get_current_config()
         dialog = ProfileDialog(self, self.current_config)
@@ -918,3 +986,44 @@ class SettingsDialog(QDialog):
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         
         msg_box.exec()
+        
+    def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
+        """Сохраняет конфигурацию в JSON файл для отладки"""
+        import json
+        from datetime import datetime
+        from pathlib import Path
+        
+        # Формируем полную структуру
+        debug_data = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "scales_config": scales_config,
+            "level_order": level_order,
+            "level_ru": level_ru,
+            "answer_weights": answer_weights
+        }
+        
+        # Сохраняем в файл
+        output_path = Path("debug_config.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(debug_data, f, indent=2, ensure_ascii=False)
+        
+        # Выводим в консоль для быстрой проверки
+        print("\n" + "="*60)
+        print("✅ КОНФИГУРАЦИЯ СОХРАНЕНА В debug_config.json")
+        print("="*60)
+        
+        print("\n📈 SCALES_CONFIG:")
+        print(json.dumps(scales_config, indent=2, ensure_ascii=False))
+        
+        print("\n📋 LEVEL_ORDER:")
+        print(level_order)
+        
+        print("\n📝 LEVEL_RU:")
+        print(json.dumps(level_ru, indent=2, ensure_ascii=False))
+        
+        print("\n⚖️ ANSWER_WEIGHTS:")
+        print(answer_weights)
+        
+        print("="*60 + "\n")
+        
+        return output_path

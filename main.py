@@ -1,20 +1,27 @@
 # main.py
 import sys
-import os
 from PyQt6.QtWidgets import QApplication
 from ui.main_window import MainWindow
 
 
 def main():
     app = QApplication(sys.argv)
+    app.setApplicationName("Psychoanalyst")
     
-    # Применяем стиль
-    style_file = os.path.join(os.path.dirname(__file__), "style.qss")
-    with open(style_file, "r", encoding="utf-8") as f:
-        app.setStyleSheet(f.read())
+    style_file = "ui/style.qss"  
+    
+    try:
+        with open(style_file, "r", encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
+        print(f"Стили загружены из {style_file}")
+    except FileNotFoundError:
+        print(f"Предупреждение: Файл стилей '{style_file}' не найден")
+    except Exception as e:
+        print(f"Ошибка загрузки стилей: {e}")
     
     window = MainWindow()
-    window.showMaximized()  # Полноэкранный режим
+    window.show()
+    
     sys.exit(app.exec())
 
 

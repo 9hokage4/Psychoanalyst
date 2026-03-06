@@ -22,34 +22,38 @@ class ExcelTable(QTableView):
 
         # Стиль
         self.setStyleSheet("""
-            QTableView {
-                background-color: transparent;
-                border: none;
-                gridline-color: #dee2e6;
-            }
-            QTableView::item {
-                padding: 4px 8px;
-                border-right: 1px solid #f0f0f0;
-                border-bottom: 1px solid #f0f0f0;
-            }
-            QHeaderView::section {
-                background-color: #e9ecef;
-                color: #212529;
-                font: bold 12px "Arial";
-                padding: 6px 8px;
-                border: none;
-                border-top-left-radius: 16px;
-                border-top-right-radius: 16px;
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 16px;
-                padding-left: 0px;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 16px;
-                padding-right: 0px;
-            }
-        """)
+        QTableView {
+            background-color: transparent;
+            border: none;
+            gridline-color: #DEE2E6;
+        }
+        QTableView::item {
+            padding: 4px 8px;
+            border-right: 1px solid #F0F0F0;
+            border-bottom: 1px solid #F0F0F0;
+        }
+        QHeaderView::section {
+            background-color: #E9ECEF;
+            color: #212529;
+            font: bold 13px "Arial";
+            padding: 8px 12px;
+            border: none;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        QHeaderView::section:first {
+            border-top-left-radius: 8px;
+            padding-left: 12px;
+        }
+        QHeaderView::section:last {
+            border-top-right-radius: 8px;
+            padding-right: 12px;
+        }
+        QHeaderView {
+            background-color: transparent;  /* ← Убираем серый фон */
+            border: none;
+        }
+    """)
 
     def wheelEvent(self, event):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:

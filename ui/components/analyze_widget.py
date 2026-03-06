@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QProgressBar, QHBoxLayout, QFileDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QFont
+from PyQt6.QtGui import QIcon
 import pandas as pd
 from core.processor import process_data
 from ui.components.table_widget import ExcelTable
@@ -33,6 +33,7 @@ class AnalyzeWidget(QWidget):
         super().__init__()
         self.current_df = None
         self.processed_df = None
+        self.original_filename = None
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 10, 0, 0)
@@ -41,12 +42,16 @@ class AnalyzeWidget(QWidget):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(10)
         
-        self.process_button = QPushButton("⚙️ Обработать данные")
+        self.process_button = QPushButton(" Обработать")
+        self.process_button.setObjectName("btn_process")
+        self.process_button.setIcon(QIcon("resources/icons/process.svg"))
         self.process_button.setEnabled(False)
         self.process_button.clicked.connect(self.start_processing)
         button_layout.addWidget(self.process_button)
         
-        self.save_button = QPushButton("💾 Сохранить файл")
+        self.save_button = QPushButton(" Сохранить")
+        self.save_button.setObjectName("btn_save_file")
+        self.save_button.setIcon(QIcon("resources/icons/save.svg"))
         self.save_button.setEnabled(False)
         self.save_button.clicked.connect(self.save_file)
         button_layout.addWidget(self.save_button)
@@ -61,32 +66,25 @@ class AnalyzeWidget(QWidget):
         self.progress_bar.setRange(0, 0)
         main_layout.addWidget(self.progress_bar)
         
-        # === Таблица результатов (в том же контейнере, что и в Загрузке) ===
+        # === Таблица результатов ===
         self.result_container = QWidget()
-        self.result_container.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border-radius: 16px;
-                margin: 0px;
-                padding: 0px;
-            }
-        """)
+        self.result_container.setObjectName("table_container")
         table_layout = QVBoxLayout(self.result_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
 
         self.result_table = ExcelTable()
         table_layout.addWidget(self.result_table)
-        main_layout.addWidget(self.result_container)
-        self.original_filename = None
 
+        main_layout.addWidget(self.result_container)
+    
+    def set_original_filename(self, filename):
+        self.original_filename = filename
     
     def set_data(self, df):
         self.current_df = df
         self.process_button.setEnabled(True)
         self.save_button.setEnabled(False)
         self.result_table.setModel(None)
-    def set_original_filename(self, filename):
-        self.original_filename = filename
     
     def start_processing(self):
         if self.current_df is None:
@@ -116,34 +114,32 @@ class AnalyzeWidget(QWidget):
     def save_file(self):
         if self.processed_df is None:
             return
-            
-        # Генерируем имя: "Обработанный исходное_имя.xlsx"
-        default_name = "Обработанный processed_data.xlsx"
-            
-        # Если есть исходный файл из UploadWidget, используем его имя
-        if hasattr(self, 'original_filename') and self.original_filename:
+        
+        default_name = "processed_data.xlsx"
+        
+        if self.original_filename:
             base_name = self.original_filename
             if base_name.endswith('.xlsx'):
-                base_name = base_name[:-5]  # Убираем .xlsx
+                base_name = base_name[:-5]
             elif base_name.endswith('.xls'):
-                base_name = base_name[:-4]  # Убираем .xls
+                base_name = base_name[:-4]
             default_name = f"Обработанный {base_name}.xlsx"
-            
+        
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Сохранить обработанный файл",
             default_name,
             "Excel Files (*.xlsx)"
         )
-            
+        
         if file_path:
             try:
                 if not file_path.endswith('.xlsx'):
                     file_path += '.xlsx'
-                    
+                
                 self.processed_df.to_excel(file_path, index=False)
                 self.file_saved.emit(file_path)
                 print(f"Файл сохранён: {file_path}")
-                    
+                
             except Exception as e:
                 print(f"Ошибка сохранения: {e}")

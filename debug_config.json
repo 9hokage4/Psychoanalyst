@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-03-06 21:09:33",
+  "scales_config": {
+    "Агро Школьник": {
+      "title_ru": "Агро Школьник",
+      "qnums": [
+        1,
+        2
+      ],
+      "bounds": {
+        "level1_max": 25,
+        "level2_min": 26,
+        "level2_max": 50,
+        "level3_min": 51,
+        "level3_max": 75,
+        "level4_min": 76,
+        "level4_max": 100
+      }
+    },
+    "ТупаяТян": {
+      "title_ru": "ТупаяТян",
+      "qnums": [
+        1,
+        2,
+        6
+      ],
+      "bounds": {
+        "level1_max": 25,
+        "level2_min": 26,
+        "level2_max": 50,
+        "level3_min": 51,
+        "level3_max": 75,
+        "level4_min": 76,
+        "level4_max": 100
+      }
+    },
+    "Ублюдок": {
+      "title_ru": "Ублюдок",
+      "qnums": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "bounds": {
+        "level1_max": 25,
+        "level2_min": 26,
+        "level2_max": 50,
+        "level3_min": 51,
+        "level3_max": 75,
+        "level4_min": 76,
+        "level4_max": 100
+      }
+    }
+  },
+  "level_order": [
+    "level1",
+    "level2",
+    "level3",
+    "level4"
+  ],
+  "level_ru": {
+    "level1": "Тест1",
+    "level2": "Прикол 2",
+    "level3": "Чума 3",
+    "level4": "Ужас 5"
+  },
+  "answer_weights": {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 4,
+    "5": 5,
+    "6": 6,
+    "7": 7,
+    "8": 8,
+    "9": 9
+  }
+}

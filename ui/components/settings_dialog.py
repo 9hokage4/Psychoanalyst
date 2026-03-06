@@ -17,7 +17,8 @@ class SettingsDialog(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("⚙️ Настройка теста")
+        self.setWindowTitle("Настройка теста")
+        self.setWindowIcon(QIcon("resources/icons/cog.svg"))
         self.setMinimumSize(900, 700)
         self.setModal(True)
         self.scales = []
@@ -35,7 +36,7 @@ class SettingsDialog(QDialog):
         
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
-        self.tabs.setIconSize(QSize(24, 24))
+        self.tabs.setIconSize(QSize(20, 20))
         
         self.basic_tab = self._create_basic_tab()
         self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные параметры")
@@ -88,7 +89,7 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(25)
         
-        title = QLabel("📋 Основные параметры теста")
+        title = QLabel("Основные параметры теста")
         title.setObjectName("title_label")
         layout.addWidget(title)
         
@@ -148,7 +149,6 @@ class SettingsDialog(QDialog):
         self.same_bounds_checkbox = QCheckBox("Границы для шкал совпадают")
         self.same_bounds_checkbox.setChecked(True)
         self.same_bounds_checkbox.stateChanged.connect(self.on_same_bounds_changed)
-        self.same_bounds_checkbox.stateChanged.connect(self._update_scales_levels)
         layout.addWidget(self.same_bounds_checkbox)
         
         add_btn = QPushButton("+ Добавить уровень")
@@ -181,7 +181,7 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
         
-        title = QLabel("📈 Шкалы теста")
+        title = QLabel("Шкалы теста")
         title.setObjectName("title_label")
         layout.addWidget(title)
         
@@ -189,9 +189,8 @@ class SettingsDialog(QDialog):
         info_label.setObjectName("info_label")
         layout.addWidget(info_label)
         
-        add_btn = QPushButton("Добавить шкалу")
+        add_btn = QPushButton("+ Добавить шкалу")
         add_btn.setObjectName("btn_add_scale")
-        add_btn.setIcon(QIcon("resources/icons/plus.svg"))
         add_btn.clicked.connect(self.add_scale)
         layout.addWidget(add_btn)
         
@@ -217,7 +216,7 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(25)
         
-        title = QLabel("⚖️ Веса ответов")
+        title = QLabel("Веса ответов")
         title.setObjectName("title_label")
         layout.addWidget(title)
         
@@ -325,7 +324,6 @@ class SettingsDialog(QDialog):
         })
         
         self.on_same_bounds_changed()
-        
         self._update_scales_levels()
     
     def on_same_bounds_changed(self):
@@ -350,7 +348,7 @@ class SettingsDialog(QDialog):
                     
                     if "bounds_labels" in scale_data:
                         self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
-                        
+        
         self._update_scales_levels()
     
     def _update_scales_with_common_bounds(self):
@@ -365,7 +363,7 @@ class SettingsDialog(QDialog):
     
     def remove_level(self, widget, level_key):
         if len(self.levels) <= 1:
-            QMessageBox.warning(self, "Ошибка", "Должен быть хотя бы один уровень")
+            self._show_error_message("Ошибка", "Должен быть хотя бы один уровень")
             return
         
         widget.deleteLater()
@@ -373,45 +371,6 @@ class SettingsDialog(QDialog):
         self.levels = [l for l in self.levels if l["key"] != level_key]
         self._update_level_numbers()
         self._update_scales_levels()
-        
-    def _update_scales_levels(self):
-        """Обновляет уровни во всех шкалах (при добавлении/удалении уровня)"""
-        # Сохраняем текущие данные шкал
-        saved_scales = []
-        for scale_data in self.scales:
-            saved_scales.append({
-                "name": scale_data["name_input"].text(),
-                "questions_text": scale_data["questions_input"].text(),
-                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()},
-                "selected_questions": scale_data["selected_questions"]
-            })
-        
-        # Очищаем текущие шкалы
-        while self.scales_layout.count():
-            item = self.scales_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        self.scales = []
-        self.all_selected_questions = set()
-        
-        # Пересоздаём шкалы с новыми уровнями
-        for saved in saved_scales:
-            self.add_scale()
-            if self.scales:
-                new_scale = self.scales[-1]
-                new_scale["name_input"].setText(saved["name"])
-                new_scale["questions_input"].setText(saved["questions_text"])
-                new_scale["selected_questions"] = saved["selected_questions"]
-                self.all_selected_questions.update(saved["selected_questions"])
-                
-                # Восстанавливаем границы
-                for key, value in saved["bounds"].items():
-                    if key in new_scale["bounds_inputs"]:
-                        new_scale["bounds_inputs"][key].setValue(value)
-                
-                # Обновляем label с диапазонами
-                self._update_bounds_labels(new_scale, new_scale["bounds_labels"])
     
     def _parse_questions_input(self, text, validate=True):
         questions = set()
@@ -450,26 +409,20 @@ class SettingsDialog(QDialog):
         return sorted(list(questions)), errors
     
     def _on_questions_input_changed(self, scale_data):
-        """Обновляет выбранные вопросы при изменении текстового ввода"""
-        selected, errors = self._parse_questions_input(
-            scale_data["questions_input"].text(), 
-            validate=True
-        )
+        selected, errors = self._parse_questions_input(scale_data["questions_input"].text(), validate=True)
         scale_data["selected_questions"] = set(selected)
         
-        # ← Используем objectName вместо setStyleSheet()
         if errors:
             scale_data["questions_input"].setObjectName("error_input")
         else:
             scale_data["questions_input"].setObjectName("level_name_input")
         
-        # ← Принудительно обновляем стиль
         scale_data["questions_input"].style().unpolish(scale_data["questions_input"])
         scale_data["questions_input"].style().polish(scale_data["questions_input"])
     
     def add_scale(self):
         if len(self.levels) == 0:
-            QMessageBox.warning(self, "Ошибка", "Сначала добавьте уровни показателей на вкладке 'Уровни показателей'")
+            self._show_error_message("Ошибка", "Сначала добавьте уровни показателей на вкладке 'Уровни показателей'")
             self.tabs.setCurrentIndex(1)
             return
         
@@ -498,7 +451,6 @@ class SettingsDialog(QDialog):
         input_layout.addWidget(QLabel("Введите номера вопросов:"))
         self.questions_input = QLineEdit()
         self.questions_input.setPlaceholderText("Пример: 1-20, 25, 30-40")
-        self.questions_input.setFixedWidth(500)
         self.questions_input.setObjectName("level_name_input")
         self.questions_input.textChanged.connect(lambda: self._on_questions_input_changed(scale_data))
         input_layout.addWidget(self.questions_input)
@@ -540,6 +492,7 @@ class SettingsDialog(QDialog):
             bound_spin = QSpinBox()
             bound_spin.setRange(0, 1000)
             bound_spin.setValue((i + 1) * 25)
+            bound_spin.setObjectName("level_boundary_spin")
             
             if self.same_bounds_checkbox.isChecked():
                 bound_spin.setEnabled(False)
@@ -600,7 +553,7 @@ class SettingsDialog(QDialog):
     
     def remove_scale(self, widget):
         if len(self.scales) <= 1:
-            QMessageBox.warning(self, "Ошибка", "Должна быть хотя бы одна шкала")
+            self._show_error_message("Ошибка", "Должна быть хотя бы одна шкала")
             return
         
         for scale_data in self.scales:
@@ -615,6 +568,40 @@ class SettingsDialog(QDialog):
         for i, level_data in enumerate(self.levels):
             if "num_label" in level_data:
                 level_data["num_label"].setText(f"{i + 1}. Название:")
+    
+    def _update_scales_levels(self):
+        """Обновляет уровни во всех шкалах (при добавлении/удалении уровня)"""
+        saved_scales = []
+        for scale_data in self.scales:
+            saved_scales.append({
+                "name": scale_data["name_input"].text(),
+                "questions_text": scale_data["questions_input"].text(),
+                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()},
+                "selected_questions": scale_data["selected_questions"]
+            })
+        
+        while self.scales_layout.count():
+            item = self.scales_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.scales = []
+        self.all_selected_questions = set()
+        
+        for saved in saved_scales:
+            self.add_scale()
+            if self.scales:
+                new_scale = self.scales[-1]
+                new_scale["name_input"].setText(saved["name"])
+                new_scale["questions_input"].setText(saved["questions_text"])
+                new_scale["selected_questions"] = saved["selected_questions"]
+                self.all_selected_questions.update(saved["selected_questions"])
+                
+                for key, value in saved["bounds"].items():
+                    if key in new_scale["bounds_inputs"]:
+                        new_scale["bounds_inputs"][key].setValue(value)
+                
+                self._update_bounds_labels(new_scale, new_scale["bounds_labels"])
     
     def on_questions_changed(self, value):
         self._recreate_scales()
@@ -678,6 +665,7 @@ class SettingsDialog(QDialog):
                 weight_spin = QSpinBox()
                 weight_spin.setRange(1, 100)
                 weight_spin.setValue(i)
+                weight_spin.setObjectName("level_boundary_spin")
                 self.weights_layout.addWidget(weight_spin, row, col * 2 + 1)
                 self.weight_spins[i] = weight_spin
             
@@ -686,37 +674,37 @@ class SettingsDialog(QDialog):
     
     def save_config(self):
         if self.questions_spin.value() < 1:
-            QMessageBox.warning(self, "Ошибка", "Количество вопросов должно быть больше 0")
+            self._show_error_message("Ошибка", "Количество вопросов должно быть больше 0")
             self.tabs.setCurrentIndex(0)
             return
         
         if self.answers_spin.value() < 2:
-            QMessageBox.warning(self, "Ошибка", "Количество ответов должно быть минимум 2")
+            self._show_error_message("Ошибка", "Количество ответов должно быть минимум 2")
             self.tabs.setCurrentIndex(0)
             return
         
         if len(self.levels) < 1:
-            QMessageBox.warning(self, "Ошибка", "Добавьте хотя бы один уровень показателей")
+            self._show_error_message("Ошибка", "Добавьте хотя бы один уровень показателей")
             self.tabs.setCurrentIndex(1)
             return
         
         for i, level_data in enumerate(self.levels):
             name = level_data["name_input"].text().strip()
             if not name:
-                QMessageBox.warning(self, "Ошибка", f"Уровень {i + 1} не имеет названия")
+                self._show_error_message("Ошибка", f"Уровень {i + 1} не имеет названия")
                 self.tabs.setCurrentIndex(1)
                 level_data["name_input"].setFocus()
                 return
         
         if len(self.scales) < 1:
-            QMessageBox.warning(self, "Ошибка", "Добавьте хотя бы одну шкалу")
+            self._show_error_message("Ошибка", "Добавьте хотя бы одну шкалу")
             self.tabs.setCurrentIndex(2)
             return
         
         for i, scale_data in enumerate(self.scales):
             name = scale_data["name_input"].text().strip()
             if not name:
-                QMessageBox.warning(self, "Ошибка", f"Шкала {i + 1} не имеет названия")
+                self._show_error_message( "Ошибка", f"Шкала {i + 1} не имеет названия")
                 self.tabs.setCurrentIndex(2)
                 scale_data["name_input"].setFocus()
                 return
@@ -726,8 +714,7 @@ class SettingsDialog(QDialog):
                 validate=True
             )
             if errors:
-                QMessageBox.warning(
-                    self,
+                self._show_error_message(
                     "Ошибка",
                     f"Шкала '{name}':\n" + "\n".join(errors)
                 )
@@ -736,7 +723,7 @@ class SettingsDialog(QDialog):
                 return
             
             if not selected_questions:
-                QMessageBox.warning(self, "Ошибка", f"Шкала '{name}': не выбраны вопросы")
+                self._show_error_message( "Ошибка", f"Шкала '{name}': не выбраны вопросы")
                 self.tabs.setCurrentIndex(2)
                 return
             
@@ -905,3 +892,29 @@ class SettingsDialog(QDialog):
                         )
                         if "bounds_labels" in scale_data:
                             self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
+                            
+    def _show_error_message(self, title, message):
+        """Показывает ошибку с кастомной SVG иконкой"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # ← Заменяем иконку на кастомную SVG
+        icon_label = QLabel()
+        icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")  # ← Твоя SVG иконка
+        if not icon_pixmap.isNull():
+            icon_label.setPixmap(icon_pixmap.scaled(48, 48, 
+                Qt.AspectRatioMode.KeepAspectRatio, 
+                Qt.TransformationMode.SmoothTransformation))
+        else:
+            # ← Фолбэк на стандартную иконку если файл не найден
+            icon_label.setPixmap(self.style().standardIcon(
+                QMessageBox.Style.Warning).pixmap(48, 48))
+        
+        # ← Добавляем иконку в layout QMessageBox
+        layout = msg_box.layout()
+        layout.addWidget(icon_label, 0, 0, 1, 1, 
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        
+        msg_box.exec()

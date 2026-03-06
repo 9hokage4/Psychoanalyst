@@ -790,11 +790,33 @@ QMessageBox {
 QMessageBox QLabel {
     color: #212529;                        /* Тёмный цвет текста */
     font-size: 14px;                       /* Размер шрифта */
+    padding: 10px;                         /* Отступы текста */
 }
 
 /* Кнопки в диалоговом окне */
 QMessageBox QPushButton {
     min-width: 80px;                       /* Минимальная ширина кнопки */
+    max-width: 100px;                      /* Максимальная ширина кнопки */
+    min-height: 32px;                      /* Минимальная высота */
+    max-height: 32px;                      /* Максимальная высота */
+    border: 2px solid #DEE2E6;             /* Серая рамка */
+    border-radius: 6px;                    /* Закругление углов */
+    background-color: #F8F9FA;             /* Светло-серый фон */
+    color: #212529;                        /* Тёмный цвет текста */
+    font-size: 14px;                       /* Размер шрифта */
+    font-weight: 500;                      /* Жирность шрифта */
+    padding: 8px 16px;                     /* Внутренние отступы */
+}
+
+/* Кнопки QMessageBox при наведении */
+QMessageBox QPushButton:hover {
+    background-color: #E9ECEF;             /* Более тёмный фон */
+    border-color: #ADB5BD;                 /* Более тёмная рамка */
+}
+
+/* Кнопки QMessageBox в фокусе */
+QMessageBox QPushButton:focus {
+    border-color: #5B8DBE;                 /* Синяя рамка */
 }
 
 /* =================================================================

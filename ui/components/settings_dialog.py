@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
+from utils.profile_manager import ProfileManager
+from ui.components.profile_dialog import ProfileDialog
 
 
 class SettingsDialog(QDialog):
@@ -22,6 +24,8 @@ class SettingsDialog(QDialog):
         self.levels = []
         self.level_order = []
         self.all_selected_questions = set()
+        self.profile_manager = ProfileManager()
+        self.current_config = None
         
         self.init_ui()
     
@@ -371,6 +375,8 @@ class SettingsDialog(QDialog):
                 border-color: #4a90d9;
             }
         """)
+        # ← Подключаем сигнал для обновления названий в шкалах
+        name_input.textChanged.connect(self._update_level_names_in_scales)
         level_layout.addWidget(name_input)
         
         # 4. ПОЛЕ ГРАНИЦЫ
@@ -397,8 +403,10 @@ class SettingsDialog(QDialog):
                 border-color: #4a90d9;
             }
         """)
+        # ← Подключаем сигнал для динамического обновления границ в шкалах
+        boundary_spin.valueChanged.connect(self._update_bounds_in_scales)
         
-        # ← 5. ПОДСКАЗКА (изначально скрыта, если чекбокс не активен)
+        # 5. ПОДСКАЗКА
         hint_label = QLabel("💡 Верхняя граница уровня")
         hint_label.setFixedWidth(180)
         hint_label.setFixedHeight(40)
@@ -441,7 +449,7 @@ class SettingsDialog(QDialog):
             "name_input": name_input,
             "boundary": boundary_spin,
             "boundary_label": boundary_label,
-            "hint_label": hint_label,  # ← Сохраняем ссылку на подсказку
+            "hint_label": hint_label,
             "widget": level_frame,
             "num_label": level_num
         })
@@ -457,11 +465,27 @@ class SettingsDialog(QDialog):
         for level_data in self.levels:
             level_data["boundary_label"].setVisible(show_bounds)
             level_data["boundary"].setVisible(show_bounds)
-            level_data["hint_label"].setVisible(show_bounds)  # ← Показываем/скрываем подсказку
+            level_data["hint_label"].setVisible(show_bounds)
         
-        # Если чекбокс активен — обновляем шкалы с общими границами
-        if show_bounds:
-            self._update_scales_with_common_bounds() 
+        # ← Обновляем шкалы только если они существуют
+        for scale_data in self.scales:
+            for level_key, bound_spin in scale_data["bounds_inputs"].items():
+                # Блокируем/разблокируем поля в шкалах
+                bound_spin.setEnabled(not show_bounds)
+            
+            # Если чекбокс активен — копируем границы из уровней
+            if show_bounds:
+                for level_data in self.levels:
+                    level_key = level_data["key"]
+                    # ← ПРОВЕРКА: существует ли ключ в шкале
+                    if level_key in scale_data["bounds_inputs"]:
+                        scale_data["bounds_inputs"][level_key].setValue(
+                            level_data["boundary"].value()
+                        )
+            
+            # Обновляем label с диапазонами
+            if "bounds_labels" in scale_data:
+                self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
     
     def _update_scales_with_common_bounds(self):
         """Обновляет все шкалы с общими границами из уровней"""
@@ -753,6 +777,7 @@ class SettingsDialog(QDialog):
         self._update_bounds_labels(scale_data, bounds_labels)
     
     def _update_bounds_labels(self, scale_data, bounds_labels):
+        """Динамически обновляет диапазоны в label при изменении границ"""
         previous_boundary = 0
         
         for i, level_data in enumerate(self.levels):
@@ -761,14 +786,20 @@ class SettingsDialog(QDialog):
             if not level_name:
                 level_name = f"Уровень {self.levels.index(level_data) + 1}"
             
+            # ← ПРОВЕРКА: существует ли ключ в шкале
+            if level_key not in scale_data["bounds_inputs"]:
+                continue
+            
             bound_spin = scale_data["bounds_inputs"][level_key]
             current_boundary = bound_spin.value()
             
+            # Формируем диапазон
             if i == 0:
                 range_text = f"{level_name} (0-{current_boundary}):"
             else:
                 range_text = f"{level_name} ({previous_boundary + 1}-{current_boundary}):"
             
+            # Обновляем label
             if level_key in bounds_labels:
                 bounds_labels[level_key].setText(f"<b>{range_text}</b>")
             
@@ -975,4 +1006,160 @@ class SettingsDialog(QDialog):
         self.accept()
     
     def open_profile_dialog(self):
-        QMessageBox.information(self, "Профиль", "Диалог выбора профиля будет реализован в следующем шаге")
+        """Открывает диалог управления профилями"""
+        # Собираем текущую конфигурацию для сохранения
+        self.current_config = self._get_current_config()
+        
+        dialog = ProfileDialog(self, self.current_config)
+        dialog.profile_loaded.connect(self.on_profile_loaded)
+        dialog.exec()
+
+    def _get_current_config(self):
+        """Собирает текущую конфигурацию из полей диалога"""
+        scales = {}
+        for scale_data in self.scales:
+            name = scale_data["name_input"].text().strip()
+            if name:
+                selected = list(scale_data["selected_questions"])
+                scales[name] = {
+                    "title_ru": name,
+                    "qnums": sorted(selected),
+                    "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()}
+                }
+        
+        levels = {}
+        level_boundaries = {}  # ← Сохраняем границы уровней
+        for level_data in self.levels:
+            name = level_data["name_input"].text().strip()
+            if name:
+                levels[level_data["key"]] = name
+                # ← Сохраняем границу если есть
+                if level_data.get("boundary"):
+                    level_boundaries[level_data["key"]] = level_data["boundary"].value()
+        
+        # Веса ответов
+        answer_weights = {}
+        if hasattr(self, 'same_weights_checkbox'):
+            if self.same_weights_checkbox.isChecked():
+                weight = getattr(self, 'single_weight_spin', None)
+                if weight:
+                    for i in range(1, self.answers_spin.value() + 1):
+                        answer_weights[i] = weight.value()
+            else:
+                for i, spin in getattr(self, 'weight_spins', {}).items():
+                    answer_weights[i] = spin.value()
+        
+        return {
+            "scales": scales,
+            "levels": levels,
+            "level_boundaries": level_boundaries,  # ← Границы уровней
+            "level_order": self.level_order,
+            "answer_weights": answer_weights,
+            "questions_count": self.questions_spin.value(),
+            "answers_count": self.answers_spin.value(),
+            "shared_questions": self.shared_checkbox.isChecked(),
+            "same_bounds": self.same_bounds_checkbox.isChecked() if hasattr(self, 'same_bounds_checkbox') else False
+        }
+
+    def on_profile_loaded(self, config):
+        """Загружает профиль в диалог настроек"""
+        # ← 1. Сначала загружаем чекбокс "Границы для шкал совпадают"
+        if "same_bounds" in config:
+            self.same_bounds_checkbox.setChecked(config["same_bounds"])
+        
+        # Основные параметры
+        if "questions_count" in config:
+            self.questions_spin.setValue(config["questions_count"])
+        if "answers_count" in config:
+            self.answers_spin.setValue(config["answers_count"])
+        if "shared_questions" in config:
+            self.shared_checkbox.setChecked(config["shared_questions"])
+        
+        # ← 2. Уровни (с границами)
+        while self.levels_layout.count():
+            item = self.levels_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.levels = []
+        self.level_order = []
+        
+        if "levels" in config:
+            level_boundaries = config.get("level_boundaries", {})
+            for key, name in config["levels"].items():
+                self.add_level()
+                if self.levels:
+                    self.levels[-1]["name_input"].setText(name)
+                    # Устанавливаем границу из профиля
+                    if key in level_boundaries and self.levels[-1].get("boundary"):
+                        self.levels[-1]["boundary"].setValue(level_boundaries[key])
+        
+        # ← 3. Шкалы
+        while self.scales_layout.count():
+            item = self.scales_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.scales = []
+        
+        if "scales" in config:
+            for name, scale_config in config["scales"].items():
+                self.add_scale()
+                if self.scales:
+                    new_scale = self.scales[-1]
+                    new_scale["name_input"].setText(name)
+                    
+                    # Вопросы
+                    if "qnums" in scale_config:
+                        questions_text = ", ".join(map(str, scale_config["qnums"]))
+                        new_scale["questions_input"].setText(questions_text)
+                        new_scale["selected_questions"] = set(scale_config["qnums"])
+                    
+                    # Границы
+                    if "bounds" in scale_config:
+                        for key, value in scale_config["bounds"].items():
+                            if key in new_scale["bounds_inputs"]:
+                                new_scale["bounds_inputs"][key].setValue(value)
+        
+        # ← 4. Веса ответов
+        if "answer_weights" in config:
+            weights = config["answer_weights"]
+            if weights and len(set(weights.values())) == 1:
+                self.same_weights_checkbox.setChecked(True)
+                if hasattr(self, 'single_weight_spin'):
+                    self.single_weight_spin.setValue(list(weights.values())[0])
+                self.on_weights_checkbox_changed()
+            elif weights:
+                self.same_weights_checkbox.setChecked(False)
+                self.on_weights_checkbox_changed()
+                for i, spin in getattr(self, 'weight_spins', {}).items():
+                    if i in weights:
+                        spin.setValue(weights[i])
+        
+        # ← 5. Обновляем label с диапазонами (только после создания всех шкал)
+        for scale_data in self.scales:
+            if "bounds_labels" in scale_data:
+                self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
+        
+        QMessageBox.information(self, "Успех", "Профиль загружен!")
+        
+    def _update_level_names_in_scales(self):
+        """Обновляет названия уровней во всех шкалах"""
+        for scale_data in self.scales:
+            self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
+
+    def _update_bounds_in_scales(self):
+        """Обновляет границы во всех шкалах при изменении в уровнях"""
+        # Обновляем только если чекбокс "Границы совпадают" активен
+        if hasattr(self, 'same_bounds_checkbox') and self.same_bounds_checkbox.isChecked():
+            for scale_data in self.scales:
+                # Копируем границы из уровней в шкалы
+                for level_data in self.levels:
+                    level_key = level_data["key"]
+                    # ← ПРОВЕРКА: существует ли ключ в шкале
+                    if level_key in scale_data["bounds_inputs"]:
+                        scale_data["bounds_inputs"][level_key].setValue(
+                            level_data["boundary"].value()
+                        )
+                
+                # Обновляем label с диапазонами
+                if "bounds_labels" in scale_data:
+                    self._update_bounds_labels(scale_data, scale_data["bounds_labels"])

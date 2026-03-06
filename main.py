@@ -8,7 +8,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Psychoanalyst")
     
-    style_file = "ui/style.qss" 
+    style_file = "ui/style.qss"  
     
     try:
         with open(style_file, "r", encoding="utf-8") as f:

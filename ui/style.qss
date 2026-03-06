@@ -6,8 +6,8 @@
 QPushButton {
     border: none;
     border-radius: 6px;
-    padding: 10px 24px;
-    font-size: 13px;
+    padding: 12px 24px;
+    font-size: 14px;
     font-weight: 500;
     icon-size: 20px;
 }
@@ -17,7 +17,7 @@ QPushButton:disabled {
     color: #666666;
 }
 
-/* === Primary кнопки (основные действия) === */
+/* === Primary кнопки === */
 QPushButton#btn_load_file,
 QPushButton#btn_settings,
 QPushButton#btn_process,
@@ -39,7 +39,7 @@ QPushButton#btn_load_profile:hover {
     background-color: #4A7BA7;
 }
 
-/* === Success кнопки (сохранение) === */
+/* === Success кнопки === */
 QPushButton#btn_save_file,
 QPushButton#btn_save_profile,
 QPushButton#btn_save {
@@ -53,7 +53,7 @@ QPushButton#btn_save:hover {
     background-color: #5AA878;
 }
 
-/* === Danger кнопки (удаление) === */
+/* === Danger кнопки === */
 QPushButton#btn_delete,
 QPushButton#btn_delete_level,
 QPushButton#btn_delete_scale,
@@ -69,7 +69,7 @@ QPushButton#btn_delete_profile:hover {
     background-color: #C96A6A;
 }
 
-/* === Secondary кнопки (отмена, закрытие) === */
+/* === Secondary кнопки === */
 QPushButton#btn_cancel,
 QPushButton#btn_close {
     background-color: #F8F9FA;
@@ -81,17 +81,6 @@ QPushButton#btn_cancel:hover,
 QPushButton#btn_close:hover {
     background-color: #E9ECEF;
     border-color: #ADB5BD;
-}
-
-/* === Нейтральные кнопки === */
-QPushButton#btn_toggle_checkboxes {
-    background-color: #F8F9FA;
-    color: #212529;
-    border: 1px solid #DEE2E6;
-}
-
-QPushButton#btn_toggle_checkboxes:hover {
-    background-color: #E9ECEF;
 }
 
 /* === Вкладки === */
@@ -110,9 +99,9 @@ QTabBar::tab {
     border-bottom: none;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
-    padding: 10px 24px;
+    padding: 14px 28px;
     margin-right: 4px;
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 500;
 }
 
@@ -136,7 +125,7 @@ QLineEdit {
     border: 2px solid #DEE2E6;
     border-radius: 6px;
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 14px;
     background-color: white;
     color: #212529;
 }
@@ -155,7 +144,7 @@ QComboBox {
     border: 2px solid #DEE2E6;
     border-radius: 6px;
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 14px;
     background-color: white;
     color: #212529;
     min-width: 120px;
@@ -177,7 +166,7 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url("C:/Projects/account1/Python UI/resources/icons/chevron-down.svg");
+    image: url("resources/icons/chevron-down.svg");
     width: 16px;
     height: 16px;
     margin-right: 8px;
@@ -191,12 +180,12 @@ QComboBox::drop-down:hover {
     background-color: #E9ECEF;
 }
 
-/* === SpinBox (общий стиль) === */
+/* === SpinBox === */
 QSpinBox {
     border: 2px solid #DEE2E6;
     border-radius: 6px;
-    padding: 6px 24px 6px 10px;
-    font-size: 13px;
+    padding: 8px 24px 8px 12px;
+    font-size: 14px;
     background-color: white;
     color: #212529;
 }
@@ -210,12 +199,11 @@ QSpinBox:disabled {
     color: #999999;
 }
 
-/* Кнопка ВВЕРХ */
 QSpinBox::up-button {
     subcontrol-origin: border;
-    subcontrol-position: top right;  ← ВЕРХНИЙ ПРАВЫЙ УГОЛ
+    subcontrol-position: top right;
     width: 20px;
-    height: 13px;  ← Половина высоты + запас
+    height: 14px;
     border: none;
     background-color: transparent;
     margin: 0px;
@@ -228,17 +216,16 @@ QSpinBox::up-button:hover {
 }
 
 QSpinBox::up-arrow {
-    image: url("C:/Projects/account1/Python UI/resources/icons/chevron-up.svg");
+    image: url("resources/icons/chevron-up.svg");
     width: 10px;
     height: 10px;
 }
 
-/* Кнопка ВНИЗ */
 QSpinBox::down-button {
     subcontrol-origin: border;
-    subcontrol-position: bottom right;  ← НИЖНИЙ ПРАВЫЙ УГОЛ
+    subcontrol-position: bottom right;
     width: 20px;
-    height: 13px;  ← Половина высоты + запас
+    height: 14px;
     border: none;
     background-color: transparent;
     margin: 0px;
@@ -251,21 +238,69 @@ QSpinBox::down-button:hover {
 }
 
 QSpinBox::down-arrow {
-    image: url("C:/Projects/account1/Python UI/resources/icons/chevron-down.svg");
+    image: url("resources/icons/chevron-down.svg");
     width: 10px;
     height: 10px;
 }
 
-/* === SpinBox границы (уровни) === */
+/* === Уровни показателей === */
+QFrame#level_frame {
+    background-color: white;
+    border: 1px solid #DEE2E6;
+    border-radius: 8px;
+    min-width: 750px;
+    max-width: 900px;
+    min-height: 80px;
+    max-height: 80px;
+}
+
+QLabel#level_num_title {
+    color: #212529;
+    font-size: 14px;
+    min-height: 36px;
+    max-height: 36px;
+    padding: 0px;
+    margin: 0px;
+}
+
+QLabel#level_label {
+    color: #212529;
+    font-size: 14px;
+    min-height: 36px;
+    max-height: 36px;
+    padding: 0px;
+    margin: 0px;
+}
+
+QLineEdit#level_name_input {
+    border: 2px solid #DEE2E6;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    background-color: white;
+    color: #212529;
+    min-width: 180px;
+    max-width: 180px;
+    min-height: 36px;
+    max-height: 36px;
+    margin: 0px;
+}
+
+QLineEdit#level_name_input:focus {
+    border-color: #5B8DBE;
+}
+
 QSpinBox#level_boundary_spin {
     border: 2px solid #DEE2E6;
     border-radius: 6px;
-    padding: 6px 22px 6px 10px;
-    font-size: 13px;
+    padding: 8px 20px 8px 10px;
+    font-size: 14px;
     background-color: white;
     color: #212529;
-    min-height: 32px;
-    max-height: 32px;
+    min-width: 70px;
+    max-width: 70px;
+    min-height: 36px;
+    max-height: 36px;
 }
 
 QSpinBox#level_boundary_spin:focus {
@@ -276,10 +311,10 @@ QSpinBox#level_boundary_spin::up-button {
     subcontrol-origin: border;
     subcontrol-position: top right;
     width: 18px;
-    height: 13px;
+    height: 16px;
     border: none;
     background-color: transparent;
-    margin: 0px;
+    margin: 2px 2px 0px 0px;
     padding: 0px;
     border-top-right-radius: 6px;
 }
@@ -289,19 +324,19 @@ QSpinBox#level_boundary_spin::up-button:hover {
 }
 
 QSpinBox#level_boundary_spin::up-arrow {
-    image: url("C:/Projects/account1/Python UI/resources/icons/chevron-up.svg");
-    width: 8px;
-    height: 8px;
+    image: url("resources/icons/chevron-up.svg");
+    width: 10px;
+    height: 10px;
 }
 
 QSpinBox#level_boundary_spin::down-button {
     subcontrol-origin: border;
     subcontrol-position: bottom right;
     width: 18px;
-    height: 13px;
+    height: 16px;
     border: none;
     background-color: transparent;
-    margin: 0px;
+    margin: 0px 2px 2px 0px;
     padding: 0px;
     border-bottom-right-radius: 6px;
 }
@@ -311,91 +346,50 @@ QSpinBox#level_boundary_spin::down-button:hover {
 }
 
 QSpinBox#level_boundary_spin::down-arrow {
-    image: url("C:/Projects/account1/Python UI/resources/icons/chevron-down.svg");
-    width: 8px;
-    height: 8px;
+    image: url("resources/icons/chevron-down.svg");
+    width: 10px;
+    height: 10px;
 }
 
-/* === Кнопка удаления уровня === */
 QPushButton#btn_delete_level {
     background-color: #E07B7B;
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 13px;
+    padding: 8px 14px;
+    font-size: 14px;
     font-weight: 500;
-    min-height: 32px;
-    max-height: 32px;
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 36px;
+    max-height: 36px;
 }
 
 QPushButton#btn_delete_level:hover {
     background-color: #C96A6A;
 }
 
-
-/* === Поля в уровнях === */
-
-/* Номер уровня */
-QLabel#level_num {
-    color: #5B8DBE;
-    font-weight: bold;
-    font-size: 13px;
-}
-
-/* Метки (Название:, Граница:) */
-QLabel#level_label {
-    color: #212529;
-    font-size: 13px;
-}
-
-QLabel#level_num {
-    color: #5B8DBE;
-    font-weight: bold;
-    font-size: 13px;
-}
-
-/* === Поле ввода названия === */
-QLineEdit#level_name_input {
-    border: 2px solid #DEE2E6;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 13px;
-    background-color: white;
-    color: #212529;
-    min-height: 32px;
-    max-height: 32px;
-}
-
-QLineEdit#level_name_input:focus {
-    border-color: #5B8DBE;
-}
-
-/* === Иконка подсказки === */
 QLabel#hint_icon {
-    background-color: yellow;
+    background-color: transparent;
+    border: none;
     padding: 0px;
     margin: 0px;
-    border: none;
-}
-
-/* === Рамка уровня === */
-QFrame#level_frame {
-    background-color: white;
-    border: 1px solid #DEE2E6;
-    border-radius: 8px;
+    min-width: 32px;
+    min-height: 36px;
+    max-width: 32px;
+    max-height: 36px;
 }
 
 /* === CheckBox === */
 QCheckBox {
     color: #212529;
-    font-size: 13px;
-    spacing: 8px;
+    font-size: 14px;
+    spacing: 10px;
 }
 
 QCheckBox::indicator {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border: 2px solid #DEE2E6;
     border-radius: 4px;
     background-color: white;
@@ -418,6 +412,7 @@ QGroupBox {
     margin-top: 12px;
     padding-top: 12px;
     color: #212529;
+    font-size: 14px;
 }
 
 QGroupBox::title {
@@ -425,12 +420,40 @@ QGroupBox::title {
     left: 12px;
     padding: 0 8px;
     color: #5B8DBE;
+    font-size: 14px;
+}
+
+QGroupBox#questions_group,
+QGroupBox#bounds_group {
+    font-weight: bold;
+    border: 2px solid #DEE2E6;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    color: #212529;
+}
+
+QGroupBox#questions_group::title,
+QGroupBox#bounds_group::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px;
+    color: #5B8DBE;
 }
 
 /* === ScrollArea === */
-QScrollArea {
+QScrollArea#levels_scroll {
+    border: 2px solid #DEE2E6;
+    border-radius: 8px;
+    background-color: white;
+    padding: 15px;
+    min-width: 800px;
+    max-width: 750px;
+}
+
+QScrollArea#scales_scroll {
     border: none;
-    background-color: transparent;
+    background: transparent;
 }
 
 QScrollBar:vertical {
@@ -473,12 +496,109 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
 }
 
+/* === QLabel === */
+QLabel {
+    color: #212529;
+    font-size: 14px;
+}
+
+QLabel#title_label {
+    font-size: 22px;
+    font-weight: bold;
+    color: #212529;
+}
+
+QLabel#info_label {
+    color: #666666;
+    font-size: 14px;
+}
+
+QLabel#hint_label {
+    color: #666666;
+    font-size: 14px;
+    font-style: italic;
+}
+
+QLabel#weight_label {
+    font-weight: bold;
+    color: #212529;
+    font-size: 14px;
+}
+
+/* === Контейнеры === */
+QWidget#levels_container,
+QWidget#scales_container {
+    background-color: transparent;
+    border: none;
+    padding: 0px;
+}
+
+QFrame#btn_frame {
+    background-color: #F8F9FA;
+    border-top: 1px solid #DEE2E6;
+    padding: 15px;
+}
+
+QFrame#shared_frame {
+    background-color: #F8F9FA;
+    border: 2px solid #DEE2E6;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+QFrame#table_container,
+QFrame#scale_frame,
+QFrame#weights_container {
+    background-color: white;
+    border: 1px solid #DEE2E6;
+    border-radius: 8px;
+}
+
+/* === SpinBox специальные === */
+QSpinBox#questions_spin,
+QSpinBox#answers_spin {
+    border: 2px solid #DEE2E6;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 15px;
+    background-color: white;
+    color: #212529;
+}
+
+QSpinBox#questions_spin:focus,
+QSpinBox#answers_spin:focus {
+    border-color: #5B8DBE;
+}
+
+QSpinBox#single_weight_spin {
+    border: 2px solid #DEE2E6;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 15px;
+    background-color: white;
+    color: #212529;
+}
+
+QSpinBox#single_weight_spin:focus {
+    border-color: #5B8DBE;
+}
+
+/* === Ошибки === */
+QLineEdit#error_input {
+    border: 2px solid #E07B7B;
+    background-color: #FFF5F5;
+}
+
+QLineEdit#error_input:focus {
+    border-color: #C96A6A;
+}
+
 /* === QListWidget === */
 QListWidget {
     border: 2px solid #DEE2E6;
     border-radius: 8px;
     padding: 10px;
-    font-size: 13px;
+    font-size: 14px;
     background-color: white;
     color: #212529;
     outline: none;
@@ -500,43 +620,6 @@ QListWidget::item:hover {
     background-color: #E9ECEF;
 }
 
-QListWidget::item:focus {
-    outline: none;
-}
-
-/* === QLabel === */
-QLabel {
-    color: #212529;
-    font-size: 13px;
-}
-
-QLabel#hint_label {
-    color: #666666;
-    font-size: 12px;
-    font-style: italic;
-}
-
-QLabel#title_label {
-    font-size: 18px;
-    font-weight: bold;
-    color: #212529;
-}
-
-QLabel#info_label {
-    color: #666666;
-    font-size: 13px;
-}
-
-/* === QFrame (контейнеры) === */
-QFrame#table_container,
-QFrame#level_frame,
-QFrame#scale_frame,
-QFrame#weights_container {
-    background-color: white;
-    border: 1px solid #DEE2E6;
-    border-radius: 8px;
-}
-
 /* === QMessageBox === */
 QMessageBox {
     background-color: white;
@@ -544,16 +627,11 @@ QMessageBox {
 
 QMessageBox QLabel {
     color: #212529;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 QMessageBox QPushButton {
     min-width: 80px;
-}
-
-/* === QFileDialog === */
-QFileDialog {
-    background-color: white;
 }
 
 /* === QProgressBar === */
@@ -563,6 +641,7 @@ QProgressBar {
     background-color: #F0F0F0;
     text-align: center;
     height: 20px;
+    font-size: 13px;
 }
 
 QProgressBar::chunk {
@@ -570,17 +649,17 @@ QProgressBar::chunk {
     border-radius: 4px;
 }
 
-/* === QTableView (таблицы) === */
+/* === QTableView === */
 QTableView {
     background-color: transparent;
     border: none;
     gridline-color: #DEE2E6;
     color: #212529;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 QTableView::item {
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-right: 1px solid #F0F0F0;
     border-bottom: 1px solid #F0F0F0;
 }
@@ -588,8 +667,8 @@ QTableView::item {
 QHeaderView::section {
     background-color: #E9ECEF;
     color: #212529;
-    font: bold 13px "Arial";
-    padding: 8px 12px;
+    font: bold 14px "Arial";
+    padding: 10px 14px;
     border: none;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
@@ -598,14 +677,4 @@ QHeaderView::section {
 QHeaderView {
     background-color: transparent;
     border: none;
-}
-
-/* === Специальные стили для полей с ошибкой === */
-QLineEdit#error_input {
-    border: 2px solid #E07B7B;
-    background-color: #FFF5F5;
-}
-
-QLineEdit#error_input:focus {
-    border-color: #C96A6A;
 }

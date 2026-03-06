@@ -199,6 +199,13 @@ class SettingsDialog(QDialog):
         info_label.setStyleSheet("color: #666; font-size: 13px;")
         layout.addWidget(info_label)
         
+        # ← ЧЕКБОКС "Границы для шкал совпадают"
+        self.same_bounds_checkbox = QCheckBox("Границы для шкал совпадают")
+        self.same_bounds_checkbox.setChecked(True)  # ← По умолчанию активен
+        self.same_bounds_checkbox.setStyleSheet("font-size: 14px; font-weight: bold; color: #212529;")
+        self.same_bounds_checkbox.stateChanged.connect(self.on_same_bounds_changed)
+        layout.addWidget(self.same_bounds_checkbox)
+        
         add_btn = QPushButton("+ Добавить уровень")
         add_btn.setFixedHeight(45)
         add_btn.setStyleSheet("""
@@ -320,27 +327,42 @@ class SettingsDialog(QDialog):
         level_key = f"level{level_index}"
         
         level_frame = QFrame()
+        level_frame.setFixedHeight(60)
         level_frame.setStyleSheet("""
             QFrame {
                 background-color: white;
-                border: 2px solid #dee2e6;
-                border-radius: 10px;
-                padding: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
             }
         """)
+        
         level_layout = QHBoxLayout()
-        level_layout.setContentsMargins(15, 15, 15, 15)
+        level_layout.setContentsMargins(20, 10, 20, 10)
         level_layout.setSpacing(15)
         
-        level_layout.addWidget(QLabel("Название:"))
+        # 1. Номер уровня
+        level_num = QLabel(f"<b style='color: #4a90d9;'>{level_index}.</b>")
+        level_num.setFixedWidth(30)
+        level_num.setFixedHeight(40)
+        level_layout.addWidget(level_num)
+        
+        # 2. Метка "Название:"
+        label_title = QLabel("Название:")
+        label_title.setFixedWidth(80)
+        label_title.setFixedHeight(40)
+        label_title.setStyleSheet("color: #212529; font-size: 13px;")
+        level_layout.addWidget(label_title)
+        
+        # 3. Поле ввода названия
         name_input = QLineEdit()
         name_input.setPlaceholderText("например, 'Низкий'")
         name_input.setFixedWidth(200)
+        name_input.setFixedHeight(40)
         name_input.setStyleSheet("""
             QLineEdit {
                 border: 2px solid #dee2e6;
                 border-radius: 6px;
-                padding: 8px;
+                padding: 8px 12px;
                 font-size: 13px;
                 background-color: white;
                 color: #212529;
@@ -351,12 +373,47 @@ class SettingsDialog(QDialog):
         """)
         level_layout.addWidget(name_input)
         
-        hint_label = QLabel("💡 Границы настраиваются во вкладке 'Шкалы'")
+        # 4. ПОЛЕ ГРАНИЦЫ
+        boundary_label = QLabel("Граница (баллов):")
+        boundary_label.setFixedWidth(120)
+        boundary_label.setFixedHeight(40)
+        boundary_label.setStyleSheet("color: #212529; font-size: 13px;")
+        
+        boundary_spin = QSpinBox()
+        boundary_spin.setRange(0, 1000)
+        boundary_spin.setValue(level_index * 25)
+        boundary_spin.setFixedWidth(100)
+        boundary_spin.setFixedHeight(40)
+        boundary_spin.setStyleSheet("""
+            QSpinBox {
+                border: 2px solid #dee2e6;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 13px;
+                background-color: white;
+                color: #212529;
+            }
+            QSpinBox:focus {
+                border-color: #4a90d9;
+            }
+        """)
+        
+        # ← 5. ПОДСКАЗКА (изначально скрыта, если чекбокс не активен)
+        hint_label = QLabel("💡 Верхняя граница уровня")
+        hint_label.setFixedWidth(180)
+        hint_label.setFixedHeight(40)
         hint_label.setStyleSheet("color: #666; font-size: 12px; font-style: italic;")
+        
+        level_layout.addWidget(boundary_label)
+        level_layout.addWidget(boundary_spin)
         level_layout.addWidget(hint_label)
         
-        remove_btn = QPushButton("🗑️")
-        remove_btn.setFixedWidth(50)
+        # 6. Растяжка
+        level_layout.addStretch()
+        
+        # 7. Кнопка удаления
+        remove_btn = QPushButton("🗑️ Удалить")
+        remove_btn.setFixedWidth(120)
         remove_btn.setFixedHeight(40)
         remove_btn.setStyleSheet("""
             QPushButton {
@@ -364,7 +421,9 @@ class SettingsDialog(QDialog):
                 color: white;
                 border: none;
                 border-radius: 6px;
-                font-size: 16px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #c82333;
@@ -373,18 +432,50 @@ class SettingsDialog(QDialog):
         remove_btn.clicked.connect(lambda: self.remove_level(level_frame, level_key))
         level_layout.addWidget(remove_btn)
         
-        level_layout.addStretch()
         level_frame.setLayout(level_layout)
-        
         self.levels_layout.addWidget(level_frame)
         
         self.level_order.append(level_key)
         self.levels.append({
             "key": level_key,
             "name_input": name_input,
-            "boundary": None,
-            "widget": level_frame
+            "boundary": boundary_spin,
+            "boundary_label": boundary_label,
+            "hint_label": hint_label,  # ← Сохраняем ссылку на подсказку
+            "widget": level_frame,
+            "num_label": level_num
         })
+        
+        # Применяем текущее состояние чекбокса
+        self.on_same_bounds_changed()
+        
+    def on_same_bounds_changed(self):
+        """Обработчик изменения чекбокса 'Границы для шкал совпадают'"""
+        show_bounds = self.same_bounds_checkbox.isChecked()
+        
+        # Показываем/скрываем поля границ и подсказки во всех уровнях
+        for level_data in self.levels:
+            level_data["boundary_label"].setVisible(show_bounds)
+            level_data["boundary"].setVisible(show_bounds)
+            level_data["hint_label"].setVisible(show_bounds)  # ← Показываем/скрываем подсказку
+        
+        # Если чекбокс активен — обновляем шкалы с общими границами
+        if show_bounds:
+            self._update_scales_with_common_bounds() 
+    
+    def _update_scales_with_common_bounds(self):
+        """Обновляет все шкалы с общими границами из уровней"""
+        for scale_data in self.scales:
+            for i, level_data in enumerate(self.levels):
+                level_key = level_data["key"]
+                if level_key in scale_data["bounds_inputs"]:
+                    # Копируем значение из уровня в шкалу
+                    scale_data["bounds_inputs"][level_key].setValue(
+                        level_data["boundary"].value()
+                    )
+            
+            # Обновляем label с диапазонами
+            self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
     
     def remove_level(self, widget, level_key):
         if len(self.levels) <= 1:
@@ -394,6 +485,8 @@ class SettingsDialog(QDialog):
         widget.deleteLater()
         self.level_order.remove(level_key)
         self.levels = [l for l in self.levels if l["key"] != level_key]
+        
+        self._update_level_numbers()
     
     def _parse_questions_input(self, text, validate=True):
         """Парсит ввод вопросов с валидацией"""
@@ -614,6 +707,9 @@ class SettingsDialog(QDialog):
                     border-color: #4a90d9;
                 }
             """)
+            
+            if self.same_bounds_checkbox.isChecked():
+                bound_spin.setEnabled(False)
             bound_spin.valueChanged.connect(lambda: self._update_bounds_labels(scale_data, bounds_labels))
             bounds_layout.addWidget(bound_spin, row, col * 2 + 1)
             bounds_inputs[level_data["key"]] = bound_spin
@@ -690,6 +786,14 @@ class SettingsDialog(QDialog):
         
         self.scales = [s for s in self.scales if s["widget"] != widget]
         widget.deleteLater()
+        
+    def _update_level_numbers(self):
+        """Обновляет номера уровней после удаления"""
+        for i, level_data in enumerate(self.levels):
+            if "num_label" in level_data:
+                level_data["num_label"].setText(
+                    f"<b style='color: #4a90d9;'>{i + 1}.</b>"
+                )
     
     def on_questions_changed(self, value):
         self._recreate_scales()

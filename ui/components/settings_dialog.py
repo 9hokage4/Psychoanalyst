@@ -1,11 +1,13 @@
 # ui/components/settings_dialog.py
+from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSpinBox, QCheckBox, QGroupBox, QScrollArea, QWidget,
     QLineEdit, QMessageBox, QTabWidget, QFrame, QGridLayout,
     QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from pathlib import Path
 from utils.profile_manager import ProfileManager
 from ui.components.profile_dialog import ProfileDialog
@@ -38,80 +40,88 @@ class SettingsDialog(QDialog):
         self.tabs.setDocumentMode(True)
         
         self.basic_tab = self._create_basic_tab()
-        self.tabs.addTab(self.basic_tab, "📋 Основные параметры")
+        # ← Добавляем иконки во вкладки
+        self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные параметры")
         
         self.levels_tab = self._create_levels_tab()
-        self.tabs.addTab(self.levels_tab, "📊 Уровни показателей")
+        self.tabs.addTab(self.levels_tab, QIcon("resources/icons/chart-line.svg"), "Уровни показателей")
         
         self.scales_tab = self._create_scales_tab()
-        self.tabs.addTab(self.scales_tab, "📈 Шкалы")
+        self.tabs.addTab(self.scales_tab, QIcon("resources/icons/charts.svg"), "Шкалы")
         
         self.weights_tab = self._create_weights_tab()
-        self.tabs.addTab(self.weights_tab, "⚖️ Веса ответов")
+        self.tabs.addTab(self.weights_tab, QIcon("resources/icons/scale.svg"), "Веса ответов")
         
         main_layout.addWidget(self.tabs)
         
-        # Кнопки
+                # === Кнопки ===
         btn_frame = QFrame()
-        btn_frame.setStyleSheet("QFrame { background-color: #f8f9fa; border-top: 1px solid #dee2e6; padding: 10px; }")
+        btn_frame.setStyleSheet("QFrame { background-color: #F8F9FA; border-top: 1px solid #DEE2E6; padding: 10px; }")
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(20, 15, 20, 15)
-        
-        self.profile_btn = QPushButton("📁 Профиль")
+
+        self.profile_btn = QPushButton(" Профили")
+        self.profile_btn.setObjectName("btn_profile")
+        self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
         self.profile_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4a90d9;
+                background-color: #5B8DBE;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius: 6px;
                 padding: 10px 20px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #3a7bc8;
+                background-color: #4A7BA7;
             }
         """)
         self.profile_btn.clicked.connect(self.open_profile_dialog)
         btn_layout.addWidget(self.profile_btn)
-        
+
         btn_layout.addStretch()
-        
-        self.save_btn = QPushButton("💾 Сохранить")
+
+        self.save_btn = QPushButton(" Сохранить")
+        self.save_btn.setObjectName("btn_save")
+        self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #28a745;
+                background-color: #6BBF8A;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius: 6px;
                 padding: 10px 30px;
                 font-weight: bold;
                 font-size: 13px;
             }
             QPushButton:hover {
-                background-color: #218838;
+                background-color: #5AA878;
             }
         """)
         self.save_btn.clicked.connect(self.save_config)
         btn_layout.addWidget(self.save_btn)
-        
-        self.cancel_btn = QPushButton("❌ Отмена")
+
+        self.cancel_btn = QPushButton(" Отмена")
+        self.cancel_btn.setObjectName("btn_cancel")
+        self.cancel_btn.setIcon(QIcon("resources/icons/close.svg"))
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #dc3545;
-                color: white;
-                border: none;
-                border-radius: 8px;
+                background-color: #F8F9FA;
+                color: #212529;
+                border: 2px solid #DEE2E6;
+                border-radius: 6px;
                 padding: 10px 30px;
                 font-weight: bold;
                 font-size: 13px;
             }
             QPushButton:hover {
-                background-color: #c82333;
+                background-color: #E9ECEF;
+                border-color: #ADB5BD;
             }
         """)
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
-        
+
         btn_frame.setLayout(btn_layout)
         main_layout.addWidget(btn_frame)
         
@@ -210,8 +220,10 @@ class SettingsDialog(QDialog):
         self.same_bounds_checkbox.stateChanged.connect(self.on_same_bounds_changed)
         layout.addWidget(self.same_bounds_checkbox)
         
-        add_btn = QPushButton("+ Добавить уровень")
+        add_btn = QPushButton("Добавить уровень")
         add_btn.setFixedHeight(45)
+        add_btn.setObjectName("btn_add_level")
+        add_btn.setIcon(QIcon("resources/icons/plus.svg"))
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4a90d9;
@@ -257,8 +269,10 @@ class SettingsDialog(QDialog):
         info_label.setStyleSheet("color: #666; font-size: 13px;")
         layout.addWidget(info_label)
         
-        add_btn = QPushButton("+ Добавить шкалу")
+        add_btn = QPushButton("Добавить шкалу")
         add_btn.setFixedHeight(45)
+        add_btn.setObjectName("btn_add_scale")
+        add_btn.setIcon(QIcon("resources/icons/plus.svg"))
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4a90d9;
@@ -330,111 +344,106 @@ class SettingsDialog(QDialog):
         level_index = len(self.levels) + 1
         level_key = f"level{level_index}"
         
+        # === РАМКА ===
         level_frame = QFrame()
-        level_frame.setFixedHeight(60)
-        level_frame.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-            }
-        """)
+        level_frame.setFixedHeight(52)  # ← Чуть увеличил высоту
+        level_frame.setObjectName("level_frame")
         
+        # === LAYOUT ===
         level_layout = QHBoxLayout()
-        level_layout.setContentsMargins(20, 10, 20, 10)
-        level_layout.setSpacing(15)
+        level_layout.setContentsMargins(15, 6, 15, 6)
+        level_layout.setSpacing(8)
         
         # 1. Номер уровня
-        level_num = QLabel(f"<b style='color: #4a90d9;'>{level_index}.</b>")
+        level_num = QLabel(f"{level_index}.")
+        level_num.setObjectName("level_num")
         level_num.setFixedWidth(30)
-        level_num.setFixedHeight(40)
+        level_num.setFixedHeight(28)
+        level_num.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         level_layout.addWidget(level_num)
         
         # 2. Метка "Название:"
         label_title = QLabel("Название:")
+        label_title.setObjectName("level_label")
         label_title.setFixedWidth(80)
-        label_title.setFixedHeight(40)
-        label_title.setStyleSheet("color: #212529; font-size: 13px;")
+        label_title.setFixedHeight(28)
+        label_title.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         level_layout.addWidget(label_title)
         
         # 3. Поле ввода названия
         name_input = QLineEdit()
+        name_input.setObjectName("level_name_input")
         name_input.setPlaceholderText("например, 'Низкий'")
         name_input.setFixedWidth(200)
-        name_input.setFixedHeight(40)
-        name_input.setStyleSheet("""
-            QLineEdit {
-                border: 2px solid #dee2e6;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 13px;
-                background-color: white;
-                color: #212529;
-            }
-            QLineEdit:focus {
-                border-color: #4a90d9;
-            }
-        """)
-        # ← Подключаем сигнал для обновления названий в шкалах
+        name_input.setFixedHeight(32)
         name_input.textChanged.connect(self._update_level_names_in_scales)
         level_layout.addWidget(name_input)
         
-        # 4. ПОЛЕ ГРАНИЦЫ
+        # 4. Метка "Граница (баллов):"
         boundary_label = QLabel("Граница (баллов):")
-        boundary_label.setFixedWidth(120)
-        boundary_label.setFixedHeight(40)
-        boundary_label.setStyleSheet("color: #212529; font-size: 13px;")
+        boundary_label.setObjectName("level_label")
+        boundary_label.setFixedWidth(110)
+        boundary_label.setFixedHeight(28)
+        boundary_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        level_layout.addWidget(boundary_label)
         
+        # 5. SpinBox
         boundary_spin = QSpinBox()
+        boundary_spin.setObjectName("level_boundary_spin")
         boundary_spin.setRange(0, 1000)
         boundary_spin.setValue(level_index * 25)
-        boundary_spin.setFixedWidth(100)
-        boundary_spin.setFixedHeight(40)
-        boundary_spin.setStyleSheet("""
-            QSpinBox {
-                border: 2px solid #dee2e6;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-                background-color: white;
-                color: #212529;
-            }
-            QSpinBox:focus {
-                border-color: #4a90d9;
-            }
-        """)
-        # ← Подключаем сигнал для динамического обновления границ в шкалах
+        boundary_spin.setFixedWidth(55)
+        boundary_spin.setFixedHeight(32)
         boundary_spin.valueChanged.connect(self._update_bounds_in_scales)
-        
-        # 5. ПОДСКАЗКА
-        hint_label = QLabel("💡 Верхняя граница уровня")
-        hint_label.setFixedWidth(180)
-        hint_label.setFixedHeight(40)
-        hint_label.setStyleSheet("color: #666; font-size: 12px; font-style: italic;")
-        
-        level_layout.addWidget(boundary_label)
         level_layout.addWidget(boundary_spin)
-        level_layout.addWidget(hint_label)
         
-        # 6. Растяжка
+        # 6. Подсказка (иконка) - ИСПРАВЛЕНО
+        hint_icon = QLabel()
+        hint_icon.setObjectName("hint_icon")
+        hint_icon.setText("")
+        hint_icon.setToolTip("Верхняя граница уровня")
+        hint_icon.setMinimumSize(28, 28)
+        hint_icon.setMaximumSize(28, 28)
+        hint_icon.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        
+        # ← Загружаем иконку правильно
+        icon_pixmap = QPixmap("resources/icons/lightbulb.svg")
+        print(f"Pixmap загружен: {not icon_pixmap.isNull()}")
+        print(f"Размер pixmap: {icon_pixmap.size()}")
+        if not icon_pixmap.isNull():
+            hint_icon.setPixmap(icon_pixmap.scaled(16, 16, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            hint_icon.setText("💡")  # ← Фолбэк если SVG не загрузился
+            hint_icon.setFixedWidth(30)
+        
+        hint_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint_icon.setStyleSheet("background-color: transparent; padding: 0px; margin: 0px;")
+        print(f"hint_icon создан: {hint_icon}")
+        print(f"Размер: {hint_icon.size()}")
+        level_layout.addWidget(hint_icon)
+        
+        # 7. Растяжка
         level_layout.addStretch()
         
-        # 7. Кнопка удаления
-        remove_btn = QPushButton("🗑️ Удалить")
-        remove_btn.setFixedWidth(120)
-        remove_btn.setFixedHeight(40)
+        # 8. Кнопка удаления - ИСПРАВЛЕНО
+        remove_btn = QPushButton(" Удалить")
+        remove_btn.setObjectName("btn_delete_level")
+        remove_btn.setIcon(QIcon("resources/icons/trash.svg"))
+        remove_btn.setIconSize(QSize(16, 16))
+        remove_btn.setFixedWidth(100)
+        remove_btn.setFixedHeight(32)  # ← Увеличил высоту
         remove_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #dc3545;
+            QPushButton#btn_delete_level {
+                background-color: #E07B7B;
                 color: white;
                 border: none;
                 border-radius: 6px;
-                padding: 8px 16px;
+                padding: 6px 12px;
                 font-size: 13px;
                 font-weight: 500;
             }
-            QPushButton:hover {
-                background-color: #c82333;
+            QPushButton#btn_delete_level:hover {
+                background-color: #C96A6A;
             }
         """)
         remove_btn.clicked.connect(lambda: self.remove_level(level_frame, level_key))
@@ -449,12 +458,11 @@ class SettingsDialog(QDialog):
             "name_input": name_input,
             "boundary": boundary_spin,
             "boundary_label": boundary_label,
-            "hint_label": hint_label,
+            "hint_label": hint_icon,
             "widget": level_frame,
             "num_label": level_num
         })
         
-        # Применяем текущее состояние чекбокса
         self.on_same_bounds_changed()
         
     def on_same_bounds_changed(self):
@@ -743,7 +751,9 @@ class SettingsDialog(QDialog):
         
         remove_layout = QHBoxLayout()
         remove_layout.addStretch()
-        remove_btn = QPushButton("🗑️ Удалить шкалу")
+        remove_btn = QPushButton("Удалить шкалу")
+        remove_btn.setObjectName("btn_delete_scale")
+        remove_btn.setIcon(QIcon("resources/icons/trash.svg"))
         remove_btn.setStyleSheet("""
             QPushButton {
                 background-color: #dc3545;

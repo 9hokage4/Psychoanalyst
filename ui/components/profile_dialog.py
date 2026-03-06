@@ -5,20 +5,21 @@ from PyQt6.QtWidgets import (
     QWidget, QFrame, QGridLayout
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QIcon
 from utils.profile_manager import ProfileManager
 
 
 class ProfileDialog(QDialog):
-    profile_loaded = pyqtSignal(dict)  # Сигнал: профиль загружен
+    profile_loaded = pyqtSignal(dict)
 
     def __init__(self, parent=None, current_config=None):
         super().__init__(parent)
-        self.setWindowTitle("📁 Профили настроек")
+        self.setWindowTitle(" Профили настроек")
         self.setMinimumSize(500, 400)
         self.setModal(True)
         
         self.profile_manager = ProfileManager()
-        self.current_config = current_config  # Текущая конфигурация для сохранения
+        self.current_config = current_config
         
         self.init_ui()
         self.load_profiles_list()
@@ -29,36 +30,16 @@ class ProfileDialog(QDialog):
         main_layout.setSpacing(15)
         
         # Заголовок
-        title = QLabel("📁 Управление профилями")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #212529;")
+        title = QLabel("Управление профилями")
+        title.setObjectName("title_label")
         main_layout.addWidget(title)
         
         info_label = QLabel("Сохраняйте и загружайте настройки тестов для быстрого доступа")
-        info_label.setStyleSheet("color: #666; font-size: 13px;")
+        info_label.setObjectName("info_label")
         main_layout.addWidget(info_label)
         
         # Список профилей
         self.profiles_list = QListWidget()
-        self.profiles_list.setStyleSheet("""
-            QListWidget {
-                border: 2px solid #dee2e6;
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 13px;
-                background-color: white;
-            }
-            QListWidget::item {
-                padding: 8px;
-                border-radius: 4px;
-            }
-            QListWidget::item:selected {
-                background-color: #4a90d9;
-                color: white;
-            }
-            QListWidget::item:hover {
-                background-color: #e9ecef;
-            }
-        """)
         self.profiles_list.itemDoubleClicked.connect(self.on_load_profile)
         main_layout.addWidget(self.profiles_list)
         
@@ -67,17 +48,6 @@ class ProfileDialog(QDialog):
         input_layout.addWidget(QLabel("Имя нового профиля:"))
         self.profile_name_input = QLineEdit()
         self.profile_name_input.setPlaceholderText("например, 'ММОП 2025'")
-        self.profile_name_input.setStyleSheet("""
-            QLineEdit {
-                border: 2px solid #dee2e6;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border-color: #4a90d9;
-            }
-        """)
         input_layout.addWidget(self.profile_name_input)
         main_layout.addLayout(input_layout)
         
@@ -86,78 +56,30 @@ class ProfileDialog(QDialog):
         btn_layout.setSpacing(10)
         
         # Сохранить
-        self.save_btn = QPushButton("💾 Сохранить текущие настройки")
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-        """)
+        self.save_btn = QPushButton(" Сохранить")
+        self.save_btn.setObjectName("btn_save_profile")
+        self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
         self.save_btn.clicked.connect(self.on_save_profile)
         btn_layout.addWidget(self.save_btn, 0, 0)
         
         # Загрузить
-        self.load_btn = QPushButton("📂 Загрузить выбранный")
-        self.load_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4a90d9;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3a7bc8;
-            }
-        """)
+        self.load_btn = QPushButton(" Загрузить")
+        self.load_btn.setObjectName("btn_load_profile")
+        self.load_btn.setIcon(QIcon("resources/icons/folder.svg"))
         self.load_btn.clicked.connect(self.on_load_profile)
         btn_layout.addWidget(self.load_btn, 0, 1)
         
         # Удалить
-        self.delete_btn = QPushButton("🗑️ Удалить выбранный")
-        self.delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #dc3545;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c82333;
-            }
-        """)
+        self.delete_btn = QPushButton(" Удалить")
+        self.delete_btn.setObjectName("btn_delete_profile")
+        self.delete_btn.setIcon(QIcon("resources/icons/trash.svg"))
         self.delete_btn.clicked.connect(self.on_delete_profile)
         btn_layout.addWidget(self.delete_btn, 1, 0)
         
         # Закрыть
-        self.close_btn = QPushButton("❌ Закрыть")
-        self.close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-        """)
+        self.close_btn = QPushButton(" Закрыть")
+        self.close_btn.setObjectName("btn_close")
+        self.close_btn.setIcon(QIcon("resources/icons/close.svg"))
         self.close_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.close_btn, 1, 1)
         
@@ -166,12 +88,11 @@ class ProfileDialog(QDialog):
         self.setLayout(main_layout)
     
     def load_profiles_list(self):
-        """Загружает список профилей в QListWidget"""
         self.profiles_list.clear()
         profiles = self.profile_manager.list_profiles()
         
         for profile_name in profiles:
-            item = QListWidgetItem(f"📄 {profile_name}")
+            item = QListWidgetItem(f" {profile_name}")
             item.setData(Qt.ItemDataRole.UserRole, profile_name)
             self.profiles_list.addItem(item)
         
@@ -179,7 +100,6 @@ class ProfileDialog(QDialog):
             self.profiles_list.setCurrentRow(0)
     
     def on_save_profile(self):
-        """Сохраняет текущую конфигурацию как профиль"""
         profile_name = self.profile_name_input.text().strip()
         
         if not profile_name:
@@ -210,7 +130,6 @@ class ProfileDialog(QDialog):
             QMessageBox.critical(self, "Ошибка", "Не удалось сохранить профиль")
     
     def on_load_profile(self):
-        """Загружает выбранный профиль"""
         current_item = self.profiles_list.currentItem()
         
         if not current_item:
@@ -227,7 +146,6 @@ class ProfileDialog(QDialog):
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить профиль '{profile_name}'")
     
     def on_delete_profile(self):
-        """Удаляет выбранный профиль"""
         current_item = self.profiles_list.currentItem()
         
         if not current_item:

@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QHBoxLayout, QComboBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QIcon
 import pandas as pd
 from ui.components.table_widget import ExcelTable
 
@@ -11,7 +12,7 @@ from ui.components.table_widget import ExcelTable
 class UploadWidget(QWidget):
     file_loaded = pyqtSignal(object)
     filename_updated = pyqtSignal(str)
-    settings_requested = pyqtSignal()  # ← НОВЫЙ СИГНАЛ
+    settings_requested = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -28,7 +29,9 @@ class UploadWidget(QWidget):
         top_layout.setSpacing(10)
 
         # Кнопка загрузки
-        self.load_button = QPushButton("📂 Загрузить Excel")
+        self.load_button = QPushButton(" Загрузить Excel")
+        self.load_button.setObjectName("btn_load_file")
+        self.load_button.setIcon(QIcon("resources/icons/file-download.svg"))
         self.load_button.clicked.connect(self.load_file)
         top_layout.addWidget(self.load_button)
 
@@ -40,37 +43,15 @@ class UploadWidget(QWidget):
         # Выбор листа
         self.sheet_combo = QComboBox()
         self.sheet_combo.setVisible(False)
-        self.sheet_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                padding: 5px 10px;
-                font: 12px "Arial";
-                color: #212529;
-                min-width: 120px;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 0px;
-                border: none;
-                background: transparent;
-            }
-            QComboBox::down-arrow {
-                image: none;
-            }
-            QComboBox:hover {
-                border-color: #a0a0a0;
-            }
-        """)
         self.sheet_combo.currentTextChanged.connect(self.on_sheet_changed)
         top_layout.addWidget(self.sheet_combo)
 
         # === Кнопка настройки (справа) ===
-        top_layout.addStretch()  # ← Сдвигает всё, что после, вправо
+        top_layout.addStretch()
 
-        self.settings_button = QPushButton("⚙️ Настройка")
+        self.settings_button = QPushButton(" Настройка")
+        self.settings_button.setObjectName("btn_settings")
+        self.settings_button.setIcon(QIcon("resources/icons/cog.svg"))
         self.settings_button.clicked.connect(self.settings_requested.emit)
         top_layout.addWidget(self.settings_button)
 
@@ -78,14 +59,7 @@ class UploadWidget(QWidget):
 
         # === Таблица ===
         self.table_container = QWidget()
-        self.table_container.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border-radius: 16px;
-                margin: 0px;
-                padding: 0px;
-            }
-        """)
+        self.table_container.setObjectName("table_container")
         table_layout = QVBoxLayout(self.table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
 

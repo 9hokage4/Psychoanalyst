@@ -35,6 +35,7 @@ class SettingsDialog(QDialog):
         
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
+        self.tabs.setIconSize(QSize(24, 24))
         
         self.basic_tab = self._create_basic_tab()
         self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные параметры")
@@ -147,6 +148,7 @@ class SettingsDialog(QDialog):
         self.same_bounds_checkbox = QCheckBox("Границы для шкал совпадают")
         self.same_bounds_checkbox.setChecked(True)
         self.same_bounds_checkbox.stateChanged.connect(self.on_same_bounds_changed)
+        self.same_bounds_checkbox.stateChanged.connect(self._update_scales_levels)
         layout.addWidget(self.same_bounds_checkbox)
         
         add_btn = QPushButton("+ Добавить уровень")
@@ -323,6 +325,8 @@ class SettingsDialog(QDialog):
         })
         
         self.on_same_bounds_changed()
+        
+        self._update_scales_levels()
     
     def on_same_bounds_changed(self):
         show_bounds = self.same_bounds_checkbox.isChecked()
@@ -346,6 +350,8 @@ class SettingsDialog(QDialog):
                     
                     if "bounds_labels" in scale_data:
                         self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
+                        
+        self._update_scales_levels()
     
     def _update_scales_with_common_bounds(self):
         for scale_data in self.scales:
@@ -366,6 +372,46 @@ class SettingsDialog(QDialog):
         self.level_order.remove(level_key)
         self.levels = [l for l in self.levels if l["key"] != level_key]
         self._update_level_numbers()
+        self._update_scales_levels()
+        
+    def _update_scales_levels(self):
+        """Обновляет уровни во всех шкалах (при добавлении/удалении уровня)"""
+        # Сохраняем текущие данные шкал
+        saved_scales = []
+        for scale_data in self.scales:
+            saved_scales.append({
+                "name": scale_data["name_input"].text(),
+                "questions_text": scale_data["questions_input"].text(),
+                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()},
+                "selected_questions": scale_data["selected_questions"]
+            })
+        
+        # Очищаем текущие шкалы
+        while self.scales_layout.count():
+            item = self.scales_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.scales = []
+        self.all_selected_questions = set()
+        
+        # Пересоздаём шкалы с новыми уровнями
+        for saved in saved_scales:
+            self.add_scale()
+            if self.scales:
+                new_scale = self.scales[-1]
+                new_scale["name_input"].setText(saved["name"])
+                new_scale["questions_input"].setText(saved["questions_text"])
+                new_scale["selected_questions"] = saved["selected_questions"]
+                self.all_selected_questions.update(saved["selected_questions"])
+                
+                # Восстанавливаем границы
+                for key, value in saved["bounds"].items():
+                    if key in new_scale["bounds_inputs"]:
+                        new_scale["bounds_inputs"][key].setValue(value)
+                
+                # Обновляем label с диапазонами
+                self._update_bounds_labels(new_scale, new_scale["bounds_labels"])
     
     def _parse_questions_input(self, text, validate=True):
         questions = set()
@@ -404,13 +450,22 @@ class SettingsDialog(QDialog):
         return sorted(list(questions)), errors
     
     def _on_questions_input_changed(self, scale_data):
-        selected, errors = self._parse_questions_input(scale_data["questions_input"].text(), validate=True)
+        """Обновляет выбранные вопросы при изменении текстового ввода"""
+        selected, errors = self._parse_questions_input(
+            scale_data["questions_input"].text(), 
+            validate=True
+        )
         scale_data["selected_questions"] = set(selected)
         
+        # ← Используем objectName вместо setStyleSheet()
         if errors:
             scale_data["questions_input"].setObjectName("error_input")
         else:
             scale_data["questions_input"].setObjectName("level_name_input")
+        
+        # ← Принудительно обновляем стиль
+        scale_data["questions_input"].style().unpolish(scale_data["questions_input"])
+        scale_data["questions_input"].style().polish(scale_data["questions_input"])
     
     def add_scale(self):
         if len(self.levels) == 0:
@@ -443,6 +498,7 @@ class SettingsDialog(QDialog):
         input_layout.addWidget(QLabel("Введите номера вопросов:"))
         self.questions_input = QLineEdit()
         self.questions_input.setPlaceholderText("Пример: 1-20, 25, 30-40")
+        self.questions_input.setFixedWidth(500)
         self.questions_input.setObjectName("level_name_input")
         self.questions_input.textChanged.connect(lambda: self._on_questions_input_changed(scale_data))
         input_layout.addWidget(self.questions_input)
@@ -562,6 +618,7 @@ class SettingsDialog(QDialog):
     
     def on_questions_changed(self, value):
         self._recreate_scales()
+        self._update_scales_levels()
     
     def on_answers_changed(self, value):
         self.on_weights_checkbox_changed()

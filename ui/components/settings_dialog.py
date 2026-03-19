@@ -1,7 +1,7 @@
 # ui/components/settings_dialog.py
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QDialog, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSpinBox, QCheckBox, QGroupBox, QScrollArea, QWidget,
     QLineEdit, QMessageBox, QTabWidget, QFrame, QGridLayout,
     QSizePolicy
@@ -11,13 +11,128 @@ from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from pathlib import Path
 from utils.profile_manager import ProfileManager
 from ui.components.profile_dialog import ProfileDialog
+from PyQt6.QtCore import Qt, QPropertyAnimation, QRectF, QPointF, QEasingCurve, pyqtProperty
+from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
+from PyQt6.QtWidgets import QAbstractButton, QSizePolicy
+from PyQt6.QtSvg import QSvgRenderer
+
+
+class AnimatedCheckBox(QAbstractButton):
+    """Кастомный чекбокс с анимацией заливки фона и SVG-галочкой."""
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self.setText(text)
+        self.setCheckable(True)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+        # Параметры
+        self.indicator_size = 22
+        self.border_radius = 4
+        self.spacing = 10
+        self.color_unchecked = QColor("#FFFFFF")        # белый фон
+        self.color_checked = QColor("#3390EC")          # синий Telegram
+        self.border_color = QColor("#DFE1E5")
+        self.border_color_hover = QColor("#3390EC")
+        self.text_color = QColor("#000000")
+
+        # Анимация
+        self._color_factor = 0.0  # обязательно инициализируем!
+        self._animation = QPropertyAnimation(self, b"colorFactor")
+        self._animation.setDuration(200)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._hovered = False
+
+        # Загружаем SVG-галочку
+        self.check_renderer = QSvgRenderer("resources/icons/check.svg")
+        if not self.check_renderer.isValid():
+            print("Warning: check.svg not found, checkmark will not be drawn")
+            self.check_renderer = None
+
+        self.toggled.connect(self._on_toggled)
+
+    def sizeHint(self):
+        text_width = self.fontMetrics().horizontalAdvance(self.text())
+        return QSize(self.indicator_size + self.spacing + text_width,
+                     self.indicator_size + 8)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        y = (self.height() - self.indicator_size) // 2
+        indicator_rect = QRectF(0, y, self.indicator_size, self.indicator_size)
+
+        # Интерполируем цвет фона
+        current_color = self._interpolate_color(self.color_unchecked, self.color_checked, self._color_factor)
+
+        # Рисуем фон
+        painter.setBrush(QBrush(current_color))
+        pen_color = self.border_color_hover if self._hovered else self.border_color
+        painter.setPen(QPen(pen_color, 2))
+        painter.drawRoundedRect(indicator_rect, self.border_radius, self.border_radius)
+
+        # Рисуем галочку, если checked
+        if self.isChecked() and self.check_renderer:
+            painter.save()
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(Qt.PenStyle.NoPen)
+            size = self.indicator_size * 0.6
+            viewBox = self.check_renderer.viewBox()
+            if viewBox.isValid():
+                scale = size / max(viewBox.width(), viewBox.height())
+                painter.translate(indicator_rect.center() - QPointF(viewBox.width() * scale / 2,
+                                                                   viewBox.height() * scale / 2))
+                self.check_renderer.render(painter, QRectF(0, 0,
+                                                          viewBox.width() * scale,
+                                                          viewBox.height() * scale))
+            painter.restore()
+
+        # Рисуем текст
+        text_x = self.indicator_size + self.spacing
+        text_rect = QRectF(text_x, 0, self.width() - text_x, self.height())
+        painter.setPen(QPen(self.text_color))
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.text())
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
+
+    def _on_toggled(self, checked):
+        self._animation.stop()
+        self._animation.setStartValue(0.0 if not checked else 1.0)
+        self._animation.setEndValue(1.0 if checked else 0.0)
+        self._animation.start()
+
+    def _interpolate_color(self, color1, color2, factor):
+        r = color1.red() + (color2.red() - color1.red()) * factor
+        g = color1.green() + (color2.green() - color1.green()) * factor
+        b = color1.blue() + (color2.blue() - color1.blue()) * factor
+        a = color1.alpha() + (color2.alpha() - color1.alpha()) * factor
+        return QColor(int(r), int(g), int(b), int(a))
+
+    # Свойства для анимации
+    def get_color_factor(self):
+        return self._color_factor
+
+    def set_color_factor(self, value):
+        self._color_factor = value
+        self.update()
+
+    colorFactor = pyqtProperty(float, get_color_factor, set_color_factor)
+
 
 class SettingsDialog(QDialog):
     config_saved = pyqtSignal(dict, list, dict, dict)
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Настройка теста")
+        self.setWindowTitle("⚙️ Настройки теста")
         self.setWindowIcon(QIcon("resources/icons/cog.svg"))
         self.setMinimumSize(900, 700)
         self.setModal(True)
@@ -28,134 +143,393 @@ class SettingsDialog(QDialog):
         self.profile_manager = ProfileManager()
         self.current_config = None
         self.init_ui()
-    
+
     def init_ui(self):
+        # Основной layout
         main_layout = QVBoxLayout()
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        
+
+        # ===== Вкладки =====
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         self.tabs.setIconSize(QSize(20, 20))
-        
+
+        # Стили для вкладок (применяются только к этому виджету)
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: none;
+                background-color: #FFFFFF;
+                top: -1px;
+            }
+            QTabBar::tab {
+                background-color: transparent;
+                color: #707579;
+                border: none;
+                border-bottom: 2px solid transparent;
+                padding: 12px 24px;
+                margin-right: 4px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QTabBar::tab:selected {
+                color: #3390EC;
+                border-bottom: 2px solid #3390EC;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #F5F5F5;
+                border-radius: 8px 8px 0 0;
+            }
+        """)
+
+        # Создаём вкладки
         self.basic_tab = self._create_basic_tab()
-        self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные параметры")
-        
+        self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные")
+
         self.levels_tab = self._create_levels_tab()
-        self.tabs.addTab(self.levels_tab, QIcon("resources/icons/chart-line.svg"), "Уровни показателей")
-        
+        self.tabs.addTab(self.levels_tab, QIcon("resources/icons/chart-line.svg"), "Уровни")
+
         self.scales_tab = self._create_scales_tab()
         self.tabs.addTab(self.scales_tab, QIcon("resources/icons/charts.svg"), "Шкалы")
-        
+
         self.weights_tab = self._create_weights_tab()
-        self.tabs.addTab(self.weights_tab, QIcon("resources/icons/scale.svg"), "Веса ответов")
-        
+        self.tabs.addTab(self.weights_tab, QIcon("resources/icons/scale.svg"), "Веса")
+
         main_layout.addWidget(self.tabs)
-        
-        # === Кнопки ===
+
+        # ===== Панель кнопок внизу =====
         btn_frame = QFrame()
         btn_frame.setObjectName("btn_frame")
+        btn_frame.setStyleSheet("""
+            QFrame#btn_frame {
+                background-color: #FFFFFF;
+                border-top: 1px solid #DFE1E5;
+                padding: 20px 24px;
+            }
+        """)
         btn_layout = QHBoxLayout()
-        btn_layout.setContentsMargins(20, 15, 20, 15)
-        
-        self.profile_btn = QPushButton(" Профили")
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(12)
+
+        # Кнопка "Профили"
+        self.profile_btn = QPushButton("📁 Профили")
         self.profile_btn.setObjectName("btn_profile")
         self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
+        self.profile_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
         self.profile_btn.clicked.connect(self.open_profile_dialog)
         btn_layout.addWidget(self.profile_btn)
-        
+
         btn_layout.addStretch()
-        
-        self.save_btn = QPushButton(" Сохранить")
+
+        # Кнопка "Сохранить профиль"
+        self.save_btn = QPushButton("💾 Сохранить профиль")
         self.save_btn.setObjectName("btn_save")
         self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6BBF8A;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #5AA878;
+            }
+        """)
         self.save_btn.clicked.connect(self.save_config)
         btn_layout.addWidget(self.save_btn)
-        
-        self.cancel_btn = QPushButton(" Отмена")
+
+        # Кнопка "Отмена"
+        self.cancel_btn = QPushButton("Отмена")
         self.cancel_btn.setObjectName("btn_cancel")
         self.cancel_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+        """)
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
-        
+
         btn_frame.setLayout(btn_layout)
         main_layout.addWidget(btn_frame)
-        
+
         self.setLayout(main_layout)
-    
+
     def _create_basic_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(25)
-        
-        title = QLabel("Основные параметры теста")
-        title.setObjectName("title_label")
-        layout.addWidget(title)
-        
-        grid = QGridLayout()
-        grid.setSpacing(20)
-        
-        grid.addWidget(QLabel("Количество вопросов в тесте:"), 0, 0)
+        # Основной вертикальный layout с отступами от краёв (24px)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(24)  # расстояние между группами
+
+        # --- Группа 1: Название теста и количество вопросов (две колонки) ---
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(16)
+
+        # Название теста
+        name_group = QVBoxLayout()
+        name_group.setSpacing(6)
+        name_label = QLabel("Название теста")
+        name_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        name_group.addWidget(name_label)
+
+        self.test_name_edit = QLineEdit()
+        self.test_name_edit.setPlaceholderText("Введите название")
+        self.test_name_edit.setText("Опросник агрессивности")  # пример
+        self.test_name_edit.setFixedHeight(40)
+        self.test_name_edit.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                background-color: white;
+                color: #000000;
+            }
+            QLineEdit:focus {
+                border-color: #3390EC;
+            }
+        """)
+        name_group.addWidget(self.test_name_edit)
+        row1_layout.addLayout(name_group)
+
+        # Количество вопросов
+        questions_group = QVBoxLayout()
+        questions_group.setSpacing(6)
+        questions_label = QLabel("Количество вопросов")
+        questions_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        questions_group.addWidget(questions_label)
+
         self.questions_spin = QSpinBox()
         self.questions_spin.setRange(1, 1000)
         self.questions_spin.setValue(10)
+        self.questions_spin.setFixedHeight(40)
         self.questions_spin.setObjectName("questions_spin")
+        # Стилизация спинбокса со стрелками
+        self.questions_spin.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 8px 24px 8px 12px;  /* место для стрелок */
+                font-size: 14px;
+                background-color: white;
+                color: #000000;
+            }
+            QSpinBox:focus {
+                border-color: #3390EC;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 20px;
+                border: none;
+                background: transparent;
+            }
+            QSpinBox::up-arrow {
+                image: url(resources/icons/chevron-up.svg);
+                width: 12px;
+                height: 12px;
+            }
+            QSpinBox::down-arrow {
+                image: url(resources/icons/chevron-down.svg);
+                width: 12px;
+                height: 12px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: #F0F0F0;
+                border-radius: 4px;
+            }
+        """)
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
-        grid.addWidget(self.questions_spin, 0, 1)
-        
-        grid.addWidget(QLabel("Количество вариантов ответа:"), 1, 0)
+        questions_group.addWidget(self.questions_spin)
+        row1_layout.addLayout(questions_group)
+
+        main_layout.addLayout(row1_layout)
+
+        # --- Группа 2: Количество вариантов ответов (на всю ширину) ---
+        answers_group = QVBoxLayout()
+        answers_group.setSpacing(6)
+        answers_label = QLabel("Количество вариантов ответов")
+        answers_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        answers_group.addWidget(answers_label)
+
         self.answers_spin = QSpinBox()
         self.answers_spin.setRange(2, 10)
         self.answers_spin.setValue(5)
+        self.answers_spin.setFixedHeight(40)
         self.answers_spin.setObjectName("answers_spin")
+        self.answers_spin.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 8px 24px 8px 12px;
+                font-size: 14px;
+                background-color: white;
+                color: #000000;
+            }
+            QSpinBox:focus {
+                border-color: #3390EC;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 20px;
+                border: none;
+                background: transparent;
+            }
+            QSpinBox::up-arrow {
+                image: url(resources/icons/chevron-up.svg);
+                width: 12px;
+                height: 12px;
+            }
+            QSpinBox::down-arrow {
+                image: url(resources/icons/chevron-down.svg);
+                width: 12px;
+                height: 12px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: #F0F0F0;
+                border-radius: 4px;
+            }
+        """)
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
-        grid.addWidget(self.answers_spin, 1, 1)
-        
-        layout.addLayout(grid)
-        
-        shared_frame = QFrame()
-        shared_frame.setObjectName("shared_frame")
-        shared_layout = QHBoxLayout()
-        
-        self.shared_checkbox = QCheckBox("Вопросы для различных шкал одинаковы")
+        answers_group.addWidget(self.answers_spin)
+        main_layout.addLayout(answers_group)
+
+        # --- Группа 3: Описание теста ---
+        desc_group = QVBoxLayout()
+        desc_group.setSpacing(6)
+        desc_label = QLabel("Описание теста")
+        desc_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        desc_group.addWidget(desc_label)
+
+        self.test_description_edit = QTextEdit()
+        self.test_description_edit.setPlaceholderText("Введите описание теста...")
+        self.test_description_edit.setFixedHeight(100)  # чуть больше, чем min-height, но можно регулировать
+        self.test_description_edit.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+                background-color: white;
+                color: #000000;
+            }
+            QTextEdit:focus {
+                border-color: #3390EC;
+            }
+        """)
+        desc_group.addWidget(self.test_description_edit)
+        main_layout.addLayout(desc_group)
+
+        # --- Группа 4: Чекбокс с пояснением ---
+        checkbox_group = QVBoxLayout()
+        checkbox_group.setSpacing(4)
+
+        # Кастомный чекбокс через QCheckBox (стилизация индикатора)
+        self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
         self.shared_checkbox.setChecked(False)
-        self.shared_checkbox.setObjectName("shared_checkbox")
         self.shared_checkbox.setToolTip("Если активно - один вопрос может относиться к нескольким шкалам")
-        shared_layout.addWidget(self.shared_checkbox)
-        shared_layout.addStretch()
-        
-        shared_frame.setLayout(shared_layout)
-        layout.addWidget(shared_frame)
-        
-        layout.addStretch()
-        tab.setLayout(layout)
+        #self.shared_checkbox.toggled.connect(self.on_shared_checkbox_toggled)
+
+        checkbox_group.addWidget(self.shared_checkbox)
+
+        # Пояснение под чекбоксом
+        hint_label = QLabel("Если активно — один вопрос может относиться к нескольким шкалам")
+        hint_label.setStyleSheet("color: #707579; font-size: 12px;")
+        hint_label.setContentsMargins(32, 0, 0, 0)  # отступ слева 32px для выравнивания с текстом чекбокса
+        checkbox_group.addWidget(hint_label)
+
+        main_layout.addLayout(checkbox_group)
+
+        # Добавляем растяжку в конце, чтобы все элементы прижимались к верху
+        main_layout.addStretch()
+
         return tab
-    
+
     def _create_levels_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
-        
+
         title = QLabel("Уровни показателей")
         title.setObjectName("title_label")
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #000000;")
         layout.addWidget(title)
-        
+
         info = QLabel("💡 Добавьте уровни показателей (например: Низкий, Средний, Высокий)")
         info.setObjectName("info_label")
+        info.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500; margin-bottom: 6px;")
         layout.addWidget(info)
-        
+
         self.same_bounds_checkbox = QCheckBox("Границы для шкал совпадают")
         self.same_bounds_checkbox.setChecked(True)
         self.same_bounds_checkbox.stateChanged.connect(self.on_same_bounds_changed)
+        self.same_bounds_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #212529;
+                font-size: 14px;
+                spacing: 10px;
+            }
+            QCheckBox::indicator {
+                width: 22px;
+                height: 22px;
+                border: 2px solid #DFE1E5;
+                border-radius: 4px;
+                background-color: white;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #3390EC;
+                border-color: #3390EC;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #3390EC;
+            }
+        """)
         layout.addWidget(self.same_bounds_checkbox)
-        
+
         add_btn = QPushButton("+ Добавить уровень")
         add_btn.setObjectName("btn_add_level")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
         add_btn.clicked.connect(self.add_level)
         layout.addWidget(add_btn)
-        
+
         self.levels_container = QWidget()
         self.levels_container.setObjectName("levels_container")
         self.levels_layout = QVBoxLayout()
@@ -163,81 +537,170 @@ class SettingsDialog(QDialog):
         self.levels_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.levels_layout.setContentsMargins(0, 0, 0, 0)
         self.levels_container.setLayout(self.levels_layout)
-        
+
         levels_scroll = QScrollArea()
         levels_scroll.setWidgetResizable(True)
         levels_scroll.setWidget(self.levels_container)
         levels_scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         levels_scroll.setObjectName("levels_scroll")
-        
+        levels_scroll.setStyleSheet("""
+            QScrollArea {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                background-color: white;
+                padding: 15px;
+                min-width: 800px;
+                max-width: 750px;
+            }
+            QScrollBar:vertical {
+                background-color: #F0F0F0;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
+            }
+        """)
+
         layout.addWidget(levels_scroll, alignment=Qt.AlignmentFlag.AlignHCenter)
-        
+
         tab.setLayout(layout)
         return tab
-    
+
     def _create_scales_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
-        
+
         title = QLabel("Шкалы теста")
         title.setObjectName("title_label")
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #000000;")
         layout.addWidget(title)
-        
+
         info_label = QLabel("💡 Добавьте шкалы и укажите вопросы для каждой")
         info_label.setObjectName("info_label")
+        info_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500; margin-bottom: 6px;")
         layout.addWidget(info_label)
-        
+
         add_btn = QPushButton("+ Добавить шкалу")
         add_btn.setObjectName("btn_add_scale")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
         add_btn.clicked.connect(self.add_scale)
         layout.addWidget(add_btn)
-        
+
         self.scales_container = QWidget()
         self.scales_container.setObjectName("scales_container")
         self.scales_layout = QVBoxLayout()
         self.scales_layout.setSpacing(15)
         self.scales_container.setLayout(self.scales_layout)
-        
+
         scales_scroll = QScrollArea()
         scales_scroll.setWidgetResizable(True)
         scales_scroll.setWidget(self.scales_container)
         scales_scroll.setObjectName("scales_scroll")
         scales_scroll.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        scales_scroll.setStyleSheet("""
+            QScrollArea {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                background-color: white;
+            }
+            QScrollBar:vertical {
+                background-color: #F0F0F0;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
+            }
+        """)
         layout.addWidget(scales_scroll, 1)
-        
+
         tab.setLayout(layout)
         return tab
-    
+
     def _create_weights_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(25)
-        
+
         title = QLabel("Веса ответов")
         title.setObjectName("title_label")
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #000000;")
         layout.addWidget(title)
-        
+
         self.same_weights_checkbox = QCheckBox("Одинаковые веса для всех ответов")
         self.same_weights_checkbox.setChecked(False)
         self.same_weights_checkbox.setObjectName("same_weights_checkbox")
         self.same_weights_checkbox.stateChanged.connect(self.on_weights_checkbox_changed)
+        self.same_weights_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #212529;
+                font-size: 14px;
+                spacing: 10px;
+            }
+            QCheckBox::indicator {
+                width: 22px;
+                height: 22px;
+                border: 2px solid #DFE1E5;
+                border-radius: 4px;
+                background-color: white;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #3390EC;
+                border-color: #3390EC;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #3390EC;
+            }
+        """)
         layout.addWidget(self.same_weights_checkbox)
-        
+
         self.weights_container = QFrame()
         self.weights_container.setObjectName("weights_container")
+        self.weights_container.setStyleSheet("""
+            QFrame#weights_container {
+                background-color: white;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
         self.weights_layout = QGridLayout()
         self.weights_layout.setSpacing(15)
         self.weights_container.setLayout(self.weights_layout)
         layout.addWidget(self.weights_container)
-        
+
         layout.addStretch()
         tab.setLayout(layout)
         self.on_weights_checkbox_changed()
         return tab
-    
+
     def add_level(self):
         level_index = len(self.levels) + 1
         level_key = f"level{level_index}"

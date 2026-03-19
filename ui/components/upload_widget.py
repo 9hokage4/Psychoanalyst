@@ -1,16 +1,194 @@
 # ui/components/upload_widget.py
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QLabel,
-    QFileDialog, QHBoxLayout, QComboBox
-)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame,
+                             QLabel, QPushButton, QFileDialog, QStackedWidget,
+                             QGridLayout, QGraphicsDropShadowEffect)
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPoint
+from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon, QFont
+
 import pandas as pd
 from ui.components.table_widget import ExcelTable
 
 
+class DragDropArea(QFrame):
+    """Область для перетаскивания файлов (и клика)."""
+    file_dropped = pyqtSignal(str)  # путь к файлу
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setFixedHeight(250)  # Уменьшил высоту
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Стиль: пунктирная рамка, скруглённые углы, фоновый цвет
+        self.setStyleSheet("""
+            DragDropArea {
+                border: 2px dashed #3390EC;
+                border-radius: 12px;
+                background-color: #F5F8FB;
+            }
+            DragDropArea:hover {
+                background-color: #E3F2FD;
+            }
+        """)
+
+        # Layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Иконка (эмодзи как временная замена)
+        icon_label = QLabel("📂")
+        icon_label.setStyleSheet("font-size: 40px;")
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(icon_label)
+
+        # Текст
+        text_label = QLabel("Перетащите Excel файл сюда")
+        text_label.setStyleSheet("font-size: 15px; font-weight: 500; color: #000000;")
+        text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(text_label)
+
+        # Подсказка
+        hint_label = QLabel("или нажмите, чтобы выбрать файл (.xlsx, .xls)")
+        hint_label.setStyleSheet("font-size: 12px; color: #707579;")
+        hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint_label)
+
+        # Кнопка "Выбрать файл" (увеличенная)
+        self.select_btn = QPushButton("Выбрать файл")
+        self.select_btn.setFixedSize(200, 44)  # ширина 200, высота 44
+        self.select_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
+        self.select_btn.clicked.connect(self._on_select_clicked)
+        layout.addWidget(self.select_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        urls = event.mimeData().urls()
+        if urls:
+            file_path = urls[0].toLocalFile()
+            if file_path.endswith(('.xlsx', '.xls')):
+                self.file_dropped.emit(file_path)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._on_select_clicked()
+        super().mousePressEvent(event)
+
+    def _on_select_clicked(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Выберите Excel-файл", "", "Excel Files (*.xlsx *.xls)"
+        )
+        if file_path:
+            self.file_dropped.emit(file_path)
+
+
+class ConfigSummary(QFrame):
+    """Блок «Текущая конфигурация» с разделителями."""
+    settings_clicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("""
+            ConfigSummary {
+                background-color: #F8F9FA;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Заголовок
+        title = QLabel("⚙️ Текущая конфигурация")
+        title.setStyleSheet("font-size: 14px; font-weight: 600; color: #707579; "
+                            "text-transform: uppercase; letter-spacing: 0.5px;")
+        layout.addWidget(title)
+
+        # Строки конфигурации с разделителями
+        self._add_config_row(layout, "Профиль настроек", "Default_v1.json")
+        self._add_separator(layout)
+        self._add_config_row(layout, "Количество вопросов", "45")
+        self._add_separator(layout)
+        self._add_config_row(layout, "Активные шкалы", "3 (Агрессивность, Цинизм, Эмпатия)")
+        self._add_separator(layout)
+
+        # Статус
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_label = QLabel("Статус:")
+        status_label.setStyleSheet("color: #707579; font-size: 14px;")
+        status_value = QLabel("✅ Готов к обработке")
+        status_value.setStyleSheet("color: #2E7D32; background-color: #E8F5E9; "
+                                   "padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;")
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(status_value)
+        status_layout.addStretch()
+        layout.addLayout(status_layout)
+
+        # Кнопка "Изменить настройки"
+        settings_btn = QPushButton("⚙️ Изменить настройки")
+        settings_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F4F4F5;
+            }
+        """)
+        settings_btn.clicked.connect(self.settings_clicked.emit)
+        layout.addWidget(settings_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    def _add_config_row(self, layout, label_text, value_text):
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        label = QLabel(label_text + ":")
+        label.setStyleSheet("color: #707579; font-size: 14px;")
+        value = QLabel(value_text)
+        value.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
+        row.addWidget(label)
+        row.addStretch()
+        row.addWidget(value)
+        layout.addLayout(row)
+
+    def _add_separator(self, layout):
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
+        layout.addWidget(line)
+
+    def update_config(self, profile_name, questions_count, scales_text, status_text, status_color):
+        """Обновляет отображаемые значения. Пока заглушка."""
+        pass
+
+
 class UploadWidget(QWidget):
-    file_loaded = pyqtSignal(object)
+    """Виджет вкладки «Загрузка»."""
+    file_loaded = pyqtSignal(object)  # передаёт DataFrame
     filename_updated = pyqtSignal(str)
     settings_requested = pyqtSignal()
 
@@ -20,92 +198,156 @@ class UploadWidget(QWidget):
         self.current_file_path = None
         self.sheet_names = []
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 10, 0, 0)
+        # Главная карточка
+        self.card = QFrame(self)
+        self.card.setObjectName("upload_card")
+        self.card.setStyleSheet("""
+            QFrame#upload_card {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+        """)
 
-        # === Верхняя панель ===
-        top_layout = QHBoxLayout()
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(10)
+        # Тень для карточки
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setOffset(0, 4)
+        shadow.setColor(QColor(0, 0, 0, 20))
+        self.card.setGraphicsEffect(shadow)
 
-        # Кнопка загрузки
-        self.load_button = QPushButton(" Загрузить Excel")
-        self.load_button.setObjectName("btn_load_file")
-        self.load_button.setIcon(QIcon("resources/icons/file-download.svg"))
-        self.load_button.clicked.connect(self.load_file)
-        top_layout.addWidget(self.load_button)
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(24, 24, 24, 24)
+        card_layout.setSpacing(20)
 
-        # Имя файла
-        self.file_label = QLabel("Файл: не выбран")
-        self.file_label.setObjectName("file_label")
-        top_layout.addWidget(self.file_label)
+        # --- Область загрузки / Таблица (Stacked) ---
+        self.upload_stack = QStackedWidget()
+        self.upload_stack.setFixedHeight(250)  # под размер области
 
-        # Выбор листа
-        self.sheet_combo = QComboBox()
-        self.sheet_combo.setVisible(False)
-        self.sheet_combo.currentTextChanged.connect(self.on_sheet_changed)
-        top_layout.addWidget(self.sheet_combo)
+        self.drag_drop_area = DragDropArea()
+        self.drag_drop_area.file_dropped.connect(self.load_file_from_path)
 
-        # === Кнопка настройки (справа) ===
-        top_layout.addStretch()
+        self.table_view = ExcelTable()
+        self.table_view.setVisible(False)  # изначально скрыта
 
-        self.settings_button = QPushButton(" Настройка")
-        self.settings_button.setObjectName("btn_settings")
-        self.settings_button.setIcon(QIcon("resources/icons/cog.svg"))
-        self.settings_button.clicked.connect(self.settings_requested.emit)
-        top_layout.addWidget(self.settings_button)
+        self.upload_stack.addWidget(self.drag_drop_area)
+        self.upload_stack.addWidget(self.table_view)
+        self.upload_stack.setCurrentWidget(self.drag_drop_area)
 
-        main_layout.addLayout(top_layout)
+        card_layout.addWidget(self.upload_stack)
 
-        # === Таблица ===
-        self.table_container = QWidget()
-        self.table_container.setObjectName("table_container")
-        table_layout = QVBoxLayout(self.table_container)
-        table_layout.setContentsMargins(0, 0, 0, 0)
+        # Разделитель
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.Shape.HLine)
+        sep1.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
+        card_layout.addWidget(sep1)
 
-        self.table = ExcelTable()
-        table_layout.addWidget(self.table)
+        # Блок конфигурации
+        self.config_summary = ConfigSummary()
+        self.config_summary.settings_clicked.connect(self.settings_requested.emit)
+        card_layout.addWidget(self.config_summary)
 
-        main_layout.addWidget(self.table_container)
+        # Разделитель
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        sep2.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
+        card_layout.addWidget(sep2)
 
-    def load_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Выберите Excel-файл",
-            "",
-            "Excel Files (*.xlsx *.xls)"
-        )
-        if file_path:
-            try:
-                self.sheet_names = pd.ExcelFile(file_path).sheet_names
-                self.current_file_path = file_path
+        # Горизонтальный ряд для кнопок (обработка + отмена)
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.setSpacing(10)
+        button_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-                file_name = file_path.split("/")[-1].split("\\")[-1]
-                self.file_label.setText(f"Файл: {file_name}")
-                self.filename_updated.emit(file_name)
+        # Кнопка обработки
+        self.process_btn = QPushButton("🚀 ОБРАБОТАТЬ ДАННЫЕ")
+        self.process_btn.setEnabled(False)
+        self.process_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6BBF8A;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 14px 48px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #5AA878;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+            }
+        """)
+        self.process_btn.clicked.connect(self.start_processing)
 
-                if len(self.sheet_names) > 1:
-                    self.sheet_combo.clear()
-                    self.sheet_combo.addItems(self.sheet_names)
-                    self.sheet_combo.setVisible(True)
-                    self.load_sheet(self.sheet_names[0])
-                else:
-                    self.sheet_combo.setVisible(False)
-                    self.load_sheet(self.sheet_names[0])
+        # Кнопка отмены (красная)
+        self.cancel_btn = QPushButton("✖ Отмена")
+        self.cancel_btn.setVisible(False)  # скрыта, пока файл не выбран
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E07B7B;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 14px 24px;
+                font-size: 16px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #C96A6A;
+            }
+        """)
+        self.cancel_btn.clicked.connect(self.cancel_selection)
 
-            except Exception as e:
-                print(f"Ошибка загрузки: {e}")
-                self.file_label.setText("Ошибка загрузки файла")
+        button_row.addWidget(self.process_btn)
+        button_row.addWidget(self.cancel_btn)
 
-    def load_sheet(self, sheet_name):
+        card_layout.addLayout(button_row)
+
+        # Основной layout виджета (просто добавляем карточку)
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addStretch()
+        main_layout.addWidget(self.card)
+        main_layout.addStretch()
+        self.card.setFixedWidth(1600)
+
+    def load_file_from_path(self, file_path):
+        """Загружает файл по пути, переключает на таблицу."""
         try:
-            df = pd.read_excel(self.current_file_path, sheet_name=sheet_name)
+            self.sheet_names = pd.ExcelFile(file_path).sheet_names
+            self.current_file_path = file_path
+            # Загружаем первый лист
+            df = pd.read_excel(file_path, sheet_name=self.sheet_names[0])
             self.current_df = df
-            self.table.set_data_frame(df)
+            self.table_view.set_data_frame(df)
+            # Переключаем стек на таблицу
+            self.upload_stack.setCurrentWidget(self.table_view)
+            # Показываем кнопку отмены
+            self.cancel_btn.setVisible(True)
+            # Обновляем сигналы
             self.file_loaded.emit(df)
+            file_name = file_path.split("/")[-1].split("\\")[-1]
+            self.filename_updated.emit(file_name)
+            # Активируем кнопку обработки (позже будет зависеть от конфигурации)
+            self.process_btn.setEnabled(True)
         except Exception as e:
-            print(f"Ошибка загрузки листа: {e}")
+            print(f"Ошибка загрузки: {e}")
 
-    def on_sheet_changed(self, sheet_name):
-        if sheet_name:
-            self.load_sheet(sheet_name)
+    def cancel_selection(self):
+        """Отменяет выбор файла, возвращает область загрузки."""
+        self.current_df = None
+        self.current_file_path = None
+        self.sheet_names = []
+        self.table_view.set_data_frame(None)  # очищаем таблицу
+        self.upload_stack.setCurrentWidget(self.drag_drop_area)
+        self.cancel_btn.setVisible(False)
+        self.process_btn.setEnabled(False)
+        # Можно также сбросить имя файла, если оно где-то отображается
+        self.filename_updated.emit("")  # или None
+
+    def start_processing(self):
+        """Запускает обработку данных (пока заглушка)."""
+        print("Обработка запущена...")
+        # Здесь будет вызов ProcessWorker, а потом переключение на вкладку результатов
+        # TODO: реализовать

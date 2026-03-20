@@ -1,7 +1,7 @@
 # ui/components/settings_dialog.py
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
-    QDialog, QGridLayout, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QDialog, QGridLayout, QGroupBox, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSpinBox, QCheckBox, QScrollArea, QWidget,
     QLineEdit, QMessageBox, QTabWidget, QFrame, QSizePolicy
 )
@@ -302,7 +302,6 @@ class AnimatedCheckBox(QAbstractButton):
 
 
 class LevelBadge(QWidget):
-    """Badge для уровня с фиксированными цветами."""
     edited = pyqtSignal()
     deleted = pyqtSignal()
     
@@ -344,9 +343,9 @@ class LevelBadge(QWidget):
         if hide_delete:
             self.delete_btn.setVisible(False)
 
-        # Фиксированные цвета (Telegram-стиль)
-        self.bg_color = QColor(232, 245, 233)   # #E8F5E9
-        self.text_color = QColor(46, 125, 50)   # #2E7D32
+        # Telegram-цвета (замена зелёного на голубой)
+        self.bg_color = QColor(180, 209, 238)   # #b4d1ee
+        self.text_color = QColor(6, 120, 234)   # #0678ea
 
         self.label.setStyleSheet(f"""
             QLabel {{
@@ -354,6 +353,7 @@ class LevelBadge(QWidget):
                 font-size: 13px;
                 font-weight: 500;
                 background: transparent;
+                border: none;
             }}
         """)
 
@@ -398,21 +398,32 @@ class ScaleItem(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)  # увеличенные отступы
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         # Верхняя панель: название + количество вопросов справа
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(6)
 
         self.title_label = QLabel(scale_data["name"])
-        self.title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #000000;")
-        top_layout.addWidget(self.title_label, 1)
+        self.title_label.setStyleSheet("""
+    font-size: 20px;
+    font-weight: 600;
+    color: #000000;
+    border: 2px solid #000000;
+    border-radius: 8px;
+    padding: 4px 8px;
+    background-color: #FFFFFF;
+""")
+        top_layout.addWidget(self.title_label)
 
         # Количество вопросов
         q_count = len(scale_data.get("questions", []))
         self.count_label = QLabel(f"Количество вопросов: {q_count}")
-        self.count_label.setStyleSheet("color: #000000; font-size: 14px;")
+        self.count_label.setStyleSheet("color: #58616a; font-size: 16px; border: none; margin: 0; padding: 0;")
         top_layout.addWidget(self.count_label)
+        
+        top_layout.addStretch()
 
         # Иконки справа
         self.edit_btn = QPushButton()
@@ -460,7 +471,7 @@ class ScaleItem(QWidget):
 
         # Уровни
         levels_title = QLabel("Уровни:")
-        levels_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin-bottom: 4px;")
+        levels_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin-bottom: 4px; border: none;")
         layout.addWidget(levels_title)
 
         # Контейнер для уровней (горизонтальный flow layout)
@@ -473,7 +484,7 @@ class ScaleItem(QWidget):
 
         # Вопросы для шкалы
         questions_title = QLabel("Вопросы для шкалы:")
-        questions_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin: 8px 0 4px 0;")
+        questions_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin: 8px 0 4px 0; border: none;")
         layout.addWidget(questions_title)
 
         # Контейнер для строк вопросов (вертикальный layout)
@@ -521,7 +532,6 @@ class ScaleItem(QWidget):
         return lines
 
     def _update_questions_display(self):
-        """Обновляет блок вопросов: создаёт рамки для каждой строки."""
         while self.questions_layout.count():
             item = self.questions_layout.takeAt(0)
             if item.widget():
@@ -529,22 +539,20 @@ class ScaleItem(QWidget):
 
         groups = self._format_questions_groups(self.scale_data.get("questions", []))
         if not groups:
-            # Если вопросов нет, показываем одну строку с прочерком
             label = QLabel("—")
             label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
-            self.questions_layout.addWidget(label)
+            label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+            self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
             return
 
-        # Разбиваем на строки, например, по 5 элементов в строке
         lines = self._split_into_lines(groups, max_per_line=5)
         for line in lines:
             label = QLabel(line)
             label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
-            label.setWordWrap(True)
-            self.questions_layout.addWidget(label)
+            label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+            self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
 
     def _update_levels_display(self):
-        """Обновляет список уровней в виде badge."""
         while self.levels_layout.count():
             item = self.levels_layout.takeAt(0)
             if item.widget():
@@ -552,19 +560,8 @@ class ScaleItem(QWidget):
 
         levels = self.scale_data.get("levels", [])
         for i, lvl in enumerate(levels):
-            badge = QLabel(f"{lvl['name']} ({lvl['range_start']}-{lvl['range_end']} баллов)")
-            badge.setStyleSheet("""
-                QLabel {
-                    background-color: #E8F5E9;
-                    color: #2E7D32;
-                    border-radius: 20px;
-                    padding: 6px 12px;
-                    font-size: 13px;
-                    font-weight: 500;
-                }
-            """)
-            badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-            badge.adjustSize()
+            badge = LevelBadge(lvl, i, len(levels), self, hide_delete=True)
+            badge.setCursor(Qt.CursorShape.ArrowCursor)   # убираем руку, если не нужно
             self.levels_layout.addWidget(badge)
         self.levels_layout.activate()
 
@@ -1048,7 +1045,15 @@ class SettingsDialog(QDialog):
         self.setLayout(main_layout)
         
     def on_tab_changed(self, index):
-        QtCore.QTimer.singleShot(100, self.adjustSize)
+        # Получаем название активной вкладки
+        current_tab = self.tabs.widget(index)
+        if current_tab == self.levels_tab:
+            # Ограничиваем высоту окна, например, 600
+            self.setMaximumHeight(480)
+        else:
+            # Сбрасываем ограничение (устанавливаем очень большое значение)
+            self.setMaximumHeight(16777215)  # максимальное значение высоты в Qt
+        self.adjustSize()
 
     def _create_basic_tab(self):
         tab = QWidget()
@@ -1226,13 +1231,14 @@ class SettingsDialog(QDialog):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(0)
+        layout.setSpacing(8)
 
         title_label = QLabel("Активные уровни")
         title_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 4px;")
         layout.addWidget(title_label)
 
         self.levels_container = QWidget()
+        self.levels_container.setMinimumHeight(40)   # минимальная высота
         self.levels_layout = QFlowLayout(self.levels_container)
         self.levels_layout.setContentsMargins(6, 2, 6, 2)
         self.levels_layout.setSpacing(6)
@@ -1241,12 +1247,12 @@ class SettingsDialog(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.levels_container)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMinimumHeight(80)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        scroll.setMaximumHeight(150)                 # ограничиваем высоту
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background: transparent;
+                background: #FFFFFF;
             }
             QScrollBar:vertical {
                 background-color: #F0F0F0;
@@ -1262,8 +1268,9 @@ class SettingsDialog(QDialog):
                 background-color: #A0A5A9;
             }
         """)
-        layout.addWidget(scroll, 1)
+        layout.addWidget(scroll)
 
+        # Форма настройки уровня
         form_frame = QFrame()
         form_frame.setStyleSheet("""
             QFrame {
@@ -1368,6 +1375,7 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(form_frame)
 
+        # Инициализация данных
         self.levels_data = [
             {'name': 'Низкий', 'boundary': 15},
             {'name': 'Средний', 'boundary': 30},
@@ -1610,100 +1618,293 @@ class SettingsDialog(QDialog):
 
     def _create_weights_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(25)
-        
-        title = QLabel("Веса ответов")
-        title.setObjectName("title_label")
-        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #000000;")
-        layout.addWidget(title)
-        
-        self.same_weights_checkbox = QCheckBox("Одинаковые веса для всех ответов")
-        self.same_weights_checkbox.setChecked(False)
-        self.same_weights_checkbox.setObjectName("same_weights_checkbox")
-        self.same_weights_checkbox.stateChanged.connect(self.on_weights_checkbox_changed)
-        self.same_weights_checkbox.setStyleSheet("""
-            QCheckBox {
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # Блок "Веса ответов для каждого вопроса"
+        weights_group = QGroupBox("Веса ответов для каждого вопроса")
+        weights_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 12px;
                 color: #212529;
                 font-size: 14px;
-                spacing: 10px;
             }
-            QCheckBox::indicator {
-                width: 22px;
-                height: 22px;
-                border: 2px solid #DFE1E5;
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: #3390EC;
+                font-size: 14px;
+            }
+        """)
+        group_layout = QVBoxLayout(weights_group)
+        group_layout.setContentsMargins(8, 8, 8, 8)
+        group_layout.setSpacing(12)
+
+        # Контейнер для строк весов (прокручиваемый, без фона)
+        self.weights_container = QWidget()
+        self.weights_container.setStyleSheet("background: transparent;")
+        self.weights_layout = QVBoxLayout(self.weights_container)
+        self.weights_layout.setContentsMargins(0, 0, 0, 0)
+        self.weights_layout.setSpacing(12)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.weights_container)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                background-color: #F0F0F0;
+                width: 8px;
                 border-radius: 4px;
-                background-color: white;
             }
-            QCheckBox::indicator:checked {
-                background-color: #3390EC;
-                border-color: #3390EC;
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-height: 30px;
             }
-            QCheckBox::indicator:hover {
-                border-color: #3390EC;
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
             }
         """)
-        layout.addWidget(self.same_weights_checkbox)
-        
-        self.weights_container = QFrame()
-        self.weights_container.setObjectName("weights_container")
-        self.weights_container.setStyleSheet("""
-            QFrame#weights_container {
-                background-color: white;
-                border: 1px solid #FFFF00;
+        group_layout.addWidget(scroll)
+
+        # Кнопки управления
+        btn_layout = QHBoxLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(10)
+        btn_layout.addStretch()
+
+        self.apply_all_btn = QPushButton("Применить ко всем вопросам")
+        self.apply_all_btn.setFixedHeight(32)
+        self.apply_all_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        font_metrics = self.apply_all_btn.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(self.apply_all_btn.text())
+        self.apply_all_btn.setFixedWidth(text_width + 40)
+        self.apply_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
                 border-radius: 8px;
-                padding: 15px;
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+            QPushButton:disabled {
+                background-color: #F5F5F5;
+                color: #ADB5BD;
+                border-color: #ADB5BD;
             }
         """)
-        self.weights_layout = QGridLayout()
-        self.weights_layout.setSpacing(15)
-        self.weights_container.setLayout(self.weights_layout)
-        layout.addWidget(self.weights_container)
-        
-        layout.addStretch()
-        tab.setLayout(layout)
-        self.on_weights_checkbox_changed()
+        self.apply_all_btn.clicked.connect(self._apply_weights_to_all)
+        btn_layout.addWidget(self.apply_all_btn)
+
+        self.cancel_unify_btn = QPushButton("Отмена")
+        self.cancel_unify_btn.setFixedHeight(32)
+        self.cancel_unify_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        text_width = font_metrics.horizontalAdvance(self.cancel_unify_btn.text())
+        self.cancel_unify_btn.setFixedWidth(text_width + 40)
+        self.cancel_unify_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+        """)
+        self.cancel_unify_btn.clicked.connect(self._cancel_unify_weights)
+        self.cancel_unify_btn.setVisible(False)  # изначально скрыта
+        btn_layout.addWidget(self.cancel_unify_btn)
+
+        group_layout.addLayout(btn_layout)
+
+        layout.addWidget(weights_group)
+
+        # Инициализируем вкладку
+        self._refresh_weights_tab()
+
         return tab
 
-    def on_questions_changed(self, value):
-        pass
+    def _refresh_weights_tab(self):
+        """Обновляет отображение весов (создаёт строки для всех вопросов или одну строку)"""
+        if hasattr(self, '_weights_unified') and self._weights_unified:
+            return
 
-    def on_answers_changed(self, value):
-        self.on_weights_checkbox_changed()
+        q_count = self.questions_spin.value()
+        a_count = self.answers_spin.value()
 
-    def on_weights_checkbox_changed(self):
         while self.weights_layout.count():
             item = self.weights_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
-        if self.same_weights_checkbox.isChecked():
-            label = QLabel("Вес для всех ответов:")
-            label.setObjectName("weight_label")
-            self.weights_layout.addWidget(label, 0, 0)
-            self.single_weight_spin = QSpinBox()
-            self.single_weight_spin.setRange(1, 100)
-            self.single_weight_spin.setValue(1)
-            self.single_weight_spin.setObjectName("single_weight_spin")
-            self.weights_layout.addWidget(self.single_weight_spin, 0, 1)
-        else:
-            num_answers = self.answers_spin.value()
-            self.weight_spins = {}
-            for i in range(1, num_answers + 1):
-                row = (i - 1) // 5
-                col = (i - 1) % 5
-                label = QLabel(f"Ответ {i}:")
-                label.setObjectName("weight_label")
-                self.weights_layout.addWidget(label, row, col * 2)
-                weight_spin = QSpinBox()
-                weight_spin.setRange(1, 100)
-                weight_spin.setValue(i)
-                weight_spin.setObjectName("level_boundary_spin")
-                self.weights_layout.addWidget(weight_spin, row, col * 2 + 1)
-                self.weight_spins[i] = weight_spin
-            for row in range((self.answers_spin.value() - 1) // 5 + 1):
-                self.weights_layout.setColumnStretch(row * 2 + 10, 1)
+
+        self.weight_spins = []  # список списков спинбоксов
+        for i in range(1, q_count + 1):
+            row, spins = self._create_question_row(i, a_count)
+            self.weights_layout.addWidget(row)
+            self.weight_spins.append(spins)
+
+        self.apply_all_btn.setEnabled(True)
+        self.cancel_unify_btn.setVisible(False)
+
+    def _create_question_row(self, question_num, answer_count):
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(10)
+
+        label = QLabel(f"Вопрос {question_num}")
+        label.setStyleSheet("font-size: 14px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        row_layout.addWidget(label)
+
+        spins = []
+        for j in range(1, answer_count + 1):
+            spin = QSpinBox()
+            spin.setRange(1, 100)
+            spin.setValue(j)
+            spin.setFixedHeight(32)
+            spin.setStyleSheet("""
+                QSpinBox {
+                    border: 1px solid #DFE1E5;
+                    border-radius: 8px;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                    background-color: white;
+                }
+                QSpinBox:focus {
+                    border-color: #3390EC;
+                }
+                QSpinBox::up-button, QSpinBox::down-button {
+                    width: 20px;
+                    border: none;
+                    background: transparent;
+                }
+                QSpinBox::up-arrow {
+                    image: url(resources/icons/chevron-up.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+                QSpinBox::down-arrow {
+                    image: url(resources/icons/chevron-down.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+            """)
+            row_layout.addWidget(spin)
+            spins.append(spin)
+
+        row_layout.addStretch()
+        return row_widget, spins
+
+    def _create_unified_weights_row(self, question_count, answer_count):
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(10)
+
+        label = QLabel("Вопрос")
+        label.setStyleSheet("font-size: 14px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        row_layout.addWidget(label)
+
+        spins = []
+        for j in range(1, answer_count + 1):
+            spin = QSpinBox()
+            spin.setRange(1, 100)
+            spin.setValue(j)
+            spin.setFixedHeight(32)
+            spin.setStyleSheet("""
+                QSpinBox {
+                    border: 1px solid #DFE1E5;
+                    border-radius: 8px;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                    background-color: white;
+                }
+                QSpinBox:focus {
+                    border-color: #3390EC;
+                }
+                QSpinBox::up-button, QSpinBox::down-button {
+                    width: 20px;
+                    border: none;
+                    background: transparent;
+                }
+                QSpinBox::up-arrow {
+                    image: url(resources/icons/chevron-up.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+                QSpinBox::down-arrow {
+                    image: url(resources/icons/chevron-down.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+            """)
+            row_layout.addWidget(spin)
+            spins.append(spin)
+
+        row_layout.addStretch()
+        self.weight_spins = spins
+        self.weights_layout.addWidget(row_widget)
+
+    def _apply_weights_to_all(self):
+        if self.weights_layout.count() <= 1:
+            return
+
+        # Получаем значения из первой строки
+        first_row = self.weights_layout.itemAt(0).widget()
+        first_row_spins = []
+        for child in first_row.findChildren(QSpinBox):
+            first_row_spins.append(child.value())
+
+        # Удаляем все строки, кроме первой
+        while self.weights_layout.count() > 1:
+            item = self.weights_layout.takeAt(1)
+            if item.widget():
+                item.widget().deleteLater()
+
+        label = first_row.findChild(QLabel)
+        if label:
+            label.setText("Вопрос")
+
+        self._weights_unified = True
+        self.apply_all_btn.setEnabled(False)
+        self.cancel_unify_btn.setVisible(True)
+        self.weight_spins = first_row_spins
+
+    def _cancel_unify_weights(self):
+        """Отменяет режим единых весов, возвращает исходное состояние"""
+        self._weights_unified = False
+        if hasattr(self, '_weights_unified'):
+            del self._weights_unified
+        self._refresh_weights_tab()
+
+    def on_questions_changed(self, value):
+        if hasattr(self, 'weights_layout'):
+            self._refresh_weights_tab()
+
+    # В методе on_answers_changed
+    def on_answers_changed(self, value):
+        if hasattr(self, 'weights_layout'):
+            self._refresh_weights_tab()
 
     def save_config(self):
         if self.questions_spin.value() < 1:
@@ -1763,15 +1964,36 @@ class SettingsDialog(QDialog):
                 "bounds": bounds
             }
 
+        # === Веса ответов ===
         answer_weights = {}
-        if self.same_weights_checkbox.isChecked():
-            weight = self.single_weight_spin.value()
-            for i in range(1, self.answers_spin.value() + 1):
-                answer_weights[i] = weight
-        else:
-            for i, spin in self.weight_spins.items():
-                answer_weights[i] = spin.value()
+        a_count = self.answers_spin.value()
+        q_count = self.questions_spin.value()
 
+        # Проверяем, установлен ли режим единых весов (нажата кнопка «Применить»)
+        if hasattr(self, '_weights_unified') and self._weights_unified:
+            # Единые веса для всех вопросов
+            if hasattr(self, 'weight_spins') and self.weight_spins:
+                # self.weight_spins — список значений для ответов (длина = a_count)
+                for i, val in enumerate(self.weight_spins):
+                    answer_weights[i+1] = val
+            else:
+                # Если self.weight_spins не существует, используем значения по умолчанию
+                for i in range(1, a_count + 1):
+                    answer_weights[i] = i
+        else:
+            # Разные веса для каждого вопроса
+            if hasattr(self, 'weight_spins') and self.weight_spins and isinstance(self.weight_spins[0], list):
+                # self.weight_spins — список списков спинбоксов (по вопросам)
+                for q_idx, row_spins in enumerate(self.weight_spins):
+                    for a_idx, spin in enumerate(row_spins):
+                        answer_weights[q_idx * a_count + a_idx + 1] = spin.value()
+            else:
+                # Если вкладка не была открыта или структура не та, используем значения по умолчанию
+                for q in range(q_count):
+                    for a in range(1, a_count + 1):
+                        answer_weights[q * a_count + a] = a
+
+        # === Проверка повторяющихся вопросов ===
         if not self.shared_checkbox.isChecked():
             all_questions = {}
             for scale_data in self.scales:

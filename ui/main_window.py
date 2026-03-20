@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(20)
+        central_widget.setStyleSheet("background-color: #F5F5F5;")
 
         # === ГОРИЗОНТАЛЬНАЯ НАВИГАЦИОННАЯ ПАНЕЛЬ (ОВАЛЬНАЯ) ===
         nav_container = QWidget()
@@ -140,6 +141,8 @@ class MainWindow(QMainWindow):
         # Подключаем сигналы
         self.upload_tab.file_loaded.connect(self.on_file_loaded)
         self.upload_tab.settings_requested.connect(self.open_settings_dialog)
+        
+        self.current_config = None
 
     def switch_to_tab(self, button: NavButton, tab_name: str):
         """Переключает вкладку по нажатию на кнопку навигации."""
@@ -164,6 +167,13 @@ class MainWindow(QMainWindow):
         dialog.config_saved.connect(self.on_config_saved)
         dialog.exec()
 
-    def on_config_saved(self, scales, level_order, level_ru, answer_weights):
-        print("Конфигурация сохранена")
-        # TODO: передать конфиг в upload_tab для отображения
+    def on_config_saved(self, scales_config, level_order, level_ru, answer_weights):
+        # Сохраняем конфигурацию
+        self.current_config = {
+            "scales_config": scales_config,
+            "level_order": level_order,
+            "level_ru": level_ru,
+            "answer_weights": answer_weights
+        }
+        # Передаём в upload_widget
+        self.upload_tab.set_config(self.current_config)

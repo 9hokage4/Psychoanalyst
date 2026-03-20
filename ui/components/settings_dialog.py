@@ -1,10 +1,9 @@
 # ui/components/settings_dialog.py
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
-    QDialog, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QSpinBox, QCheckBox, QGroupBox, QScrollArea, QWidget,
-    QLineEdit, QMessageBox, QTabWidget, QFrame, QGridLayout,
-    QSizePolicy
+    QDialog, QGridLayout, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QSpinBox, QCheckBox, QScrollArea, QWidget,
+    QLineEdit, QMessageBox, QTabWidget, QFrame, QSizePolicy
 )
 from PyQt6.QtGui import QFont, QIcon, QPixmap
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
@@ -103,7 +102,6 @@ class EditLevelDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
-        # Название
         name_label = QLabel("Название уровня:")
         name_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
         self.name_edit = QLineEdit(name)
@@ -124,7 +122,6 @@ class EditLevelDialog(QDialog):
         layout.addWidget(name_label)
         layout.addWidget(self.name_edit)
         
-        # Граница (верхняя)
         bound_label = QLabel("Верхняя граница (баллов):")
         bound_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
         self.boundary_spin = QSpinBox()
@@ -161,7 +158,6 @@ class EditLevelDialog(QDialog):
         layout.addWidget(bound_label)
         layout.addWidget(self.boundary_spin)
         
-        # Кнопки
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         
@@ -208,81 +204,6 @@ class EditLevelDialog(QDialog):
 
     def get_data(self):
         return self.name_edit.text().strip(), self.boundary_spin.value()
-
-
-class LevelBadge(QWidget):
-    """Badge для уровня с фиксированными цветами."""
-    edited = pyqtSignal()
-    deleted = pyqtSignal()
-    
-    def __init__(self, level_data, index, total, parent=None):
-        super().__init__(parent)
-        self.level_data = level_data
-        self.index = index
-        self.total = total
-
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 6, 8, 6)
-        layout.setSpacing(8)
-
-        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
-        self.label = QLabel(text)
-        layout.addWidget(self.label)
-
-        self.delete_btn = QPushButton()
-        self.delete_btn.setFixedSize(20, 20)
-        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.delete_btn.setIcon(QIcon("resources/icons/close.svg"))
-        self.delete_btn.setIconSize(QSize(16, 16))
-        self.delete_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background: rgba(0,0,0,0.1);
-            }
-        """)
-        self.delete_btn.clicked.connect(self.deleted.emit)
-        layout.addWidget(self.delete_btn)
-
-        # Фиксированные цвета (Telegram-стиль)
-        self.bg_color = QColor(232, 245, 233)   # #E8F5E9
-        self.text_color = QColor(46, 125, 50)   # #2E7D32
-
-        self.label.setStyleSheet(f"""
-            QLabel {{
-                color: {self.text_color.name()};
-                font-size: 13px;
-                font-weight: 500;
-                background: transparent;
-            }}
-        """)
-
-        self.installEventFilter(self)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(self.bg_color)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(self.rect(), 20, 20)
-        super().paintEvent(event)
-
-    def eventFilter(self, obj, event):
-        if event.type() == event.Type.MouseButtonDblClick and obj is self:
-            self.edited.emit()
-            return True
-        return super().eventFilter(obj, event)
-
-    def update_level_data(self, level_data):
-        self.level_data = level_data
-        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
-        self.label.setText(text)
-        self.update()
 
 
 class AnimatedCheckBox(QAbstractButton):
@@ -380,6 +301,606 @@ class AnimatedCheckBox(QAbstractButton):
     opacity = pyqtProperty(float, get_opacity, set_opacity)
 
 
+class LevelBadge(QWidget):
+    """Badge для уровня с фиксированными цветами."""
+    edited = pyqtSignal()
+    deleted = pyqtSignal()
+    
+    def __init__(self, level_data, index, total, parent=None, hide_delete=False):
+        super().__init__(parent)
+        self.level_data = level_data
+        self.index = index
+        self.total = total
+        self.hide_delete = hide_delete
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 8, 6)
+        layout.setSpacing(8)
+
+        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
+        self.label = QLabel(text)
+        layout.addWidget(self.label)
+
+        self.delete_btn = QPushButton()
+        self.delete_btn.setFixedSize(20, 20)
+        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.delete_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.delete_btn.setIconSize(QSize(16, 16))
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background: rgba(0,0,0,0.1);
+            }
+        """)
+        if not hide_delete:
+            self.delete_btn.clicked.connect(self.deleted.emit)
+        layout.addWidget(self.delete_btn)
+        if hide_delete:
+            self.delete_btn.setVisible(False)
+
+        # Фиксированные цвета (Telegram-стиль)
+        self.bg_color = QColor(232, 245, 233)   # #E8F5E9
+        self.text_color = QColor(46, 125, 50)   # #2E7D32
+
+        self.label.setStyleSheet(f"""
+            QLabel {{
+                color: {self.text_color.name()};
+                font-size: 13px;
+                font-weight: 500;
+                background: transparent;
+            }}
+        """)
+
+        self.installEventFilter(self)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(self.bg_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(self.rect(), 20, 20)
+        super().paintEvent(event)
+
+    def eventFilter(self, obj, event):
+        if event.type() == event.Type.MouseButtonDblClick and obj is self:
+            self.edited.emit()
+            return True
+        return super().eventFilter(obj, event)
+
+    def update_level_data(self, level_data):
+        self.level_data = level_data
+        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
+        self.label.setText(text)
+        self.update()
+
+
+class ScaleItem(QWidget):
+    edit_clicked = pyqtSignal(object)
+    delete_clicked = pyqtSignal(object)
+    
+    def sizeHint(self):
+        return QSize(200, 100)
+
+    def __init__(self, scale_data, parent=None):
+        super().__init__(parent)
+        self.scale_data = scale_data
+        self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
+        self.setMinimumHeight(100)  # временно, чтобы убедиться, что виджет имеет размер
+
+        # Ручная отрисовка фона и рамки
+        self.setAutoFillBackground(False)  # отключаем автоматический фон
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)  # увеличенные отступы
+        layout.setSpacing(12)
+
+        # Верхняя панель: название + количество вопросов справа
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.title_label = QLabel(scale_data["name"])
+        self.title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #000000;")
+        top_layout.addWidget(self.title_label, 1)
+
+        # Количество вопросов
+        q_count = len(scale_data.get("questions", []))
+        self.count_label = QLabel(f"Количество вопросов: {q_count}")
+        self.count_label.setStyleSheet("color: #000000; font-size: 14px;")
+        top_layout.addWidget(self.count_label)
+
+        # Иконки справа
+        self.edit_btn = QPushButton()
+        self.edit_btn.setIcon(QIcon("resources/icons/edit.svg"))
+        self.edit_btn.setIconSize(QSize(24, 24))
+        self.edit_btn.setFixedSize(28, 28)
+        self.edit_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                background: rgba(0,0,0,0.05);
+                border-radius: 14px;
+            }
+        """)
+        self.edit_btn.clicked.connect(lambda: self.edit_clicked.emit(self.scale_data))
+        top_layout.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton()
+        self.delete_btn.setIcon(QIcon("resources/icons/trash.svg"))
+        self.delete_btn.setIconSize(QSize(24, 24))
+        self.delete_btn.setFixedSize(28, 28)
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                background: rgba(0,0,0,0.05);
+                border-radius: 14px;
+            }
+        """)
+        self.delete_btn.clicked.connect(lambda: self.delete_clicked.emit(self.scale_data))
+        top_layout.addWidget(self.delete_btn)
+
+        layout.addLayout(top_layout)
+
+        # Линия под шапкой
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("background-color: #000000; max-height: 1px; margin: 4px 0 8px 0;")
+        layout.addWidget(line)
+
+        # Уровни
+        levels_title = QLabel("Уровни:")
+        levels_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin-bottom: 4px;")
+        layout.addWidget(levels_title)
+
+        # Контейнер для уровней (горизонтальный flow layout)
+        self.levels_container = QWidget()
+        self.levels_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.levels_layout = QFlowLayout(self.levels_container)
+        self.levels_layout.setContentsMargins(0, 0, 0, 0)
+        self.levels_layout.setSpacing(8)
+        layout.addWidget(self.levels_container)
+
+        # Вопросы для шкалы
+        questions_title = QLabel("Вопросы для шкалы:")
+        questions_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin: 8px 0 4px 0;")
+        layout.addWidget(questions_title)
+
+        # Контейнер для строк вопросов (вертикальный layout)
+        self.questions_container = QWidget()
+        self.questions_layout = QVBoxLayout(self.questions_container)
+        self.questions_layout.setContentsMargins(0, 0, 0, 0)
+        self.questions_layout.setSpacing(8)
+        layout.addWidget(self.questions_container)
+
+        self._update_levels_display()
+        self._update_questions_display()
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Белый фон
+        painter.setBrush(QColor(255, 255, 255))
+        painter.setPen(QPen(QColor(0, 0, 0), 3))
+        painter.drawRoundedRect(self.rect(), 8, 8)
+        super().paintEvent(event)
+
+    def _format_questions_groups(self, questions):
+        """Формирует список строк с диапазонами для отображения."""
+        if not questions:
+            return []
+        q = sorted(questions)
+        ranges = []
+        start = q[0]
+        end = q[0]
+        for i in range(1, len(q)):
+            if q[i] == end + 1:
+                end = q[i]
+            else:
+                ranges.append(f"{start}-{end}" if start != end else str(start))
+                start = q[i]
+                end = q[i]
+        ranges.append(f"{start}-{end}" if start != end else str(start))
+        return ranges
+
+    def _split_into_lines(self, items, max_per_line=5):
+        """Разбивает список элементов на строки по max_per_line штук."""
+        lines = []
+        for i in range(0, len(items), max_per_line):
+            lines.append(", ".join(items[i:i+max_per_line]))
+        return lines
+
+    def _update_questions_display(self):
+        """Обновляет блок вопросов: создаёт рамки для каждой строки."""
+        while self.questions_layout.count():
+            item = self.questions_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        groups = self._format_questions_groups(self.scale_data.get("questions", []))
+        if not groups:
+            # Если вопросов нет, показываем одну строку с прочерком
+            label = QLabel("—")
+            label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
+            self.questions_layout.addWidget(label)
+            return
+
+        # Разбиваем на строки, например, по 5 элементов в строке
+        lines = self._split_into_lines(groups, max_per_line=5)
+        for line in lines:
+            label = QLabel(line)
+            label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
+            label.setWordWrap(True)
+            self.questions_layout.addWidget(label)
+
+    def _update_levels_display(self):
+        """Обновляет список уровней в виде badge."""
+        while self.levels_layout.count():
+            item = self.levels_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        levels = self.scale_data.get("levels", [])
+        for i, lvl in enumerate(levels):
+            badge = QLabel(f"{lvl['name']} ({lvl['range_start']}-{lvl['range_end']} баллов)")
+            badge.setStyleSheet("""
+                QLabel {
+                    background-color: #E8F5E9;
+                    color: #2E7D32;
+                    border-radius: 20px;
+                    padding: 6px 12px;
+                    font-size: 13px;
+                    font-weight: 500;
+                }
+            """)
+            badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+            badge.adjustSize()
+            self.levels_layout.addWidget(badge)
+        self.levels_layout.activate()
+
+    def update_data(self, scale_data):
+        self.scale_data = scale_data
+        self.title_label.setText(scale_data["name"])
+        q_count = len(scale_data.get("questions", []))
+        self.count_label.setText(f"Количество вопросов: {q_count}")
+        self._update_levels_display()
+        self._update_questions_display()
+
+
+class AddScaleDialog(QDialog):
+    """Диалог добавления/редактирования шкалы."""
+    def __init__(self, parent=None, scale_data=None):
+        super().__init__(parent)
+        self.parent_dialog = parent
+        self.scale_data = scale_data or {}
+        self.setWindowTitle("Добавить шкалу" if not scale_data else "Редактировать шкалу")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+            QLabel {
+                color: #000000;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # Название шкалы
+        name_label = QLabel("Название шкалы:")
+        name_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579;")
+        self.name_edit = QLineEdit(self.scale_data.get("name", ""))
+        self.name_edit.setPlaceholderText("например, 'Тревожность'")
+        self.name_edit.setFixedHeight(36)
+        self.name_edit.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 14px;
+                background-color: white;
+            }
+            QLineEdit:focus {
+                border-color: #3390EC;
+            }
+        """)
+        layout.addWidget(name_label)
+        layout.addWidget(self.name_edit)
+
+        # Вопросы
+        questions_label = QLabel("Вопросы:")
+        questions_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579;")
+        self.questions_edit = QLineEdit()
+        if "questions" in self.scale_data:
+            q_list = sorted(self.scale_data["questions"])
+            ranges = []
+            if q_list:
+                start = q_list[0]
+                end = q_list[0]
+                for i in range(1, len(q_list)):
+                    if q_list[i] == end + 1:
+                        end = q_list[i]
+                    else:
+                        ranges.append(f"{start}-{end}" if start != end else str(start))
+                        start = q_list[i]
+                        end = q_list[i]
+                ranges.append(f"{start}-{end}" if start != end else str(start))
+                self.questions_edit.setText(", ".join(ranges))
+        self.questions_edit.setPlaceholderText("Пример: 1-20, 25, 30-40")
+        self.questions_edit.setFixedHeight(36)
+        self.questions_edit.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 14px;
+                background-color: white;
+            }
+            QLineEdit:focus {
+                border-color: #3390EC;
+            }
+        """)
+        layout.addWidget(questions_label)
+        layout.addWidget(self.questions_edit)
+
+        # Уровни
+        levels_label = QLabel("Уровни:")
+        levels_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579; margin-top: 8px;")
+        layout.addWidget(levels_label)
+
+        self.levels_container = QWidget()
+        self.levels_layout = QVBoxLayout(self.levels_container)
+        self.levels_layout.setContentsMargins(0, 0, 0, 0)
+        self.levels_layout.setSpacing(6)
+        layout.addWidget(self.levels_container)
+
+        add_level_btn = QPushButton("+ Добавить уровень")
+        add_level_btn.setFixedHeight(32)
+        add_level_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        font_metrics = add_level_btn.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(add_level_btn.text())
+        add_level_btn.setFixedWidth(text_width + 40)
+        add_level_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
+        add_level_btn.clicked.connect(self._on_add_level)
+        layout.addWidget(add_level_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.addStretch()
+
+        self.save_btn = QPushButton("Сохранить")
+        self.save_btn.setFixedHeight(36)
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+        """)
+        self.save_btn.clicked.connect(self.accept)
+
+        self.cancel_btn = QPushButton("Отмена")
+        self.cancel_btn.setFixedHeight(36)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+        """)
+        self.cancel_btn.clicked.connect(self.reject)
+
+        btn_layout.addWidget(self.save_btn)
+        btn_layout.addWidget(self.cancel_btn)
+        layout.addLayout(btn_layout)
+
+        self.selected_levels = []
+        self._init_levels()
+
+    def _init_levels(self):
+        parent = self.parent()
+        if hasattr(parent, 'levels_data'):
+            global_levels = parent.levels_data
+            if self.scale_data and "levels" in self.scale_data:
+                self.selected_levels = self.scale_data["levels"].copy()
+            else:
+                prev_boundary = 0
+                self.selected_levels = []
+                for lvl in global_levels:
+                    boundary = lvl['boundary']
+                    start = prev_boundary + 1
+                    end = boundary
+                    self.selected_levels.append({
+                        'name': lvl['name'],
+                        'boundary': boundary,
+                        'range_start': start,
+                        'range_end': end
+                    })
+                    prev_boundary = boundary
+        self._refresh_levels_display()
+
+    def _refresh_levels_display(self):
+        while self.levels_layout.count():
+            item = self.levels_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for idx, lvl in enumerate(self.selected_levels):
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(8)
+
+            label = QLabel(f"{lvl['name']} ({lvl['range_start']}-{lvl['range_end']} баллов)")
+            label.setStyleSheet("color: #000000; font-size: 13px;")
+            row_layout.addWidget(label, 1)
+
+            del_btn = QPushButton()
+            del_btn.setIcon(QIcon("resources/icons/close.svg"))
+            del_btn.setIconSize(QSize(16, 16))
+            del_btn.setFixedSize(24, 24)
+            del_btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                }
+                QPushButton:hover {
+                    background: rgba(0,0,0,0.05);
+                    border-radius: 12px;
+                }
+            """)
+            del_btn.clicked.connect(lambda checked, i=idx: self._remove_level(i))
+            row_layout.addWidget(del_btn)
+
+            self.levels_layout.addWidget(row)
+
+    def _remove_level(self, index):
+        self.selected_levels.pop(index)
+        self._refresh_levels_display()
+
+    def _on_add_level(self):
+        parent = self.parent()
+        if not hasattr(parent, 'levels_data'):
+            return
+
+        available = []
+        for lvl in parent.levels_data:
+            if not any(sl['name'] == lvl['name'] and sl['boundary'] == lvl['boundary'] for sl in self.selected_levels):
+                available.append(lvl)
+
+        if not available:
+            QMessageBox.information(self, "Нет доступных уровней", "Все уровни уже добавлены.")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Выберите уровни")
+        dialog.setModal(True)
+        layout = QVBoxLayout(dialog)
+
+        checkboxes = []
+        for lvl in available:
+            cb = QCheckBox(f"{lvl['name']} (до {lvl['boundary']} баллов)")
+            cb.setStyleSheet("margin: 4px;")
+            layout.addWidget(cb)
+            checkboxes.append((cb, lvl))
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("Добавить")
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }
+        """)
+        cancel_btn = QPushButton("Отмена")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }
+        """)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+        def add_selected():
+            for cb, lvl in checkboxes:
+                if cb.isChecked():
+                    prev = 0
+                    for gl in parent.levels_data:
+                        if gl['boundary'] == lvl['boundary']:
+                            break
+                        prev = gl['boundary']
+                    start = prev + 1
+                    new_lvl = lvl.copy()
+                    new_lvl['range_start'] = start
+                    new_lvl['range_end'] = lvl['boundary']
+                    self.selected_levels.append(new_lvl)
+            self.selected_levels.sort(key=lambda x: x['boundary'])
+            self._refresh_levels_display()
+            dialog.accept()
+
+        ok_btn.clicked.connect(add_selected)
+        cancel_btn.clicked.connect(dialog.reject)
+        dialog.exec()
+
+    def get_data(self):
+        name = self.name_edit.text().strip()
+        questions_text = self.questions_edit.text().strip()
+        questions = self._parse_questions(questions_text)
+        levels = self.selected_levels
+        return {"name": name, "questions": questions, "levels": levels}
+
+    def _parse_questions(self, text):
+        if not text:
+            return []
+        parts = text.split(',')
+        questions = set()
+        for part in parts:
+            part = part.strip()
+            if '-' in part:
+                try:
+                    start, end = map(int, part.split('-'))
+                    if start > end:
+                        continue
+                    questions.update(range(start, end + 1))
+                except ValueError:
+                    continue
+            else:
+                try:
+                    questions.add(int(part))
+                except ValueError:
+                    continue
+        return sorted(questions)
+
+
 class SettingsDialog(QDialog):
     config_saved = pyqtSignal(dict, list, dict, dict)
     
@@ -393,7 +914,6 @@ class SettingsDialog(QDialog):
         self.levels = []
         self.level_order = []
         self.levels_data = []
-        self.all_selected_questions = set()
         self.profile_manager = ProfileManager()
         self.current_config = None
         self.init_ui()
@@ -403,15 +923,15 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout()
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setStyleSheet("QDialog { background-color: #F5F5F5; }")
         
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         self.tabs.setIconSize(QSize(20, 20))
-        
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
                 border: none;
-                background-color: #FFFFFF;
+                background-color: #F5F5F5;
                 top: -1px;
             }
             QTabBar::tab {
@@ -445,7 +965,6 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self.weights_tab, QIcon("resources/icons/scale.svg"), "Веса")
         
         main_layout.addWidget(self.tabs)
-        
         self.tabs.currentChanged.connect(self.on_tab_changed)
         
         btn_frame = QFrame()
@@ -537,7 +1056,6 @@ class SettingsDialog(QDialog):
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(24)
         
-        # Название теста
         name_group = QVBoxLayout()
         name_group.setSpacing(6)
         name_label = QLabel("Название теста")
@@ -563,7 +1081,6 @@ class SettingsDialog(QDialog):
         """)
         name_group.addWidget(self.test_name_edit)
         
-        # Количество вопросов
         questions_group = QVBoxLayout()
         questions_group.setSpacing(6)
         questions_label = QLabel("Количество вопросов")
@@ -616,7 +1133,6 @@ class SettingsDialog(QDialog):
         row1_layout.addLayout(questions_group)
         main_layout.addLayout(row1_layout)
         
-        # Количество вариантов ответов
         answers_group = QVBoxLayout()
         answers_group.setSpacing(6)
         answers_label = QLabel("Количество вариантов ответов")
@@ -664,7 +1180,6 @@ class SettingsDialog(QDialog):
         answers_group.addWidget(self.answers_spin)
         main_layout.addLayout(answers_group)
         
-        # Описание теста
         desc_group = QVBoxLayout()
         desc_group.setSpacing(6)
         desc_label = QLabel("Описание теста")
@@ -690,10 +1205,8 @@ class SettingsDialog(QDialog):
         desc_group.addWidget(self.test_description_edit)
         main_layout.addLayout(desc_group)
         
-        # Чекбокс с пояснением
         checkbox_group = QVBoxLayout()
         checkbox_group.setSpacing(4)
-        
         self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
         self.shared_checkbox.setChecked(False)
         self.shared_checkbox.setToolTip("Если активно - один вопрос может относиться к нескольким шкалам")
@@ -714,12 +1227,6 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(0)
-
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px; margin-top: 2px; margin-bottom: 4px;")
-        layout.addWidget(line)
 
         title_label = QLabel("Активные уровни")
         title_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 4px;")
@@ -750,6 +1257,9 @@ class SettingsDialog(QDialog):
                 background-color: #C4C9CC;
                 border-radius: 4px;
                 min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
             }
         """)
         layout.addWidget(scroll, 1)
@@ -870,7 +1380,6 @@ class SettingsDialog(QDialog):
     def _sync_levels_with_old_format(self):
         self.levels = []
         self.level_order = []
-        
         for i, lvl in enumerate(self.levels_data):
             if i == 0:
                 key = "low"
@@ -882,7 +1391,6 @@ class SettingsDialog(QDialog):
                 key = "high"
             else:
                 key = f"level{i+1}"
-            
             self.level_order.append(key)
             self.levels.append({
                 "key": key,
@@ -897,18 +1405,15 @@ class SettingsDialog(QDialog):
     def _add_level_from_form(self):
         name = self.level_name_edit.text().strip()
         boundary = self.level_boundary_spin.value()
-        
         if not name:
             self._show_error_message("Ошибка", "Введите название уровня.")
             return
-        
         for i, lvl in enumerate(self.levels_data):
             if lvl['boundary'] == boundary:
                 self.levels_data[i]['name'] = name
                 self._refresh_levels_display()
                 self.level_name_edit.clear()
                 return
-        
         self.levels_data.append({'name': name, 'boundary': boundary})
         self._refresh_levels_display()
         self.level_name_edit.clear()
@@ -927,150 +1432,39 @@ class SettingsDialog(QDialog):
         if len(self.levels_data) <= 1:
             self._show_error_message("Ошибка", "Должен быть хотя бы один уровень")
             return
-        
         self.levels_data.remove(level)
         self._refresh_levels_display()
 
     def _create_scales_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(tab)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(0)
+        layout.setSpacing(12)
 
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px; margin-top: 2px; margin-bottom: 4px;")
-        layout.addWidget(line)
+        # Верхняя панель
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
 
-        title_label = QLabel("Активные шкалы")
-        title_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 4px;")
-        layout.addWidget(title_label)
+        title_label = QLabel("Список шкал")
+        title_label.setStyleSheet("color: #000000; font-size: 16px; font-weight: 600;")
+        top_layout.addWidget(title_label)
 
-        # Контейнер для badge шкал
-        self.scales_badges_container = QWidget()
-        self.scales_badges_layout = QFlowLayout(self.scales_badges_container)
-        self.scales_badges_layout.setContentsMargins(6, 2, 6, 2)
-        self.scales_badges_layout.setSpacing(6)
-
-        scales_scroll = QScrollArea()
-        scales_scroll.setWidgetResizable(True)
-        scales_scroll.setWidget(self.scales_badges_container)
-        scales_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scales_scroll.setMinimumHeight(40)
-        scales_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        scales_scroll.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background: transparent;
-            }
-            QScrollBar:vertical {
-                background-color: #F0F0F0;
-                width: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #C4C9CC;
-                border-radius: 4px;
-                min-height: 30px;
-            }
-        """)
-        layout.addWidget(scales_scroll)
-
-        # Временный layout для совместимости со старым кодом
-        self.scales_layout = QVBoxLayout()
-        self.scales_layout.setSpacing(15)
-
-        # Форма настройки шкалы
-        form_frame = QFrame()
-        form_frame.setStyleSheet("""
-            QFrame {
-                background-color: #F8F9FA;
-                border: none;
-                border-radius: 0px;
-                padding: 8px;
-            }
-        """)
-        form_layout = QVBoxLayout(form_frame)
-        form_layout.setContentsMargins(10, 10, 10, 10)
-        form_layout.setSpacing(8)
-
-        form_title = QLabel("Настройка шкалы")
-        form_title.setStyleSheet("""
-            color: #000000;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        """)
-        form_layout.addWidget(form_title)
-
-        self.scale_name_edit = QLineEdit()
-        self.scale_name_edit.setPlaceholderText("Название шкалы")
-        self.scale_name_edit.setFixedHeight(36)
-        self.scale_name_edit.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #DFE1E5;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 14px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #3390EC;
-            }
-        """)
-        form_layout.addWidget(self.scale_name_edit)
-
-        self.scale_questions_edit = QLineEdit()
-        self.scale_questions_edit.setPlaceholderText("Вопросы (например: 1-20, 25, 30-40)")
-        self.scale_questions_edit.setFixedHeight(36)
-        self.scale_questions_edit.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #DFE1E5;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 14px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #3390EC;
-            }
-        """)
-        form_layout.addWidget(self.scale_questions_edit)
-
-        levels_title = QLabel("Уровни")
-        levels_title.setStyleSheet("""
-            color: #000000;
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 8px;
-            margin-bottom: 4px;
-        """)
-        form_layout.addWidget(levels_title)
-
-        self.scale_levels_container = QWidget()
-        self.scale_levels_layout = QFlowLayout(self.scale_levels_container)
-        self.scale_levels_layout.setContentsMargins(4, 0, 4, 0)
-        self.scale_levels_layout.setSpacing(4)
-        form_layout.addWidget(self.scale_levels_container)
-        self._refresh_scale_levels_badges()
-
-        form_layout.addSpacing(12)
+        top_layout.addStretch()
 
         add_btn = QPushButton("+ Добавить шкалу")
-        add_btn.setFixedHeight(36)
+        add_btn.setFixedHeight(40)
         add_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         font_metrics = add_btn.fontMetrics()
         text_width = font_metrics.horizontalAdvance(add_btn.text())
-        add_btn.setFixedWidth(text_width + 60)
+        add_btn.setFixedWidth(text_width + 70)
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3390EC;
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
+                padding: 10px 20px;
+                font-size: 15px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -1078,131 +1472,141 @@ class SettingsDialog(QDialog):
             }
         """)
         add_btn.clicked.connect(self._add_scale_from_form)
-        form_layout.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        top_layout.addWidget(add_btn)
 
-        layout.addWidget(form_frame)
+        layout.addLayout(top_layout)
 
-        self.scales = []
-        self._refresh_scale_levels_badges()
+        # Обёртка для скролла
+        wrapper = QFrame()
+        wrapper.setStyleSheet("""
+            QFrame {
+                background-color: #FFFFFF;
+                border: 2px solid #000000;
+                border-radius: 12px;
+            }
+        """)
+        wrapper_layout = QVBoxLayout(wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
 
-        tab.setLayout(layout)
+        # Контейнер для списка шкал
+        self.scales_container = QWidget()
+        self.scales_container.setStyleSheet("background: transparent;")
+        self.scales_layout = QVBoxLayout(self.scales_container)
+        self.scales_layout.setContentsMargins(12, 12, 12, 12)
+        self.scales_layout.setSpacing(12)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.scales_container)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setMinimumHeight(200)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background-color: #F0F0F0;
+                width: 10px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 5px;
+                min-height: 40px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
+            }
+        """)
+        wrapper_layout.addWidget(scroll)
+
+        layout.addWidget(wrapper, 1)
+
+        self._refresh_scales_list()
         return tab
 
-    def _refresh_scales_badges(self):
-        if not hasattr(self, 'scales_badges_layout') or self.scales_badges_layout is None:
+    def _refresh_scales_list(self):
+        if not hasattr(self, 'scales_layout') or self.scales_layout is None:
             return
-        while self.scales_badges_layout.count():
-            item = self.scales_badges_layout.takeAt(0)
+        while self.scales_layout.count():
+            item = self.scales_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
         for scale_data in self.scales:
-            name = scale_data["name_input"].text().strip()
-            questions_text = scale_data["questions_input"].text().strip()
-            badge = QPushButton(f"{name} ({questions_text})")
-            badge.setCursor(Qt.CursorShape.PointingHandCursor)
-            badge.setStyleSheet("""
-                QPushButton {
-                    background-color: #E8F5E9;
-                    color: #2E7D32;
-                    border: none;
-                    border-radius: 20px;
-                    padding: 6px 12px;
-                    font-size: 13px;
-                    font-weight: 500;
-                }
-                QPushButton:hover {
-                    background-color: #D0E8D1;
-                }
-            """)
-            badge.setFixedHeight(36)
-            badge.clicked.connect(lambda checked, data=scale_data: self._edit_scale(data))
-            self.scales_badges_layout.addWidget(badge)
-        
-    def _refresh_scale_levels_badges(self):
-        if not hasattr(self, 'scale_levels_layout') or self.scale_levels_layout is None:
-            return
-        while self.scale_levels_layout.count():
-            item = self.scale_levels_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        for i, level in enumerate(self.levels_data):
-            boundary = level['boundary']
-            if i == 0:
-                start = 1
-            else:
-                start = self.levels_data[i-1]['boundary'] + 1
-            end = boundary
-            display_data = {
-                'name': level['name'],
-                'boundary': boundary,
-                'range_start': start,
-                'range_end': end
-            }
-            badge = LevelBadge(display_data, i, len(self.levels_data))
-            badge.delete_btn.setVisible(False)
-            self.scale_levels_layout.addWidget(badge)
+            item = ScaleItem(scale_data)
+            item.edit_clicked.connect(self._edit_scale)
+            item.delete_clicked.connect(self._delete_scale)
+            self.scales_layout.addWidget(item)
+        self.adjustSize()
 
     def _add_scale_from_form(self):
-        name = self.scale_name_edit.text().strip()
-        questions = self.scale_questions_edit.text().strip()
-        
-        if not name:
-            self._show_error_message("Ошибка", "Введите название шкалы.")
-            return
-        if not questions:
-            self._show_error_message("Ошибка", "Укажите вопросы для шкалы.")
-            return
-        
-        if not hasattr(self, 'scales_layout') or self.scales_layout is None:
-            self._show_error_message("Ошибка", "Вкладка 'Шкалы' не инициализирована.")
-            return
-        
-        # Проверяем, есть ли уже шкала с таким названием
-        for scale_data in self.scales:
-            if scale_data["name_input"].text().strip() == name:
-                # Заменяем существующую
-                scale_data["name_input"].setText(name)
-                scale_data["questions_input"].setText(questions)
-                selected, _ = self._parse_questions_input(questions, validate=False)
-                scale_data["selected_questions"] = set(selected)
-                self._refresh_scales_badges()
-                self.scale_name_edit.clear()
-                self.scale_questions_edit.clear()
+        dialog = AddScaleDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.get_data()
+            if not data["name"]:
+                QMessageBox.warning(self, "Ошибка", "Название шкалы обязательно.")
                 return
-        
-        # Создаём новую шкалу напрямую (без вызова add_scale, чтобы не создавать фрейм)
-        name_input = QLineEdit()
-        name_input.setText(name)
-        questions_input = QLineEdit()
-        questions_input.setText(questions)
-        
-        scale_data = {
-            "name_input": name_input,
-            "questions_input": questions_input,
-            "bounds_inputs": {},
-            "bounds_labels": {},
-            "widget": None,
-            "selected_questions": set()
-        }
-        self.scales.append(scale_data)
-        self._refresh_scales_badges()
-        self.scale_name_edit.clear()
-        self.scale_questions_edit.clear()
-            
+            if not data["questions"]:
+                QMessageBox.warning(self, "Ошибка", "Укажите вопросы для шкалы.")
+                return
+            if not self.shared_checkbox.isChecked():
+                all_questions = {}
+                for scale in self.scales:
+                    for q in scale.get("questions", []):
+                        if q not in all_questions:
+                            all_questions[q] = []
+                        all_questions[q].append(scale["name"])
+                duplicate = [q for q in data["questions"] if q in all_questions]
+                if duplicate:
+                    error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
+                    error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
+                    QMessageBox.warning(self, "Ошибка", error)
+                    return
+            new_scale = {
+                "name": data["name"],
+                "questions": data["questions"],
+                "levels": data["levels"]
+            }
+            self.scales.append(new_scale)
+            self._refresh_scales_list()
+
     def _edit_scale(self, scale_data):
-        self.scale_name_edit.setText(scale_data["name_input"].text())
-        self.scale_questions_edit.setText(scale_data["questions_input"].text())
-        self.scales.remove(scale_data)
-        self._refresh_scales_badges()
+        index = self.scales.index(scale_data)
+        dialog = AddScaleDialog(self, scale_data=scale_data)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_data = dialog.get_data()
+            if not new_data["name"]:
+                QMessageBox.warning(self, "Ошибка", "Название шкалы обязательно.")
+                return
+            if not new_data["questions"]:
+                QMessageBox.warning(self, "Ошибка", "Укажите вопросы для шкалы.")
+                return
+            if not self.shared_checkbox.isChecked():
+                all_questions = {}
+                for i, scale in enumerate(self.scales):
+                    if i == index:
+                        continue
+                    for q in scale.get("questions", []):
+                        if q not in all_questions:
+                            all_questions[q] = []
+                        all_questions[q].append(scale["name"])
+                duplicate = [q for q in new_data["questions"] if q in all_questions]
+                if duplicate:
+                    error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
+                    error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
+                    QMessageBox.warning(self, "Ошибка", error)
+                    return
+            self.scales[index] = new_data
+            self._refresh_scales_list()
 
     def _delete_scale(self, scale_data):
-        if len(self.scales) <= 1:
-            self._show_error_message("Ошибка", "Должна быть хотя бы одна шкала.")
-            return
-        self.scales.remove(scale_data)
-        self._refresh_scales_badges()
+        reply = QMessageBox.question(self, "Подтверждение", f"Удалить шкалу '{scale_data['name']}'?",
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            self.scales.remove(scale_data)
+            self._refresh_scales_list()
 
     def _create_weights_tab(self):
         tab = QWidget()
@@ -1247,7 +1651,7 @@ class SettingsDialog(QDialog):
         self.weights_container.setStyleSheet("""
             QFrame#weights_container {
                 background-color: white;
-                border: 1px solid #DFE1E5;
+                border: 1px solid #FFFF00;
                 border-radius: 8px;
                 padding: 15px;
             }
@@ -1262,303 +1666,11 @@ class SettingsDialog(QDialog):
         self.on_weights_checkbox_changed()
         return tab
 
-    def _parse_questions_input(self, text, validate=True):
-        questions = set()
-        parts = text.split(',')
-        errors = []
-        
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-            
-            if '-' in part:
-                try:
-                    start, end = map(int, part.split('-'))
-                    if start > end:
-                        errors.append(f"Неверный диапазон: {start}-{end}")
-                        continue
-                    questions.update(range(start, end + 1))
-                except ValueError:
-                    errors.append(f"Неверный формат: {part}")
-                    continue
-            else:
-                try:
-                    questions.add(int(part))
-                except ValueError:
-                    errors.append(f"Неверное число: {part}")
-                    continue
-        
-        max_questions = self.questions_spin.value()
-        if validate:
-            invalid_questions = {q for q in questions if q < 1 or q > max_questions}
-            if invalid_questions:
-                errors.append(f"Вопросы вне диапазона (1-{max_questions}): {sorted(invalid_questions)}")
-            questions = {q for q in questions if 1 <= q <= max_questions}
-        
-        return sorted(list(questions)), errors
-
-    def _on_questions_input_changed(self, scale_data):
-        selected, errors = self._parse_questions_input(scale_data["questions_input"].text(), validate=True)
-        scale_data["selected_questions"] = set(selected)
-        
-        if errors:
-            scale_data["questions_input"].setObjectName("error_input")
-        else:
-            scale_data["questions_input"].setObjectName("level_name_input")
-        
-        scale_data["questions_input"].style().unpolish(scale_data["questions_input"])
-        scale_data["questions_input"].style().polish(scale_data["questions_input"])
-
-    def add_scale(self):
-        """Используется только для внутреннего перестроения шкал, не из формы."""
-        if len(self.levels_data) == 0:
-            self._show_error_message("Ошибка", "Сначала добавьте уровни показателей на вкладке 'Уровни'")
-            self.tabs.setCurrentIndex(1)
-            return
-        
-        scale_index = len(self.scales) + 1
-        scale_frame = QFrame()
-        scale_frame.setObjectName("scale_frame")
-        scale_layout = QVBoxLayout()
-        scale_layout.setContentsMargins(15, 15, 15, 15)
-        scale_layout.setSpacing(15)
-        
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("Название шкалы:"))
-        name_input = QLineEdit()
-        name_input.setPlaceholderText("например, 'Тревожность'")
-        name_input.setObjectName("level_name_input")
-        name_layout.addWidget(name_input)
-        name_layout.addStretch()
-        scale_layout.addLayout(name_layout)
-        
-        questions_group = QGroupBox("Вопросы для этой шкалы:")
-        questions_group.setObjectName("questions_group")
-        questions_layout = QVBoxLayout()
-        questions_layout.setSpacing(10)
-        
-        input_layout = QHBoxLayout()
-        input_layout.addWidget(QLabel("Введите номера вопросов:"))
-        self.questions_input = QLineEdit()
-        self.questions_input.setPlaceholderText("Пример: 1-20, 25, 30-40")
-        self.questions_input.setObjectName("level_name_input")
-        self.questions_input.textChanged.connect(lambda: self._on_questions_input_changed(scale_data))
-        input_layout.addWidget(self.questions_input)
-        questions_layout.addLayout(input_layout)
-        
-        hint_label = QLabel("💡 Формат: отдельные числа (1, 5, 10) или диапазоны (1-20, 30-40)")
-        hint_label.setObjectName("hint_label")
-        questions_layout.addWidget(hint_label)
-        
-        questions_group.setLayout(questions_layout)
-        scale_layout.addWidget(questions_group)
-        
-        levels_title = QLabel("Уровни")
-        levels_title.setStyleSheet("""
-            color: #000000;
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 8px;
-            margin-bottom: 4px;
-        """)
-        scale_layout.addWidget(levels_title)
-        
-        scale_levels_container = QWidget()
-        scale_levels_layout = QFlowLayout(scale_levels_container)
-        scale_levels_layout.setContentsMargins(4, 0, 4, 0)
-        scale_levels_layout.setSpacing(4)
-        
-        for i, level in enumerate(self.levels_data):
-            boundary = level['boundary']
-            if i == 0:
-                start = 1
-            else:
-                start = self.levels_data[i-1]['boundary'] + 1
-            end = boundary
-            display_data = {
-                'name': level['name'],
-                'boundary': boundary,
-                'range_start': start,
-                'range_end': end
-            }
-            badge = LevelBadge(display_data, i, len(self.levels_data))
-            badge.delete_btn.setVisible(False)
-            scale_levels_layout.addWidget(badge)
-        
-        scale_layout.addWidget(scale_levels_container)
-        
-        bounds_group = QGroupBox("Границы уровней для шкалы:")
-        bounds_group.setObjectName("bounds_group")
-        bounds_layout = QGridLayout()
-        bounds_layout.setSpacing(15)
-        
-        bounds_inputs = {}
-        bounds_labels = {}
-        
-        for i, level_key in enumerate(self.level_order):
-            if i < len(self.levels_data):
-                level_name = self.levels_data[i]['name']
-            else:
-                level_name = f"Уровень {i+1}"
-            
-            row = i // 5
-            col = i % 5
-            
-            if i == 0:
-                range_text = f"{level_name} (0-25):"
-            else:
-                range_text = f"{level_name} (26-50):"
-            
-            range_label = QLabel(range_text)
-            range_label.setObjectName(f"range_label_{level_key}")
-            bounds_layout.addWidget(range_label, row, col * 2)
-            bounds_labels[level_key] = range_label
-            
-            bound_spin = QSpinBox()
-            bound_spin.setRange(0, 1000)
-            bound_spin.setValue((i + 1) * 25)
-            bound_spin.setObjectName("level_boundary_spin")
-            
-            bound_spin.valueChanged.connect(lambda: self._update_bounds_labels(scale_data, bounds_labels))
-            bounds_layout.addWidget(bound_spin, row, col * 2 + 1)
-            bounds_inputs[level_key] = bound_spin
-        
-        bounds_group.setLayout(bounds_layout)
-        scale_layout.addWidget(bounds_group)
-        
-        remove_layout = QHBoxLayout()
-        remove_layout.addStretch()
-        remove_btn = QPushButton("Удалить шкалу")
-        remove_btn.setObjectName("btn_delete_scale")
-        remove_btn.setIcon(QIcon("resources/icons/trash.svg"))
-        remove_btn.clicked.connect(lambda: self.remove_scale(scale_frame))
-        remove_layout.addWidget(remove_btn)
-        scale_layout.addLayout(remove_layout)
-        
-        scale_frame.setLayout(scale_layout)
-        self.scales_layout.addWidget(scale_frame)
-        
-        scale_data = {
-            "name_input": name_input,
-            "questions_input": self.questions_input,
-            "bounds_inputs": bounds_inputs,
-            "bounds_labels": bounds_labels,
-            "widget": scale_frame,
-            "selected_questions": set()
-        }
-        self.scales.append(scale_data)
-        self._update_bounds_labels(scale_data, bounds_labels)
-        self._refresh_scales_badges()
-
-    def _update_bounds_labels(self, scale_data, bounds_labels):
-        previous_boundary = 0
-        for i, level_key in enumerate(self.level_order):
-            if i < len(self.levels_data):
-                level_name = self.levels_data[i]['name']
-            else:
-                level_name = f"Уровень {i+1}"
-            
-            if level_key not in scale_data["bounds_inputs"]:
-                continue
-            
-            bound_spin = scale_data["bounds_inputs"][level_key]
-            current_boundary = bound_spin.value()
-            
-            if i == 0:
-                range_text = f"{level_name} (0-{current_boundary}):"
-            else:
-                range_text = f"{level_name} ({previous_boundary + 1}-{current_boundary}):"
-            
-            if level_key in bounds_labels:
-                bounds_labels[level_key].setText(range_text)
-            
-            previous_boundary = current_boundary
-
-    def remove_scale(self, widget):
-        if len(self.scales) <= 1:
-            self._show_error_message("Ошибка", "Должна быть хотя бы одна шкала")
-            return
-        
-        for scale_data in self.scales:
-            if scale_data["widget"] == widget:
-                self.all_selected_questions -= scale_data["selected_questions"]
-                break
-        
-        self.scales = [s for s in self.scales if s["widget"] != widget]
-        widget.deleteLater()
-
-    def _update_scales_levels(self):
-        if not hasattr(self, 'scales_layout') or self.scales_layout is None:
-            return
-        if not self.scales:
-            return
-        
-        saved_scales = []
-        for scale_data in self.scales:
-            saved_scales.append({
-                "name": scale_data["name_input"].text(),
-                "questions_text": scale_data["questions_input"].text(),
-                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()},
-                "selected_questions": scale_data["selected_questions"]
-            })
-        
-        while self.scales_layout.count():
-            item = self.scales_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        self.scales = []
-        self.all_selected_questions = set()
-        
-        for saved in saved_scales:
-            self.add_scale()
-            if self.scales:
-                new_scale = self.scales[-1]
-                new_scale["name_input"].setText(saved["name"])
-                new_scale["questions_input"].setText(saved["questions_text"])
-                new_scale["selected_questions"] = saved["selected_questions"]
-                self.all_selected_questions.update(saved["selected_questions"])
-                
-                for key, value in saved["bounds"].items():
-                    if key in new_scale["bounds_inputs"]:
-                        new_scale["bounds_inputs"][key].setValue(value)
-                
-                self._update_bounds_labels(new_scale, new_scale["bounds_labels"])
-
     def on_questions_changed(self, value):
-        self._recreate_scales()
-        self._update_scales_levels()
+        pass
 
     def on_answers_changed(self, value):
         self.on_weights_checkbox_changed()
-
-    def _recreate_scales(self):
-        saved_scales = []
-        for scale_data in self.scales:
-            saved_scales.append({
-                "name": scale_data["name_input"].text(),
-                "questions_text": scale_data["questions_input"].text(),
-                "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()}
-            })
-        
-        while self.scales_layout.count():
-            item = self.scales_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        self.scales = []
-        self.all_selected_questions = set()
-        
-        for saved in saved_scales:
-            self.add_scale()
-            if self.scales:
-                new_scale = self.scales[-1]
-                new_scale["name_input"].setText(saved["name"])
-                new_scale["questions_input"].setText(saved["questions_text"])
-                selected, _ = self._parse_questions_input(saved["questions_text"])
-                new_scale["selected_questions"] = set(selected)
-                self.all_selected_questions.update(selected)
 
     def on_weights_checkbox_changed(self):
         while self.weights_layout.count():
@@ -1584,14 +1696,12 @@ class SettingsDialog(QDialog):
                 label = QLabel(f"Ответ {i}:")
                 label.setObjectName("weight_label")
                 self.weights_layout.addWidget(label, row, col * 2)
-                
                 weight_spin = QSpinBox()
                 weight_spin.setRange(1, 100)
                 weight_spin.setValue(i)
                 weight_spin.setObjectName("level_boundary_spin")
                 self.weights_layout.addWidget(weight_spin, row, col * 2 + 1)
                 self.weight_spins[i] = weight_spin
-            
             for row in range((self.answers_spin.value() - 1) // 5 + 1):
                 self.weights_layout.setColumnStretch(row * 2 + 10, 1)
 
@@ -1600,92 +1710,59 @@ class SettingsDialog(QDialog):
             self._show_error_message("Ошибка", "Количество вопросов должно быть больше 0")
             self.tabs.setCurrentIndex(0)
             return
-        
         if self.answers_spin.value() < 2:
             self._show_error_message("Ошибка", "Количество ответов должно быть минимум 2")
             self.tabs.setCurrentIndex(0)
             return
-        
         if len(self.levels_data) < 1:
             self._show_error_message("Ошибка", "Добавьте хотя бы один уровень показателей")
             self.tabs.setCurrentIndex(1)
             return
-        
         for i, level_data in enumerate(self.levels_data):
             name = level_data['name'].strip()
             if not name:
                 self._show_error_message("Ошибка", f"Уровень {i + 1} не имеет названия")
                 self.tabs.setCurrentIndex(1)
                 return
-        
         if len(self.scales) < 1:
             self._show_error_message("Ошибка", "Добавьте хотя бы одну шкалу")
             self.tabs.setCurrentIndex(2)
             return
-        
-        for i, scale_data in enumerate(self.scales):
-            name = scale_data["name_input"].text().strip()
-            if not name:
-                self._show_error_message("Ошибка", f"Шкала {i + 1} не имеет названия")
-                self.tabs.setCurrentIndex(2)
-                scale_data["name_input"].setFocus()
-                return
-            
-            selected_questions, errors = self._parse_questions_input(
-                scale_data["questions_input"].text(),
-                validate=True
-            )
-            if errors:
-                self._show_error_message(
-                    "Ошибка",
-                    f"Шкала '{name}':\n" + "\n".join(errors)
-                )
-                self.tabs.setCurrentIndex(2)
-                scale_data["questions_input"].setFocus()
-                return
-            
-            if not selected_questions:
-                self._show_error_message("Ошибка", f"Шкала '{name}': не выбраны вопросы")
-                self.tabs.setCurrentIndex(2)
-                return
-            
-            scale_data["selected_questions"] = set(selected_questions)
-        
+
+        level_order = []
+        level_ru = {}
+        for i, lvl in enumerate(self.levels_data):
+            if i == 0:
+                key = "low"
+            elif i == 1:
+                key = "mid_low"
+            elif i == 2:
+                key = "mid_high"
+            elif i == 3:
+                key = "high"
+            else:
+                key = f"level{i+1}"
+            level_order.append(key)
+            level_ru[key] = lvl['name']
+
         scales_config = {}
         for scale_data in self.scales:
-            scale_name = scale_data["name_input"].text().strip()
-            selected_questions = sorted(list(scale_data["selected_questions"]))
-            
+            scale_name = scale_data["name"]
+            questions = sorted(scale_data["questions"])
             bounds = {}
-            level_values = []
-            for level_key in self.level_order:
-                if level_key in scale_data["bounds_inputs"]:
-                    level_values.append(scale_data["bounds_inputs"][level_key].value())
-            
-            for i, level_key in enumerate(self.level_order):
-                if i < len(level_values):
-                    if i == 0:
-                        bounds[f"{level_key}_max"] = level_values[i]
-                    else:
-                        bounds[f"{level_key}_min"] = level_values[i-1] + 1
-                        bounds[f"{level_key}_max"] = level_values[i]
-            
+            levels = sorted(scale_data["levels"], key=lambda x: x['boundary'])
+            for i, lvl in enumerate(levels):
+                if i == 0:
+                    bounds[f"{level_order[i]}_max"] = lvl['boundary']
+                else:
+                    bounds[f"{level_order[i]}_min"] = levels[i-1]['boundary'] + 1
+                    bounds[f"{level_order[i]}_max"] = lvl['boundary']
             scales_config[scale_name] = {
                 "title_ru": scale_name,
-                "qnums": selected_questions,
+                "qnums": questions,
                 "bounds": bounds
             }
-        
-        level_order = self.level_order.copy()
-        
-        level_ru = {}
-        for i, level_data in enumerate(self.levels_data):
-            level_name = level_data['name'].strip()
-            if i < len(self.level_order):
-                level_ru[self.level_order[i]] = level_name
-            else:
-                level_ru[f"level{i+1}"] = level_name
-        
+
         answer_weights = {}
         if self.same_weights_checkbox.isChecked():
             weight = self.single_weight_spin.value()
@@ -1694,22 +1771,20 @@ class SettingsDialog(QDialog):
         else:
             for i, spin in self.weight_spins.items():
                 answer_weights[i] = spin.value()
-        
+
         if not self.shared_checkbox.isChecked():
             all_questions = {}
             for scale_data in self.scales:
-                scale_name = scale_data["name_input"].text().strip()
-                selected_questions = sorted(list(scale_data["selected_questions"]))
-                for question in selected_questions:
-                    if question not in all_questions:
-                        all_questions[question] = []
-                    all_questions[question].append(scale_name)
-            
-            duplicate_questions = {q: scales for q, scales in all_questions.items() if len(scales) > 1}
-            if duplicate_questions:
+                scale_name = scale_data["name"]
+                for q in scale_data["questions"]:
+                    if q not in all_questions:
+                        all_questions[q] = []
+                    all_questions[q].append(scale_name)
+            duplicate = {q: names for q, names in all_questions.items() if len(names) > 1}
+            if duplicate:
                 error_messages = []
-                for question, scales in sorted(duplicate_questions.items()):
-                    error_messages.append(f"Вопрос {question}: {', '.join(scales)}")
+                for q, names in sorted(duplicate.items()):
+                    error_messages.append(f"Вопрос {q}: {', '.join(names)}")
                 error_text = (
                     "Вопросы не должны повторяться между шкалами!\n\n"
                     "Повторяющиеся вопросы:\n" + "\n".join(error_messages)
@@ -1717,7 +1792,7 @@ class SettingsDialog(QDialog):
                 self._show_error_message("Ошибка валидации", error_text)
                 self.tabs.setCurrentIndex(2)
                 return
-        
+
         self._save_debug_config(scales_config, level_order, level_ru, answer_weights)
         self.config_saved.emit(scales_config, level_order, level_ru, answer_weights)
         self.accept()
@@ -1731,22 +1806,28 @@ class SettingsDialog(QDialog):
     def _get_current_config(self):
         scales = {}
         for scale_data in self.scales:
-            name = scale_data["name_input"].text().strip()
+            name = scale_data["name"]
             if name:
-                selected = list(scale_data["selected_questions"])
                 scales[name] = {
                     "title_ru": name,
-                    "qnums": sorted(selected),
-                    "bounds": {k: v.value() for k, v in scale_data["bounds_inputs"].items()}
+                    "qnums": sorted(scale_data["questions"]),
+                    "bounds": {}
                 }
-        
+                levels = sorted(scale_data["levels"], key=lambda x: x['boundary'])
+                for i, lvl in enumerate(levels):
+                    if i == 0:
+                        scales[name]["bounds"][f"{self.level_order[i]}_max"] = lvl['boundary']
+                    else:
+                        scales[name]["bounds"][f"{self.level_order[i]}_min"] = levels[i-1]['boundary'] + 1
+                        scales[name]["bounds"][f"{self.level_order[i]}_max"] = lvl['boundary']
+
         levels = {}
         level_boundaries = {}
-        for i, level_data in enumerate(self.levels_data):
+        for i, lvl in enumerate(self.levels_data):
             key = self.level_order[i] if i < len(self.level_order) else f"level{i+1}"
-            levels[key] = level_data['name']
-            level_boundaries[key] = level_data['boundary']
-        
+            levels[key] = lvl['name']
+            level_boundaries[key] = lvl['boundary']
+
         answer_weights = {}
         if hasattr(self, 'same_weights_checkbox'):
             if self.same_weights_checkbox.isChecked():
@@ -1757,7 +1838,7 @@ class SettingsDialog(QDialog):
             else:
                 for i, spin in getattr(self, 'weight_spins', {}).items():
                     answer_weights[i] = spin.value()
-        
+
         return {
             "scales": scales,
             "levels": levels,
@@ -1770,16 +1851,13 @@ class SettingsDialog(QDialog):
         }
 
     def on_profile_loaded(self, config):
-        if "same_bounds" in config:
-            self.same_bounds_checkbox.setChecked(config["same_bounds"])
-        
         if "questions_count" in config:
             self.questions_spin.setValue(config["questions_count"])
         if "answers_count" in config:
             self.answers_spin.setValue(config["answers_count"])
         if "shared_questions" in config:
             self.shared_checkbox.setChecked(config["shared_questions"])
-        
+
         self.levels_data = []
         if "levels" in config:
             level_boundaries = config.get("level_boundaries", {})
@@ -1788,30 +1866,48 @@ class SettingsDialog(QDialog):
                 if boundary > 0:
                     self.levels_data.append({'name': name, 'boundary': boundary})
         self._refresh_levels_display()
-        
-        while self.scales_layout.count():
-            item = self.scales_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
+
         self.scales = []
         if "scales" in config:
             for name, scale_config in config["scales"].items():
-                self.add_scale()
-                if self.scales:
-                    new_scale = self.scales[-1]
-                    new_scale["name_input"].setText(name)
-                    
-                    if "qnums" in scale_config:
-                        questions_text = ", ".join(map(str, scale_config["qnums"]))
-                        new_scale["questions_input"].setText(questions_text)
-                        new_scale["selected_questions"] = set(scale_config["qnums"])
-                    
-                    if "bounds" in scale_config:
-                        for key, value in scale_config["bounds"].items():
-                            if key in new_scale["bounds_inputs"]:
-                                new_scale["bounds_inputs"][key].setValue(value)
-        
+                questions = scale_config.get("qnums", [])
+                levels = []
+                bounds = scale_config.get("bounds", {})
+                order = config.get("level_order", [])
+                for i, key in enumerate(order):
+                    max_key = f"{key}_max"
+                    if max_key in bounds:
+                        boundary = bounds[max_key]
+                        prev = 0
+                        for lvl in self.levels_data:
+                            if lvl['boundary'] == boundary:
+                                start = (levels[-1]['boundary'] + 1) if levels else 1
+                                levels.append({
+                                    'name': lvl['name'],
+                                    'boundary': boundary,
+                                    'range_start': start,
+                                    'range_end': boundary
+                                })
+                                break
+                if not levels:
+                    prev = 0
+                    for lvl in self.levels_data:
+                        start = prev + 1
+                        end = lvl['boundary']
+                        levels.append({
+                            'name': lvl['name'],
+                            'boundary': lvl['boundary'],
+                            'range_start': start,
+                            'range_end': end
+                        })
+                        prev = lvl['boundary']
+                self.scales.append({
+                    "name": name,
+                    "questions": questions,
+                    "levels": levels
+                })
+        self._refresh_scales_list()
+
         if "answer_weights" in config:
             weights = config["answer_weights"]
             if weights and len(set(weights.values())) == 1:
@@ -1825,37 +1921,15 @@ class SettingsDialog(QDialog):
                 for i, spin in getattr(self, 'weight_spins', {}).items():
                     if i in weights:
                         spin.setValue(weights[i])
-        
-        for scale_data in self.scales:
-            if "bounds_labels" in scale_data:
-                self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
-        
+
         QMessageBox.information(self, "Успех", "Профиль загружен!")
 
-    def _update_level_names_in_scales(self):
-        for scale_data in self.scales:
-            self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
-
-    def _update_bounds_in_scales(self):
-        if hasattr(self, 'same_bounds_checkbox') and self.same_bounds_checkbox.isChecked():
-            for scale_data in self.scales:
-                for i, level_key in enumerate(self.level_order):
-                    if level_key in scale_data["bounds_inputs"]:
-                        if i < len(self.levels_data):
-                            scale_data["bounds_inputs"][level_key].setValue(
-                                self.levels_data[i]['boundary']
-                            )
-                        if "bounds_labels" in scale_data:
-                            self._update_bounds_labels(scale_data, scale_data["bounds_labels"])
-    
     def _refresh_levels_display(self):
         self.levels_data.sort(key=lambda x: x['boundary'])
-        
         while self.levels_layout.count():
             item = self.levels_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
         prev_boundary = 0
         for i, level in enumerate(self.levels_data):
             boundary = level['boundary']
@@ -1872,13 +1946,8 @@ class SettingsDialog(QDialog):
             badge.deleted.connect(lambda lvl=level: self._delete_level(lvl))
             self.levels_layout.addWidget(badge)
             prev_boundary = boundary
-        
         self._sync_levels_with_old_format()
-        self._refresh_scale_levels_badges()
-        
-        if hasattr(self, 'scales_layout') and self.scales_layout is not None:
-            self._update_scales_levels()
-        
+        self._refresh_scales_list()
         QtCore.QTimer.singleShot(100, self.adjustSize)
 
     def _show_error_message(self, title, message):
@@ -1886,28 +1955,24 @@ class SettingsDialog(QDialog):
         msg_box.setWindowTitle(title)
         msg_box.setText(message)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        
         icon_label = QLabel()
         icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
         if not icon_pixmap.isNull():
-            icon_label.setPixmap(icon_pixmap.scaled(48, 48, 
-                Qt.AspectRatioMode.KeepAspectRatio, 
+            icon_label.setPixmap(icon_pixmap.scaled(48, 48,
+                Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation))
         else:
             icon_label.setPixmap(self.style().standardIcon(
                 QMessageBox.Style.Warning).pixmap(48, 48))
-        
         layout = msg_box.layout()
-        layout.addWidget(icon_label, 0, 0, 1, 1, 
+        layout.addWidget(icon_label, 0, 0, 1, 1,
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        
         msg_box.exec()
 
     def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
         import json
         from datetime import datetime
         from pathlib import Path
-        
         debug_data = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "scales_config": scales_config,
@@ -1915,27 +1980,22 @@ class SettingsDialog(QDialog):
             "level_ru": level_ru,
             "answer_weights": answer_weights
         }
-        
         output_path = Path("debug_config.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(debug_data, f, indent=2, ensure_ascii=False)
-        
         print("\n" + "="*60)
         print("✅ КОНФИГУРАЦИЯ СОХРАНЕНА В debug_config.json")
         print("="*60)
-        
         print("\n📈 SCALES_CONFIG:")
         print(json.dumps(scales_config, indent=2, ensure_ascii=False))
-        
         print("\n📋 LEVEL_ORDER:")
         print(level_order)
-        
         print("\n📝 LEVEL_RU:")
         print(json.dumps(level_ru, indent=2, ensure_ascii=False))
-        
         print("\n⚖️ ANSWER_WEIGHTS:")
         print(answer_weights)
-        
         print("="*60 + "\n")
-        
         return output_path
+
+    def set_config(self, config):
+        self.config = config

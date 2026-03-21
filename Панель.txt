@@ -1,0 +1,100 @@
+Отлично! Зафиксировал параметры с твоего скриншота. Вот текстовая версия для будущей реализации в PyQt6:
+
+---
+
+##  **ПАРАМЕТРЫ НАВИГАЦИОННОЙ ПАНЕЛИ**
+
+### **🔤 Основные параметры**
+
+| Параметр | Значение | CSS-переменная |
+|----------|----------|----------------|
+| **Шрифт (глобально)** | `'Segoe UI', 'Roboto', sans-serif` | `--font-family` |
+| **Размер шрифта** | `14px` | `--font-size-base` |
+| **Ширина панели** | `569px` | `--sidebar-width` |
+| **Высота панели** | `88px` | `--sidebar-height` |
+| **Отступ между кнопками** | `20px` | `--btn-spacing` |
+| **Размер иконки** | `30px` | `--icon-size` |
+
+---
+
+### **🎯 Размеры выделения (ГОРИЗОНТАЛЬНОЕ)**
+
+| Параметр | Значение | CSS-переменная |
+|----------|----------|----------------|
+| **Ширина выделения** | `112px` | `--highlight-width` |
+| **Высота выделения** | `70px` | `--highlight-height` |
+| **Горизонтальный радиус** | `34px` | `--highlight-radius-horizontal` |
+| **Вертикальный радиус** | `35px` | `--highlight-radius-vertical` |
+
+---
+
+### **🎬 Анимация роста**
+
+| Параметр | Значение | CSS-переменная |
+|----------|----------|----------------|
+| **Начальная ширина** | `30px` | `--highlight-initial-width` |
+| **Начальная высота** | `25px` | `--highlight-initial-height` |
+| **Конечная ширина** | `112px` | `--highlight-final-width` |
+| **Конечная высота** | `70px` | `--highlight-final-height` |
+| **Длительность анимации** | `300ms` | `--animation-duration` |
+| **Левый отступ панели** | `32px` | `--sidebar-padding-left` |
+| **Правый отступ панели** | `32px` | `--sidebar-padding-right` |
+
+---
+
+### **🎨 Цвета (из предыдущих правок)**
+
+| Параметр | Значение | CSS-переменная |
+|----------|----------|----------------|
+| **Фон выделения (active)** | `#b4d1ee` | `--color-highlight-bg` |
+| **Цвет текста/иконки (active)** | `#0678ea` | `--color-highlight-text` |
+| **Фон наведения (hover)** | `#F4F4F5` | `--color-hover-bg` |
+| **Основной синий** | `#3390EC` | `--color-primary` |
+| **Фон панели** | `#FFFFFF` | `--color-white` |
+| **Фон приложения** | `#F5F5F5` | `--color-bg` |
+
+---
+
+### **📋 Итоговая сводка для PyQt6**
+
+```python
+# ПАРАМЕТРЫ ДЛЯ QSS / PYTHON
+NAVIGATION_PARAMS = {
+    # Шрифты
+    'font_family': "'Segoe UI', 'Roboto', sans-serif",
+    'font_size': 14,
+    
+    # Панель
+    'sidebar_width': 569,
+    'sidebar_height': 88,
+    'sidebar_padding_left': 32,
+    'sidebar_padding_right': 32,
+    'btn_spacing': 20,
+    
+    # Иконки
+    'icon_size': 30,
+    
+    # Выделение
+    'highlight_width': 112,
+    'highlight_height': 70,
+    'highlight_radius_h': 34,
+    'highlight_radius_v': 35,
+    
+    # Анимация
+    'anim_initial_width': 30,
+    'anim_initial_height': 25,
+    'anim_final_width': 112,
+    'anim_final_height': 70,
+    'anim_duration_ms': 300,
+    
+    # Цвета
+    'color_highlight_bg': '#b4d1ee',
+    'color_highlight_text': '#0678ea',
+    'color_hover_bg': '#F4F4F5',
+    'color_primary': '#3390EC',
+}
+```
+
+---
+
+**Сохраните этот текст!** Когда будете готовы к реализации в PyQt6, просто отправьте мне эту сводку — я сразу буду в контексте с нужными параметрами. 🎯

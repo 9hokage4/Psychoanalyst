@@ -35,7 +35,7 @@ class ExcelTable(QTableView):
         QHeaderView::section {
             background-color: #E9ECEF;
             color: #212529;
-            font: bold 13px "Arial";
+            font: bold 13px "PizzaHutCYR";
             padding: 8px 12px;
             border: none;
             border-top-left-radius: 8px;
@@ -69,7 +69,7 @@ class ExcelTable(QTableView):
     def update_font_size(self):
         base_font_size = 11
         font_size = max(8, int(base_font_size * self.scale))
-        font = QFont("Arial", font_size)
+        font = QFont("PizzaHutCYR", font_size)
         self.setFont(font)
 
         row_height = max(20, int(34 * self.scale))

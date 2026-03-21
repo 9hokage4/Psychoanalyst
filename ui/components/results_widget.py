@@ -1,10 +1,11 @@
 # ui/components/results_widget.py
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QLabel, QStackedWidget, QComboBox, QTableWidget, 
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QLabel, QStackedWidget, QComboBox, QTableWidget,
     QTableWidgetItem, QHeaderView, QFrame
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+from utils.fonts import get_font, FontWeights
 
 
 class ResultsNavButton(QPushButton):
@@ -32,7 +33,8 @@ class ResultsNavButton(QPushButton):
         self.text_label = QLabel(text)
         self.text_label.setObjectName("nav_text")
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+        self.text_label.setFont(get_font("nav_button"))
+
         layout.addWidget(self.icon_label)
         layout.addWidget(self.text_label)
 
@@ -118,19 +120,20 @@ class ResultsWidget(QWidget):
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         sheet_label = QLabel("📊 Лист Excel:")
-        sheet_label.setObjectName("sheet_selector_label")
-        
+        sheet_label.setFont(get_font("form_label"))
+
         self.sheet_combo = QComboBox()
         self.sheet_combo.setObjectName("sheet_selector")
+        self.sheet_combo.setFont(get_font("form_input"))
         self.sheet_combo.addItems(["Все листы", "По курсу", "Предварительный", "Итоговый"])
         self.sheet_combo.currentTextChanged.connect(self._on_sheet_changed)
-        
+
         layout.addWidget(sheet_label)
         layout.addWidget(self.sheet_combo)
         layout.addStretch()
-        
+
         return widget
     
     def _on_sheet_changed(self, sheet_name: str):
@@ -201,23 +204,25 @@ class ResultsWidget(QWidget):
         layout = QVBoxLayout(widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(12)
-        
+
         icon_label = QLabel(icon)
         icon_label.setStyleSheet("font-size: 64px;")
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #000000;")
+        title_label.setFont(get_font("section_title"))
+        title_label.setStyleSheet("color: #000000;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         subtitle_label = QLabel(subtitle)
-        subtitle_label.setStyleSheet("font-size: 13px; color: #707579;")
+        subtitle_label.setFont(get_font("caption"))
+        subtitle_label.setStyleSheet("color: #707579;")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         layout.addWidget(icon_label)
         layout.addWidget(title_label)
         layout.addWidget(subtitle_label)
-        
+
         return widget
     
     def _switch_view(self, index: int):

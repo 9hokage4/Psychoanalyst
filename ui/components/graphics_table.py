@@ -38,7 +38,7 @@ class GraphicsTable(QGraphicsView):
         self.cell_width = max(80, int(80 * self.scale))
         self.header_height = self.cell_height
 
-        font = QFont("Arial", font_size)
+        font = QFont("PizzaHutCYR", font_size)
         cols = len(df.columns)
         rows = len(df)
         total_width = cols * self.cell_width

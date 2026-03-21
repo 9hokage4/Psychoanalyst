@@ -7,6 +7,7 @@ from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon, QFont
 
 import pandas as pd
 from ui.components.table_widget import ExcelTable
+from utils.fonts import get_font, FontWeights
 
 
 class DragDropArea(QFrame):
@@ -45,27 +46,28 @@ class DragDropArea(QFrame):
 
         # Текст
         text_label = QLabel("Перетащите Excel файл сюда")
-        text_label.setStyleSheet("font-size: 15px; font-weight: 500; color: #000000;")
+        text_label.setFont(get_font("section_title"))
+        text_label.setStyleSheet("color: #000000;")
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(text_label)
 
         # Подсказка
         hint_label = QLabel("или нажмите, чтобы выбрать файл (.xlsx, .xls)")
-        hint_label.setStyleSheet("font-size: 12px; color: #707579;")
+        hint_label.setFont(get_font("hint"))
+        hint_label.setStyleSheet("color: #707579;")
         hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint_label)
 
         # Кнопка "Выбрать файл" (увеличенная)
         self.select_btn = QPushButton("Выбрать файл")
         self.select_btn.setFixedSize(200, 44)  # ширина 200, высота 44
+        self.select_btn.setFont(get_font("button", size=16))
         self.select_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3390EC;
                 color: white;
                 border: none;
                 border-radius: 8px;
-                font-size: 16px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #2B80D9;
@@ -118,8 +120,8 @@ class ConfigSummary(QFrame):
 
         # Заголовок
         title = QLabel("⚙️ Текущая конфигурация")
-        title.setStyleSheet("font-size: 14px; font-weight: 600; color: #707579; "
-                            "text-transform: uppercase; letter-spacing: 0.5px;")
+        title.setFont(get_font("section_title_small"))
+        title.setStyleSheet("color: #707579; text-transform: uppercase; letter-spacing: 0.5px;")
         layout.addWidget(title)
 
         # Строки конфигурации с разделителями
@@ -134,10 +136,12 @@ class ConfigSummary(QFrame):
         status_layout = QHBoxLayout()
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_label = QLabel("Статус:")
-        status_label.setStyleSheet("color: #707579; font-size: 14px;")
+        status_label.setFont(get_font("caption"))
+        status_label.setStyleSheet("color: #707579;")
         status_value = QLabel("✅ Готов к обработке")
+        status_value.setFont(get_font("badge_text"))
         status_value.setStyleSheet("color: #2E7D32; background-color: #E8F5E9; "
-                                   "padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;")
+                                   "padding: 4px 12px; border-radius: 12px; font-weight: 600;")
         status_layout.addWidget(status_label)
         status_layout.addWidget(status_value)
         status_layout.addStretch()
@@ -145,6 +149,7 @@ class ConfigSummary(QFrame):
 
         # Кнопка "Изменить настройки"
         settings_btn = QPushButton("⚙️ Изменить настройки")
+        settings_btn.setFont(get_font("button_small"))
         settings_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -152,8 +157,6 @@ class ConfigSummary(QFrame):
                 border: 1px solid #3390EC;
                 border-radius: 6px;
                 padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #F4F4F5;
@@ -166,9 +169,11 @@ class ConfigSummary(QFrame):
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         label = QLabel(label_text + ":")
-        label.setStyleSheet("color: #707579; font-size: 14px;")
+        label.setFont(get_font("caption"))
+        label.setStyleSheet("color: #707579;")
         value = QLabel(value_text)
-        value.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
+        value.setFont(get_font("form_input"))
+        value.setStyleSheet("color: #000000; font-weight: 500;")
         row.addWidget(label)
         row.addStretch()
         row.addWidget(value)
@@ -261,6 +266,7 @@ class UploadWidget(QWidget):
         # Кнопка обработки
         self.process_btn = QPushButton("🚀 ОБРАБОТАТЬ ДАННЫЕ")
         self.process_btn.setEnabled(False)
+        self.process_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
         self.process_btn.setStyleSheet("""
             QPushButton {
                 background-color: #6BBF8A;
@@ -268,8 +274,6 @@ class UploadWidget(QWidget):
                 border: none;
                 border-radius: 10px;
                 padding: 14px 48px;
-                font-size: 16px;
-                font-weight: 600;
             }
             QPushButton:hover {
                 background-color: #5AA878;
@@ -283,6 +287,7 @@ class UploadWidget(QWidget):
         # Кнопка отмены (красная)
         self.cancel_btn = QPushButton("✖ Отмена")
         self.cancel_btn.setVisible(False)  # скрыта, пока файл не выбран
+        self.cancel_btn.setFont(get_font("button", size=16))
         self.cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #E07B7B;
@@ -290,8 +295,6 @@ class UploadWidget(QWidget):
                 border: none;
                 border-radius: 10px;
                 padding: 14px 24px;
-                font-size: 16px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #C96A6A;

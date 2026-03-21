@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, QRectF, QPointF, QEasingCurve, 
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 from PyQt6.QtWidgets import QAbstractButton, QSizePolicy, QLayout
 from PyQt6.QtSvg import QSvgRenderer
+from utils.fonts import get_font, FontWeights
 
 
 class QFlowLayout(QLayout):
@@ -103,16 +104,17 @@ class EditLevelDialog(QDialog):
         layout.setSpacing(15)
         
         name_label = QLabel("Название уровня:")
-        name_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
+        name_label.setFont(get_font("form_label"))
+        name_label.setStyleSheet("color: #000000;")
         self.name_edit = QLineEdit(name)
         self.name_edit.setPlaceholderText("Например, Низкий")
         self.name_edit.setFixedHeight(40)
+        self.name_edit.setFont(get_font("form_input"))
         self.name_edit.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
-                font-size: 14px;
                 background-color: white;
             }
             QLineEdit:focus {
@@ -121,19 +123,20 @@ class EditLevelDialog(QDialog):
         """)
         layout.addWidget(name_label)
         layout.addWidget(self.name_edit)
-        
+
         bound_label = QLabel("Верхняя граница (баллов):")
-        bound_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500;")
+        bound_label.setFont(get_font("form_label"))
+        bound_label.setStyleSheet("color: #000000;")
         self.boundary_spin = QSpinBox()
         self.boundary_spin.setRange(1, 10000)
         self.boundary_spin.setValue(boundary)
         self.boundary_spin.setFixedHeight(40)
+        self.boundary_spin.setFont(get_font("numeric"))
         self.boundary_spin.setStyleSheet("""
             QSpinBox {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 24px 8px 12px;
-                font-size: 14px;
                 background-color: white;
             }
             QSpinBox:focus {
@@ -157,12 +160,13 @@ class EditLevelDialog(QDialog):
         """)
         layout.addWidget(bound_label)
         layout.addWidget(self.boundary_spin)
-        
+
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
-        
+
         ok_btn = QPushButton("OK")
         ok_btn.setFixedHeight(40)
+        ok_btn.setFont(get_font("button"))
         ok_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3390EC;
@@ -170,16 +174,15 @@ class EditLevelDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #2B80D9;
             }
         """)
-        
+
         cancel_btn = QPushButton("Отмена")
         cancel_btn.setFixedHeight(40)
+        cancel_btn.setFont(get_font("button"))
         cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
@@ -187,8 +190,6 @@ class EditLevelDialog(QDialog):
                 border: 1px solid #3390EC;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #F5F5F5;
@@ -406,9 +407,8 @@ class ScaleItem(QWidget):
         top_layout.setSpacing(6)
 
         self.title_label = QLabel(scale_data["name"])
+        self.title_label.setFont(get_font("item_title"))
         self.title_label.setStyleSheet("""
-    font-size: 20px;
-    font-weight: 600;
     color: #000000;
     border: 2px solid #000000;
     border-radius: 8px;
@@ -420,7 +420,8 @@ class ScaleItem(QWidget):
         # Количество вопросов
         q_count = len(scale_data.get("questions", []))
         self.count_label = QLabel(f"Количество вопросов: {q_count}")
-        self.count_label.setStyleSheet("color: #58616a; font-size: 16px; border: none; margin: 0; padding: 0;")
+        self.count_label.setFont(get_font("caption"))
+        self.count_label.setStyleSheet("color: #58616a; border: none; margin: 0; padding: 0;")
         top_layout.addWidget(self.count_label)
         
         top_layout.addStretch()
@@ -471,7 +472,8 @@ class ScaleItem(QWidget):
 
         # Уровни
         levels_title = QLabel("Уровни:")
-        levels_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin-bottom: 4px; border: none;")
+        levels_title.setFont(get_font("caption"))
+        levels_title.setStyleSheet("color: #000000; font-weight: 500; margin-bottom: 4px; border: none;")
         layout.addWidget(levels_title)
 
         # Контейнер для уровней (горизонтальный flow layout)
@@ -484,7 +486,8 @@ class ScaleItem(QWidget):
 
         # Вопросы для шкалы
         questions_title = QLabel("Вопросы для шкалы:")
-        questions_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 500; margin: 8px 0 4px 0; border: none;")
+        questions_title.setFont(get_font("caption"))
+        questions_title.setStyleSheet("color: #000000; font-weight: 500; margin: 8px 0 4px 0; border: none;")
         layout.addWidget(questions_title)
 
         # Контейнер для строк вопросов (вертикальный layout)
@@ -540,6 +543,7 @@ class ScaleItem(QWidget):
         groups = self._format_questions_groups(self.scale_data.get("questions", []))
         if not groups:
             label = QLabel("—")
+            label.setFont(get_font("table_cell"))
             label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
             label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
             self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -548,6 +552,7 @@ class ScaleItem(QWidget):
         lines = self._split_into_lines(groups, max_per_line=5)
         for line in lines:
             label = QLabel(line)
+            label.setFont(get_font("table_cell"))
             label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
             label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
             self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -980,6 +985,7 @@ class SettingsDialog(QDialog):
         self.profile_btn = QPushButton("📁 Профили")
         self.profile_btn.setObjectName("btn_profile")
         self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
+        self.profile_btn.setFont(get_font("button"))
         self.profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3390EC;
@@ -987,8 +993,6 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #2B80D9;
@@ -996,12 +1000,13 @@ class SettingsDialog(QDialog):
         """)
         self.profile_btn.clicked.connect(self.open_profile_dialog)
         btn_layout.addWidget(self.profile_btn)
-        
+
         btn_layout.addStretch()
-        
+
         self.save_btn = QPushButton("💾 Сохранить профиль")
         self.save_btn.setObjectName("btn_save")
         self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
+        self.save_btn.setFont(get_font("button"))
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #6BBF8A;
@@ -1009,8 +1014,6 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #5AA878;
@@ -1018,10 +1021,11 @@ class SettingsDialog(QDialog):
         """)
         self.save_btn.clicked.connect(self.save_config)
         btn_layout.addWidget(self.save_btn)
-        
+
         self.cancel_btn = QPushButton("Отмена")
         self.cancel_btn.setObjectName("btn_cancel")
         self.cancel_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.cancel_btn.setFont(get_font("button"))
         self.cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
@@ -1029,8 +1033,6 @@ class SettingsDialog(QDialog):
                 border: 1px solid #3390EC;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 14px;
-                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #F5F5F5;
@@ -1064,19 +1066,20 @@ class SettingsDialog(QDialog):
         name_group = QVBoxLayout()
         name_group.setSpacing(6)
         name_label = QLabel("Название теста")
-        name_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        name_label.setFont(get_font("form_label"))
+        name_label.setStyleSheet("color: #707579;")
         name_group.addWidget(name_label)
-        
+
         self.test_name_edit = QLineEdit()
         self.test_name_edit.setPlaceholderText("Введите название")
         self.test_name_edit.setText("Опросник агрессивности")
         self.test_name_edit.setFixedHeight(40)
+        self.test_name_edit.setFont(get_font("form_input"))
         self.test_name_edit.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
-                font-size: 14px;
                 background-color: white;
                 color: #000000;
             }
@@ -1085,17 +1088,19 @@ class SettingsDialog(QDialog):
             }
         """)
         name_group.addWidget(self.test_name_edit)
-        
+
         questions_group = QVBoxLayout()
         questions_group.setSpacing(6)
         questions_label = QLabel("Количество вопросов")
-        questions_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        questions_label.setFont(get_font("form_label"))
+        questions_label.setStyleSheet("color: #707579;")
         questions_group.addWidget(questions_label)
-        
+
         self.questions_spin = QSpinBox()
         self.questions_spin.setRange(1, 1000)
         self.questions_spin.setValue(10)
         self.questions_spin.setFixedHeight(40)
+        self.questions_spin.setFont(get_font("numeric"))
         self.questions_spin.setObjectName("questions_spin")
         self.questions_spin.setStyleSheet("""
             QSpinBox {
@@ -1141,13 +1146,15 @@ class SettingsDialog(QDialog):
         answers_group = QVBoxLayout()
         answers_group.setSpacing(6)
         answers_label = QLabel("Количество вариантов ответов")
-        answers_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        answers_label.setFont(get_font("form_label"))
+        answers_label.setStyleSheet("color: #707579;")
         answers_group.addWidget(answers_label)
-        
+
         self.answers_spin = QSpinBox()
         self.answers_spin.setRange(2, 10)
         self.answers_spin.setValue(5)
         self.answers_spin.setFixedHeight(40)
+        self.answers_spin.setFont(get_font("numeric"))
         self.answers_spin.setObjectName("answers_spin")
         self.answers_spin.setStyleSheet("""
             QSpinBox {
@@ -1188,18 +1195,19 @@ class SettingsDialog(QDialog):
         desc_group = QVBoxLayout()
         desc_group.setSpacing(6)
         desc_label = QLabel("Описание теста")
-        desc_label.setStyleSheet("color: #707579; font-size: 13px; font-weight: 500;")
+        desc_label.setFont(get_font("form_label"))
+        desc_label.setStyleSheet("color: #707579;")
         desc_group.addWidget(desc_label)
-        
+
         self.test_description_edit = QTextEdit()
         self.test_description_edit.setPlaceholderText("Введите описание теста...")
         self.test_description_edit.setFixedHeight(100)
+        self.test_description_edit.setFont(get_font("form_input"))
         self.test_description_edit.setStyleSheet("""
             QTextEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
-                font-size: 14px;
                 background-color: white;
                 color: #000000;
             }
@@ -1209,19 +1217,19 @@ class SettingsDialog(QDialog):
         """)
         desc_group.addWidget(self.test_description_edit)
         main_layout.addLayout(desc_group)
-        
+
         checkbox_group = QVBoxLayout()
         checkbox_group.setSpacing(4)
         self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
         self.shared_checkbox.setChecked(False)
-        self.shared_checkbox.setToolTip("Если активно - один вопрос может относиться к нескольким шкалам")
         checkbox_group.addWidget(self.shared_checkbox)
-        
+
         hint_label = QLabel("Если активно — один вопрос может относиться к нескольким шкалам")
-        hint_label.setStyleSheet("color: #707579; font-size: 12px;")
+        hint_label.setFont(get_font("hint"))
+        hint_label.setStyleSheet("color: #707579;")
         hint_label.setContentsMargins(32, 0, 0, 0)
         checkbox_group.addWidget(hint_label)
-        
+
         main_layout.addLayout(checkbox_group)
         main_layout.addStretch()
         

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from utils.profile_manager import ProfileManager
+from utils.fonts import get_font, FontWeights
 
 
 class ProfileDialog(QDialog):
@@ -31,55 +32,65 @@ class ProfileDialog(QDialog):
         
         # Заголовок
         title = QLabel("Управление профилями")
+        title.setFont(get_font("section_title"))
         title.setObjectName("title_label")
         main_layout.addWidget(title)
-        
+
         info_label = QLabel("Сохраняйте и загружайте настройки тестов для быстрого доступа")
+        info_label.setFont(get_font("caption"))
         info_label.setObjectName("info_label")
         main_layout.addWidget(info_label)
-        
+
         # Список профилей
         self.profiles_list = QListWidget()
+        self.profiles_list.setFont(get_font("body"))
         self.profiles_list.itemDoubleClicked.connect(self.on_load_profile)
         main_layout.addWidget(self.profiles_list)
-        
+
         # Поле ввода имени нового профиля
         input_layout = QHBoxLayout()
-        input_layout.addWidget(QLabel("Имя нового профиля:"))
+        name_label = QLabel("Имя нового профиля:")
+        name_label.setFont(get_font("form_label"))
+        input_layout.addWidget(name_label)
         self.profile_name_input = QLineEdit()
         self.profile_name_input.setPlaceholderText("например, 'ММОП 2025'")
+        self.profile_name_input.setFont(get_font("form_input"))
         input_layout.addWidget(self.profile_name_input)
         main_layout.addLayout(input_layout)
-        
+
         # Кнопки действий
         btn_layout = QGridLayout()
         btn_layout.setSpacing(10)
-        
+
         # Сохранить
         self.save_btn = QPushButton(" Сохранить")
         self.save_btn.setObjectName("btn_save_profile")
         self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
+        self.save_btn.setFont(get_font("button"))
         self.save_btn.clicked.connect(self.on_save_profile)
         btn_layout.addWidget(self.save_btn, 0, 0)
-        
+
         # Загрузить
         self.load_btn = QPushButton(" Загрузить")
         self.load_btn.setObjectName("btn_load_profile")
         self.load_btn.setIcon(QIcon("resources/icons/folder.svg"))
+        self.load_btn.setFont(get_font("button"))
         self.load_btn.clicked.connect(self.on_load_profile)
         btn_layout.addWidget(self.load_btn, 0, 1)
-        
+
         # Удалить
         self.delete_btn = QPushButton(" Удалить")
         self.delete_btn.setObjectName("btn_delete_profile")
         self.delete_btn.setIcon(QIcon("resources/icons/trash.svg"))
+        self.delete_btn.setFont(get_font("button"))
         self.delete_btn.clicked.connect(self.on_delete_profile)
         btn_layout.addWidget(self.delete_btn, 1, 0)
-        
+
         # Закрыть
         self.close_btn = QPushButton(" Закрыть")
         self.close_btn.setObjectName("btn_close")
         self.close_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.close_btn.setFont(get_font("button"))
         self.close_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.close_btn, 1, 1)
         

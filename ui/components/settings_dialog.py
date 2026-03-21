@@ -925,7 +925,7 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         main_layout = QVBoxLayout()
         main_layout.setSpacing(0)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(0, 10, 0, 0)  # Отступ сверху 10px
         self.setStyleSheet("QDialog { background-color: #F5F5F5; }")
 
         # === НАВИГАЦИОННАЯ ПАНЕЛЬ ===
@@ -951,7 +951,7 @@ class SettingsDialog(QDialog):
 
         # Горизонтальный layout для кнопок
         nav_horizontal_layout = QHBoxLayout()
-        nav_horizontal_layout.setContentsMargins(32, 0, 32, 0)
+        nav_horizontal_layout.setContentsMargins(32, 9, 32, 9)
         nav_horizontal_layout.setSpacing(20)
         nav_horizontal_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         nav_container.setLayout(nav_horizontal_layout)
@@ -975,7 +975,9 @@ class SettingsDialog(QDialog):
         # Устанавливаем активной первую кнопку
         self.nav_buttons[0].setChecked(True)
 
+        # Добавляем навигационную панель с отступом сверху
         main_layout.addWidget(nav_container, alignment=Qt.AlignmentFlag.AlignHCenter)
+        main_layout.addSpacing(10)  # Отступ снизу от навигационной панели
 
         # === СТЕК ВИДЖЕТОВ ===
         self.stacked_widget = QStackedWidget()

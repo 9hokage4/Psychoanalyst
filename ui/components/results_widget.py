@@ -1,270 +1,404 @@
 # ui/components/results_widget.py
+import pandas as pd
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QStackedWidget, QComboBox, QTableWidget,
-    QTableWidgetItem, QHeaderView, QFrame
+    QTableWidgetItem, QHeaderView, QFrame, QScrollArea, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont
 from utils.fonts import get_font, FontWeights
-
-
-class ResultsNavButton(QPushButton):
-    """Кнопка вертикальной навигации"""
-    
-    def __init__(self, icon_path: str, text: str, parent=None):
-        super().__init__(parent)
-        self.setup_ui(icon_path, text)
-        
-    def setup_ui(self, icon_path: str, text: str):
-        self.setObjectName("results_nav_button")
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setCheckable(True)
-        
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 12, 8, 8)
-        layout.setSpacing(6)
-        
-        # Иконка
-        self.icon_label = QLabel()
-        self.icon_label.setObjectName("nav_icon")
-        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Текст
-        self.text_label = QLabel(text)
-        self.text_label.setObjectName("nav_text")
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setFont(get_font("nav_button"))
-
-        layout.addWidget(self.icon_label)
-        layout.addWidget(self.text_label)
+from ui.components.results_nav_button import ResultsNavButton
 
 
 class ResultsWidget(QWidget):
     sheet_changed = pyqtSignal(str)
-    
+
     def __init__(self):
         super().__init__()
         self.current_sheet = "Все листы"
+        self.current_df = None
+        self.processed_file_path = Path("processed_data.xlsx")
         self.setup_ui()
-        
+        self._load_processed_data()
+
     def setup_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(20)
-        
-        # ===== ВЕРТИКАЛЬНАЯ НАВИГАЦИЯ (ФИКСИРОВАННАЯ ВЫСОТА) =====
+        # Основной layout с отступами
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+
+        # Контейнер для результатов (горизонтальное расположение)
+        results_container = QWidget()
+        results_layout = QHBoxLayout(results_container)
+        results_layout.setContentsMargins(0, 0, 0, 0)
+        results_layout.setSpacing(20)
+
+        # ===== ЛЕВАЯ ВЕРТИКАЛЬНАЯ ПАНЕЛЬ (140×450px) =====
         self.sidebar = QWidget()
         self.sidebar.setObjectName("results_sidebar")
-        self.sidebar.setFixedHeight(450)  # ✅ Фиксированная высота
+        self.sidebar.setFixedSize(140, 450)
+
+        # Тень для sidebar
+        sidebar_shadow = QGraphicsDropShadowEffect()
+        sidebar_shadow.setBlurRadius(20)
+        sidebar_shadow.setOffset(0, 4)
+        sidebar_shadow.setColor(QColor(0, 0, 0, 20))
+        self.sidebar.setGraphicsEffect(sidebar_shadow)
+
+        # Стиль sidebar
+        self.sidebar.setStyleSheet("""
+            QWidget#results_sidebar {
+                background-color: #FFFFFF;
+                border-radius: 80px;
+            }
+        """)
+
         sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(12, 20, 12, 20)
         sidebar_layout.setSpacing(16)
-        
+        sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         self.nav_buttons = []
-        
+
+        # Кнопки навигации
         btn_table = ResultsNavButton("resources/icons/table.svg", "Таблица")
         btn_table.setChecked(True)
         btn_table.clicked.connect(lambda: self._switch_view(0))
         self.nav_buttons.append(btn_table)
-        
+
         btn_pie = ResultsNavButton("resources/icons/pie.svg", "Круговая")
         btn_pie.clicked.connect(lambda: self._switch_view(1))
         self.nav_buttons.append(btn_pie)
-        
+
         btn_bar = ResultsNavButton("resources/icons/bar.svg", "Столбчатая")
         btn_bar.clicked.connect(lambda: self._switch_view(2))
         self.nav_buttons.append(btn_bar)
-        
+
         btn_line = ResultsNavButton("resources/icons/line.svg", "График")
         btn_line.clicked.connect(lambda: self._switch_view(3))
         self.nav_buttons.append(btn_line)
-        
+
         for btn in self.nav_buttons:
-            sidebar_layout.addWidget(btn)
-        
-        sidebar_layout.addStretch()
-        layout.addWidget(self.sidebar)
-        
-        # ===== КОНТЕНТ (ФИКСИРОВАННАЯ ВЫСОТА) =====
+            sidebar_layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        results_layout.addWidget(self.sidebar)
+
+        # ===== ОСНОВНАЯ ОБЛАСТЬ =====
         content_widget = QWidget()
+        content_widget.setObjectName("results_content")
+        content_widget.setFixedHeight(450)
+
+        # Тень для content
+        content_shadow = QGraphicsDropShadowEffect()
+        content_shadow.setBlurRadius(20)
+        content_shadow.setOffset(0, 4)
+        content_shadow.setColor(QColor(0, 0, 0, 20))
+        content_widget.setGraphicsEffect(content_shadow)
+
+        # Стиль content
+        content_widget.setStyleSheet("""
+            QWidget#results_content {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+        """)
+
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setContentsMargins(24, 24, 24, 24)
         content_layout.setSpacing(16)
-        
+
         # Выбор листа Excel
         self.sheet_selector_widget = self._create_sheet_selector()
         content_layout.addWidget(self.sheet_selector_widget)
-        
+
         # Стек видов
         self.views_stack = QStackedWidget()
         self.views_stack.setObjectName("views_stack")
-        
+        self.views_stack.setStyleSheet("background-color: transparent;")
+
         # Таблица
         self.table_view = self._create_table_view()
         self.views_stack.addWidget(self.table_view)
-        
-        # Графики (заглушки)
-        self.pie_view = self._create_chart_placeholder("🥧", "Круговая диаграмма", "Распределение уровней")
+
+        # Круговая диаграмма (заглушка)
+        self.pie_view = self._create_chart_placeholder(
+            "🥧",
+            "Круговая диаграмма",
+            ["Распределение уровней", "По шкалам"]
+        )
         self.views_stack.addWidget(self.pie_view)
-        
-        self.bar_view = self._create_chart_placeholder("📊", "Столбчатая диаграмма", "Сравнение показателей")
+
+        # Столбчатая диаграмма (заглушка)
+        self.bar_view = self._create_chart_placeholder(
+            "📊",
+            "Столбчатая диаграмма",
+            ["Сравнение показателей", "По респондентам"]
+        )
         self.views_stack.addWidget(self.bar_view)
-        
-        self.line_view = self._create_chart_placeholder("📈", "Линейный график", "Динамика показателей")
+
+        # Линейный график (заглушка)
+        self.line_view = self._create_chart_placeholder(
+            "📈",
+            "Линейный график",
+            ["Динамика показателей"]
+        )
         self.views_stack.addWidget(self.line_view)
-        
+
         content_layout.addWidget(self.views_stack)
-        layout.addWidget(content_widget)
-    
+        results_layout.addWidget(content_widget)
+
+        main_layout.addWidget(results_container)
+
     def _create_sheet_selector(self) -> QWidget:
         """Создаёт выпадающий список выбора листа"""
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
         sheet_label = QLabel("📊 Лист Excel:")
         sheet_label.setFont(get_font("form_label"))
+        sheet_label.setStyleSheet("color: #707579; background-color: transparent;")
 
         self.sheet_combo = QComboBox()
         self.sheet_combo.setObjectName("sheet_selector")
         self.sheet_combo.setFont(get_font("form_input"))
         self.sheet_combo.addItems(["Все листы", "По курсу", "Предварительный", "Итоговый"])
         self.sheet_combo.currentTextChanged.connect(self._on_sheet_changed)
+        self.sheet_combo.setStyleSheet("""
+            QComboBox {
+                padding: 10px 14px;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                background-color: white;
+                font-size: 14px;
+            }
+            QComboBox:focus {
+                border: 1px solid #3390EC;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 10px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                width: 12px;
+                height: 12px;
+            }
+        """)
 
         layout.addWidget(sheet_label)
         layout.addWidget(self.sheet_combo)
         layout.addStretch()
 
         return widget
-    
+
     def _on_sheet_changed(self, sheet_name: str):
         """Обработчик смены листа"""
         self.current_sheet = sheet_name
         self.sheet_changed.emit(sheet_name)
-    
+
     def _create_table_view(self) -> QTableWidget:
         """Создаёт таблицу результатов"""
         table = QTableWidget()
         table.setObjectName("results_table")
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(["ID", "Респондент", "Дата", "Уровень", "Баллы"])
-        
-        # Пример данных
-        data = [
-            ("#101", "Иванов А.А.", "15.03.2026", "Средний", "24/45", "warning"),
-            ("#102", "Петрова Е.В.", "15.03.2026", "Низкий", "12/45", "success"),
-            ("#103", "Сидоров К.К.", "14.03.2026", "Высокий", "38/45", "danger"),
-        ]
-        
-        table.setRowCount(len(data))
-        for row, row_data in enumerate(data):
-            for col in range(4):  # Первые 4 колонки - обычный текст
-                item = QTableWidgetItem(row_data[col])
-                table.setItem(row, col, item)
-            
-            # Последняя колонка - бейдж с уровнем
-            badge_widget = self._create_badge(row_data[3], row_data[5])
-            table.setCellWidget(row, 3, badge_widget)
-            
-            # Баллы
-            item = QTableWidgetItem(row_data[4])
-            table.setItem(row, 4, item)
-        
+
+        table.setRowCount(0)
+
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: transparent;
+                border: none;
+                gridline-color: #DFE1E5;
+            }
+            QTableWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #DFE1E5;
+            }
+            QTableWidget::item:hover {
+                background-color: #F4F4F5;
+            }
+            QHeaderView::section {
+                background-color: transparent;
+                color: #707579;
+                font-size: 13px;
+                font-weight: 600;
+                padding: 12px;
+                border: none;
+                border-bottom: 1px solid #DFE1E5;
+            }
+        """)
+
         return table
-    
+
     def _create_badge(self, text: str, level: str) -> QWidget:
         """Создаёт бейдж уровня (Низкий/Средний/Высокий)"""
         widget = QWidget()
+        widget.setStyleSheet("background-color: transparent;")
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(8, 4, 8, 4)
-        
+
         label = QLabel(text)
         label.setWordWrap(False)
-        
+        label.setStyleSheet("background-color: transparent;")
+
         if level == "success":
-            label.setObjectName("badge_success")
+            label.setStyleSheet("""
+                QLabel {
+                    background-color: #E8F5E9;
+                    color: #2E7D32;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                }
+            """)
         elif level == "warning":
-            label.setObjectName("badge_warning")
+            label.setStyleSheet("""
+                QLabel {
+                    background-color: #FFF3E0;
+                    color: #EF6C00;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                }
+            """)
         elif level == "danger":
-            label.setObjectName("badge_danger")
-        
+            label.setStyleSheet("""
+                QLabel {
+                    background-color: #FFEBEE;
+                    color: #C62828;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                }
+            """)
+
         layout.addWidget(label)
         layout.addStretch()
-        
+
         return widget
-    
-    def _create_chart_placeholder(self, icon: str, title: str, subtitle: str) -> QWidget:
+
+    def _create_chart_placeholder(self, icon: str, title: str, subtitles: list) -> QWidget:
         """Создаёт заглушку для графика"""
         widget = QWidget()
         widget.setObjectName("chart_placeholder")
-        layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(12)
 
-        icon_label = QLabel(icon)
-        icon_label.setStyleSheet("font-size: 64px;")
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if len(subtitles) == 1:
+            # Один блок на всю ширину
+            layout = QVBoxLayout(widget)
+            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.setSpacing(12)
 
-        title_label = QLabel(title)
-        title_label.setFont(get_font("section_title"))
-        title_label.setStyleSheet("color: #000000;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            icon_label = QLabel(icon)
+            icon_label.setStyleSheet("font-size: 64px;")
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitle_label = QLabel(subtitle)
-        subtitle_label.setFont(get_font("caption"))
-        subtitle_label.setStyleSheet("color: #707579;")
-        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            title_label = QLabel(title)
+            title_label.setFont(get_font("section_title"))
+            title_label.setStyleSheet("color: #000000; background-color: transparent;")
+            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        layout.addWidget(icon_label)
-        layout.addWidget(title_label)
-        layout.addWidget(subtitle_label)
+            subtitle_label = QLabel(subtitles[0])
+            subtitle_label.setFont(get_font("caption"))
+            subtitle_label.setStyleSheet("color: #707579; background-color: transparent;")
+            subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            layout.addWidget(icon_label)
+            layout.addWidget(title_label)
+            layout.addWidget(subtitle_label)
+        else:
+            # Сетка 1fr 1fr
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(20)
+
+            grid_widget = QWidget()
+            grid_layout = QHBoxLayout(grid_widget)
+            grid_layout.setContentsMargins(0, 0, 0, 0)
+            grid_layout.setSpacing(20)
+
+            for subtitle in subtitles:
+                placeholder = QWidget()
+                placeholder.setObjectName("chart_placeholder_item")
+                placeholder.setStyleSheet("""
+                    QWidget#chart_placeholder_item {
+                        background-color: #F8F9FA;
+                        border: 1px solid #DFE1E5;
+                        border-radius: 8px;
+                    }
+                """)
+                placeholder.setMinimumHeight(250)
+
+                ph_layout = QVBoxLayout(placeholder)
+                ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                ph_layout.setSpacing(12)
+
+                ph_icon = QLabel(icon)
+                ph_icon.setStyleSheet("font-size: 48px;")
+                ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                ph_title = QLabel(subtitle)
+                ph_title.setFont(get_font("caption"))
+                ph_title.setStyleSheet("color: #707579; background-color: transparent;")
+                ph_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                ph_layout.addWidget(ph_icon)
+                ph_layout.addWidget(ph_title)
+
+                grid_layout.addWidget(placeholder)
+
+            layout.addWidget(grid_widget)
 
         return widget
-    
+
     def _switch_view(self, index: int):
         """Переключает вид (таблица/графики)"""
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
         self.views_stack.setCurrentIndex(index)
-    
+
     def set_data(self, df):
         """Устанавливает данные из pandas DataFrame"""
         if df is None or df.empty:
             return
-        
+
         # Очистка таблицы
         self.table_view.setRowCount(0)
-        
+
         # Заполнение из DataFrame
         for row_idx, row in df.iterrows():
             self.table_view.insertRow(row_idx)
-            
+
             # ID
             item = QTableWidgetItem(str(row.get('ID', f'#{row_idx}')))
             self.table_view.setItem(row_idx, 0, item)
-            
+
             # Респондент
             item = QTableWidgetItem(str(row.get('Респондент', 'Unknown')))
             self.table_view.setItem(row_idx, 1, item)
-            
+
             # Дата
             item = QTableWidgetItem(str(row.get('Дата', '')))
             self.table_view.setItem(row_idx, 2, item)
-            
+
             # Уровень (с бейджем)
             level = str(row.get('Уровень', 'Не определено'))
             level_type = self._get_level_type(level)
             badge_widget = self._create_badge(level, level_type)
             self.table_view.setCellWidget(row_idx, 3, badge_widget)
-            
+
             # Баллы
             item = QTableWidgetItem(str(row.get('Баллы', '0/0')))
             self.table_view.setItem(row_idx, 4, item)
-    
+
     def _get_level_type(self, level: str) -> str:
         """Определяет тип уровня для бейджа"""
         level_lower = level.lower()
@@ -274,13 +408,63 @@ class ResultsWidget(QWidget):
             return 'warning'
         elif 'высок' in level_lower:
             return 'danger'
-        return 'warning'  # По умолчанию
-    
+        return 'warning'
+
+    def _load_processed_data(self):
+        """Загружает данные из processed_data.xlsx"""
+        if self.processed_file_path.exists():
+            try:
+                self.current_df = pd.read_excel(self.processed_file_path)
+                self._populate_table_from_df()
+            except Exception as e:
+                print(f"Ошибка загрузки данных: {e}")
+
+    def _populate_table_from_df(self):
+        """Заполняет таблицу данными из DataFrame"""
+        if self.current_df is None or self.current_df.empty:
+            return
+
+        self.table_view.setRowCount(0)
+
+        for row_idx, row in self.current_df.iterrows():
+            self.table_view.insertRow(row_idx)
+
+            # ID (индекс + 1)
+            item = QTableWidgetItem(f'#{row_idx + 1}')
+            self.table_view.setItem(row_idx, 0, item)
+
+            # ФИО
+            fio = row.get('ФИО', 'Unknown')
+            item = QTableWidgetItem(str(fio))
+            self.table_view.setItem(row_idx, 1, item)
+
+            # Дата
+            date = row.get('Дата', '')
+            if pd.notna(date):
+                item = QTableWidgetItem(str(date))
+            else:
+                item = QTableWidgetItem('')
+            self.table_view.setItem(row_idx, 2, item)
+
+            # Уровень риска (Risk Level)
+            risk_level = row.get('Risk Level', 'Не определено')
+            level_type = self._get_level_type(str(risk_level))
+            badge_widget = self._create_badge(str(risk_level), level_type)
+            self.table_view.setCellWidget(row_idx, 3, badge_widget)
+
+            # % риска (баллы)
+            risk_percent = row.get('% риска', '0')
+            item = QTableWidgetItem(str(risk_percent))
+            self.table_view.setItem(row_idx, 4, item)
+
+    def refresh_data(self):
+        """Обновляет данные из processed_data.xlsx"""
+        self._load_processed_data()
+
     def set_filename(self, filename: str):
         """Обновляет название файла (для отображения)"""
-        # Можно добавить label с названием файла
         pass
-    
+
     def get_current_sheet(self) -> str:
         """Возвращает текущий выбранный лист"""
         return self.current_sheet

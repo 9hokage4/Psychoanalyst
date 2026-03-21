@@ -3,16 +3,17 @@ from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QDialog, QGridLayout, QGroupBox, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSpinBox, QCheckBox, QScrollArea, QWidget,
-    QLineEdit, QMessageBox, QTabWidget, QFrame, QSizePolicy
+    QLineEdit, QMessageBox, QFrame, QSizePolicy, QStackedWidget
 )
 from PyQt6.QtGui import QFont, QIcon, QPixmap
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
 from pathlib import Path
 from utils.profile_manager import ProfileManager
 from ui.components.profile_dialog import ProfileDialog
-from PyQt6.QtCore import Qt, QPropertyAnimation, QRectF, QPointF, QEasingCurve, pyqtProperty
+from ui.components.nav_button import NavButton
+from PyQt6.QtCore import QPropertyAnimation, QRectF, QPointF, QEasingCurve, pyqtProperty
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
-from PyQt6.QtWidgets import QAbstractButton, QSizePolicy, QLayout
+from PyQt6.QtWidgets import QAbstractButton, QLayout
 from PyQt6.QtSvg import QSvgRenderer
 from utils.fonts import get_font, FontWeights
 
@@ -926,49 +927,73 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         self.setStyleSheet("QDialog { background-color: #F5F5F5; }")
-        
-        self.tabs = QTabWidget()
-        self.tabs.setDocumentMode(True)
-        self.tabs.setIconSize(QSize(20, 20))
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: none;
-                background-color: #F5F5F5;
-                top: -1px;
-            }
-            QTabBar::tab {
-                background-color: transparent;
-                color: #707579;
-                border: none;
-                border-bottom: 2px solid transparent;
-                padding: 12px 24px;
-                margin-right: 4px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QTabBar::tab:selected {
-                color: #3390EC;
-                border-bottom: 2px solid #3390EC;
-            }
-            QTabBar::tab:hover:!selected {
-                background-color: #F5F5F5;
-                border-radius: 8px 8px 0 0;
+
+        # === НАВИГАЦИОННАЯ ПАНЕЛЬ ===
+        nav_container = QWidget()
+        nav_container.setFixedHeight(88)
+        nav_container.setObjectName("nav_container")
+
+        # Стиль панели: белый фон, скругленные углы
+        nav_container.setStyleSheet("""
+            #nav_container {
+                background-color: #FFFFFF;
+                border-radius: 20px;
             }
         """)
-        
+
+        # Тень
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0, 0, 0, 30))
+        nav_container.setGraphicsEffect(shadow)
+
+        # Горизонтальный layout для кнопок
+        nav_horizontal_layout = QHBoxLayout()
+        nav_horizontal_layout.setContentsMargins(32, 0, 32, 0)
+        nav_horizontal_layout.setSpacing(20)
+        nav_horizontal_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nav_container.setLayout(nav_horizontal_layout)
+
+        # Кнопки навигации
+        self.nav_buttons = []
+        btn_data = [
+            ("resources/icons/cog.svg", "Основные"),
+            ("resources/icons/chart-line.svg", "Уровни"),
+            ("resources/icons/charts.svg", "Шкалы"),
+            ("resources/icons/scale.svg", "Веса")
+        ]
+        for icon, text in btn_data:
+            btn = NavButton(icon, text)
+            btn.setStyleSheet("background-color: transparent")
+            btn.setObjectName(f"nav_{text}")
+            btn.clicked.connect(lambda b=btn, t=text: self.switch_to_tab(b, t))
+            nav_horizontal_layout.addWidget(btn)
+            self.nav_buttons.append(btn)
+
+        # Устанавливаем активной первую кнопку
+        self.nav_buttons[0].setChecked(True)
+
+        main_layout.addWidget(nav_container, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # === СТЕК ВИДЖЕТОВ ===
+        self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setStyleSheet("background-color: transparent;")
+        main_layout.addWidget(self.stacked_widget)
+
+        # Создаём страницы
         self.basic_tab = self._create_basic_tab()
-        self.scales_tab = self._create_scales_tab()
         self.levels_tab = self._create_levels_tab()
+        self.scales_tab = self._create_scales_tab()
         self.weights_tab = self._create_weights_tab()
-        
-        self.tabs.addTab(self.basic_tab, QIcon("resources/icons/cog.svg"), "Основные")
-        self.tabs.addTab(self.levels_tab, QIcon("resources/icons/chart-line.svg"), "Уровни")
-        self.tabs.addTab(self.scales_tab, QIcon("resources/icons/charts.svg"), "Шкалы")
-        self.tabs.addTab(self.weights_tab, QIcon("resources/icons/scale.svg"), "Веса")
-        
-        main_layout.addWidget(self.tabs)
-        self.tabs.currentChanged.connect(self.on_tab_changed)
-        
+
+        self.stacked_widget.addWidget(self.basic_tab)
+        self.stacked_widget.addWidget(self.levels_tab)
+        self.stacked_widget.addWidget(self.scales_tab)
+        self.stacked_widget.addWidget(self.weights_tab)
+
+        # Кнопки управления
         btn_frame = QFrame()
         btn_frame.setObjectName("btn_frame")
         btn_frame.setStyleSheet("""
@@ -981,7 +1006,7 @@ class SettingsDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_layout.setSpacing(12)
-        
+
         self.profile_btn = QPushButton("📁 Профили")
         self.profile_btn.setObjectName("btn_profile")
         self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
@@ -1040,19 +1065,26 @@ class SettingsDialog(QDialog):
         """)
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
-        
+
         btn_frame.setLayout(btn_layout)
         main_layout.addWidget(btn_frame)
-        
+
         self.setLayout(main_layout)
-        
-    def on_tab_changed(self, index):
-        # Получаем название активной вкладки
-        current_tab = self.tabs.widget(index)
-        if current_tab == self.levels_tab:
-            # Ограничиваем высоту окна, например, 600
-            self.setMaximumHeight(480)
-        else:
+
+    def switch_to_tab(self, button: NavButton, tab_name: str):
+        """Переключает вкладку по нажатию на кнопку навигации."""
+        for btn in self.nav_buttons:
+            btn.setChecked(False)
+        button.setChecked(True)
+
+        if tab_name == "Основные":
+            self.stacked_widget.setCurrentWidget(self.basic_tab)
+        elif tab_name == "Уровни":
+            self.stacked_widget.setCurrentWidget(self.levels_tab)
+        elif tab_name == "Шкалы":
+            self.stacked_widget.setCurrentWidget(self.scales_tab)
+        elif tab_name == "Веса":
+            self.stacked_widget.setCurrentWidget(self.weights_tab)
             # Сбрасываем ограничение (устанавливаем очень большое значение)
             self.setMaximumHeight(16777215)  # максимальное значение высоты в Qt
         self.adjustSize()
@@ -1246,7 +1278,8 @@ class SettingsDialog(QDialog):
         layout.addWidget(title_label)
 
         self.levels_container = QWidget()
-        self.levels_container.setMinimumHeight(40)   # минимальная высота
+        self.levels_container.setMinimumHeight(40)
+        self.levels_container.setStyleSheet("background-color: #f5f5f5")# минимальная высота
         self.levels_layout = QFlowLayout(self.levels_container)
         self.levels_layout.setContentsMargins(6, 2, 6, 2)
         self.levels_layout.setSpacing(6)
@@ -1917,25 +1950,25 @@ class SettingsDialog(QDialog):
     def save_config(self):
         if self.questions_spin.value() < 1:
             self._show_error_message("Ошибка", "Количество вопросов должно быть больше 0")
-            self.tabs.setCurrentIndex(0)
+            self.stacked_widget.setCurrentIndex(0)
             return
         if self.answers_spin.value() < 2:
             self._show_error_message("Ошибка", "Количество ответов должно быть минимум 2")
-            self.tabs.setCurrentIndex(0)
+            self.stacked_widget.setCurrentIndex(0)
             return
         if len(self.levels_data) < 1:
             self._show_error_message("Ошибка", "Добавьте хотя бы один уровень показателей")
-            self.tabs.setCurrentIndex(1)
+            self.stacked_widget.setCurrentIndex(1)
             return
         for i, level_data in enumerate(self.levels_data):
             name = level_data['name'].strip()
             if not name:
                 self._show_error_message("Ошибка", f"Уровень {i + 1} не имеет названия")
-                self.tabs.setCurrentIndex(1)
+                self.stacked_widget.setCurrentIndex(1)
                 return
         if len(self.scales) < 1:
             self._show_error_message("Ошибка", "Добавьте хотя бы одну шкалу")
-            self.tabs.setCurrentIndex(2)
+            self.stacked_widget.setCurrentIndex(2)
             return
 
         level_order = []
@@ -2020,7 +2053,7 @@ class SettingsDialog(QDialog):
                     "Повторяющиеся вопросы:\n" + "\n".join(error_messages)
                 )
                 self._show_error_message("Ошибка валидации", error_text)
-                self.tabs.setCurrentIndex(2)
+                self.stacked_widget.setCurrentIndex(2)
                 return
 
         self._save_debug_config(scales_config, level_order, level_ru, answer_weights)

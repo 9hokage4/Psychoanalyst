@@ -2,332 +2,23 @@
 from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedWidget, QLabel, QGraphicsDropShadowEffect)
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve, QSize, QPoint, QSequentialAnimationGroup
-from PyQt6.QtGui import QIcon, QColor, QFont, QPainter, QBrush, QPen, QPainterPath, QPixmap, QImage, qRgba, qAlpha
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 
+from ui.components.nav_button import NavButton
 from ui.components.upload_widget import UploadWidget
 from ui.components.results_widget import ResultsWidget
 from ui.components.history_widget import HistoryWidget
-from utils.fonts import get_font, FontWeights
 
 
-# Параметры навигации из ТЗ
-NAV_PARAMS = {
-    # Шрифты
-    'font_family': "'Segoe UI', 'Roboto', sans-serif",
-    'font_size': 14,
-    # Панель
+# Параметры навигационной панели
+NAV_PANEL_PARAMS = {
     'sidebar_width': 569,
     'sidebar_height': 88,
     'sidebar_padding_left': 32,
     'sidebar_padding_right': 32,
     'btn_spacing': 20,
-    # Иконки
-    'icon_size': 30,
-    # Выделение
-    'highlight_width': 112,
-    'highlight_height': 70,
-    'highlight_radius_h': 34,
-    'highlight_radius_v': 35,
-    # Анимация - размеры по этапам (в пикселях)
-    # Этап 1: начальный размер (старт анимации)
-    'anim_stage1_width': 15,
-    'anim_stage1_height': 15,
-    # Этап 2: сжатие
-    'anim_stage2_width': 10,
-    'anim_stage2_height': 10,
-    # Этап 3: расширение (максимум)
-    'anim_stage3_width': 25,
-    'anim_stage3_height': 25,
-    # Этап 4: финальный размер (статичное состояние)
-    'anim_stage4_width': 112,
-    'anim_stage4_height': 70,
-    # Длительность каждого этапа анимации (мс)
-    'anim_stage1_duration': 100,  # 15x15 -> 10x10
-    'anim_stage2_duration': 100,  # 10x10 -> 25x25
-    'anim_stage3_duration': 150,  # 25x25 -> 112x70
-    # Цвета
-    'color_highlight_bg': '#b4d1ee',      # фон активной кнопки
-    'color_hover_bg': '#e6e6e6',          # фон при наведении
-    'color_highlight_text': '#0678ea',    # текст/иконка активной кнопки
-    'color_text_default': '#000000',      # текст/иконка по умолчанию
-    'color_primary': '#3390EC',
-    'color_white': '#FFFFFF',
-    'color_bg': '#F5F5F5',
 }
-
-
-class NavButton(QWidget):
-    """Кастомная кнопка для горизонтальной навигации с анимацией выделения."""
-    clicked = pyqtSignal()
-
-    def __init__(self, icon_path: str, text: str, parent=None):
-        super().__init__(parent)
-        self.setFixedSize(NAV_PARAMS['highlight_width'], NAV_PARAMS['highlight_height'])
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._checked = False
-        self._hover = False
-
-        # Анимация размера фона - последовательная анимация
-        self._bg_size = QSize(NAV_PARAMS['anim_stage1_width'], NAV_PARAMS['anim_stage1_height'])
-        
-        # Создаем группу последовательных анимаций
-        self.bg_animation_group = QSequentialAnimationGroup(self)
-        
-        # Этап 1: 15x15 -> 10x10 (сжатие)
-        self.anim_stage1 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage1.setDuration(NAV_PARAMS['anim_stage1_duration'])
-        self.anim_stage1.setStartValue(QSize(NAV_PARAMS['anim_stage1_width'], NAV_PARAMS['anim_stage1_height']))
-        self.anim_stage1.setEndValue(QSize(NAV_PARAMS['anim_stage2_width'], NAV_PARAMS['anim_stage2_height']))
-        self.anim_stage1.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.bg_animation_group.addAnimation(self.anim_stage1)
-        
-        # Этап 2: 10x10 -> 25x25 (расширение)
-        self.anim_stage2 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage2.setDuration(NAV_PARAMS['anim_stage2_duration'])
-        self.anim_stage2.setStartValue(QSize(NAV_PARAMS['anim_stage2_width'], NAV_PARAMS['anim_stage2_height']))
-        self.anim_stage2.setEndValue(QSize(NAV_PARAMS['anim_stage3_width'], NAV_PARAMS['anim_stage3_height']))
-        self.anim_stage2.setEasingCurve(QEasingCurve.Type.OutQuad)
-        self.bg_animation_group.addAnimation(self.anim_stage2)
-        
-        # Этап 3: 25x25 -> 112x70 (финальный размер)
-        self.anim_stage3 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage3.setDuration(NAV_PARAMS['anim_stage3_duration'])
-        self.anim_stage3.setStartValue(QSize(NAV_PARAMS['anim_stage3_width'], NAV_PARAMS['anim_stage3_height']))
-        self.anim_stage3.setEndValue(QSize(NAV_PARAMS['anim_stage4_width'], NAV_PARAMS['anim_stage4_height']))
-        self.anim_stage3.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.bg_animation_group.addAnimation(self.anim_stage3)
-        
-        # Анимация прозрачности (появление фона)
-        self._bg_opacity = 0.0
-        self.opacity_animation = QPropertyAnimation(self, b"bg_opacity")
-        self.opacity_animation.setDuration(NAV_PARAMS['anim_stage1_duration'] + NAV_PARAMS['anim_stage2_duration'] + NAV_PARAMS['anim_stage3_duration'])
-        self.opacity_animation.setStartValue(0.0)
-        self.opacity_animation.setEndValue(1.0)
-        self.opacity_animation.setEasingCurve(QEasingCurve.Type.Linear)
-
-        # Сохраняем путь к иконке (преобразуем в абсолютный)
-        self.icon_path = str(Path(icon_path).absolute()) if not Path(icon_path).is_absolute() else icon_path
-        self.icon_size = NAV_PARAMS['icon_size']
-
-        # Layout - вертикальный, центрирование по горизонтали
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 8)
-        layout.setSpacing(6)
-        layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        # Иконка
-        self.icon_label = QLabel()
-        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setFixedSize(self.icon_size, self.icon_size)
-        layout.addWidget(self.icon_label, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # Текст
-        self.text_label = QLabel(text)
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setObjectName("nav_text")
-        font = QFont("Genzsch Antiqua", NAV_PARAMS['font_size'])
-        font.setWeight(QFont.Weight.Medium)
-        self.text_label.setFont(font)
-        self.text_label.setStyleSheet("color: #000000;")
-        layout.addWidget(self.text_label, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # Загружаем иконку с цветом по умолчанию
-        self._update_icon()
-        self._update_colors()
-
-    def _create_colored_icon(self, color: QColor) -> QPixmap:
-        """Создает QPixmap из SVG с указанным цветом через QIcon."""
-        # Загружаем через QIcon
-        icon = QIcon(self.icon_path)
-        pixmap = icon.pixmap(self.icon_size, self.icon_size)
-
-        if pixmap.isNull():
-            # Если не удалось загрузить, создаем заглушку
-            pixmap = QPixmap(self.icon_size, self.icon_size)
-            pixmap.fill(Qt.GlobalColor.transparent)
-            painter = QPainter(pixmap)
-            painter.setBrush(QBrush(color))
-            painter.drawEllipse(0, 0, self.icon_size, self.icon_size)
-            painter.end()
-            return pixmap
-
-        # Создаем цветную версию через QImage для попиксельной обработки
-        image = pixmap.toImage()
-        image = image.convertToFormat(QImage.Format.Format_ARGB32)
-
-        for y in range(image.height()):
-            for x in range(image.width()):
-                pixel = image.pixel(x, y)
-                alpha = qAlpha(pixel)
-                if alpha > 0:
-                    # Сохраняем альфа-канал, меняем цвет
-                    new_pixel = qRgba(color.red(), color.green(), color.blue(), alpha)
-                    image.setPixel(x, y, new_pixel)
-
-        return QPixmap.fromImage(image)
-
-    def _update_icon(self):
-        """Обновляет иконку с текущим цветом."""
-        if self._checked:
-            color = QColor(NAV_PARAMS['color_highlight_text'])
-        else:
-            color = QColor(NAV_PARAMS['color_text_default'])
-
-        pixmap = self._create_colored_icon(color)
-        self.icon_label.setPixmap(pixmap)
-        self.icon_label.update()
-
-    def _update_colors(self):
-        """Обновление цветов текста."""
-        if self._checked:
-            color = NAV_PARAMS['color_highlight_text']
-        else:
-            color = NAV_PARAMS['color_text_default']
-
-        self.text_label.setStyleSheet(f"color: {color};")
-        self._update_icon()
-        self.update()
-
-    def paintEvent(self, event):
-        """Отрисовка фона с анимацией."""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Создаем путь для скругленного прямоугольника
-        path = QPainterPath()
-        x = (self.width() - self._bg_size.width()) / 2
-        y = (self.height() - self._bg_size.height()) / 2
-        path.addRoundedRect(
-            x, y,
-            self._bg_size.width(),
-            self._bg_size.height(),
-            NAV_PARAMS['highlight_radius_h'],
-            NAV_PARAMS['highlight_radius_v']
-        )
-
-        # Цвет фона
-        if self._checked:
-            # Активное состояние - голубой цвет #b4d1ee
-            bg_color = QColor(NAV_PARAMS['color_highlight_bg'])
-            bg_color.setAlphaF(self._bg_opacity)
-            painter.fillPath(path, QBrush(bg_color))
-        elif self._hover:
-            # Наведение - статичный серый цвет #e6e6e6 (без анимации)
-            bg_color = QColor(NAV_PARAMS['color_hover_bg'])
-            painter.fillPath(path, QBrush(bg_color))
-
-    def enterEvent(self, event):
-        self._hover = True
-        self.update()  # Перерисовываем для отображения фона наведения
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self._hover = False
-        self.update()  # Перерисовываем для скрытия фона наведения
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
-
-    def _animate_to_active(self):
-        """Анимация к активному состоянию (последовательная)."""
-        # Сбрасываем размер к начальному
-        self._bg_size = QSize(NAV_PARAMS['anim_stage1_width'], NAV_PARAMS['anim_stage1_height'])
-        
-        # Запускаем последовательную анимацию
-        self.bg_animation_group.start()
-        
-        # Запускаем анимацию прозрачности
-        self.opacity_animation.setStartValue(0.0)
-        self.opacity_animation.setEndValue(1.0)
-        self.opacity_animation.start()
-
-    def _animate_to_default_reverse(self):
-        """Анимация к состоянию по умолчанию (обратная последовательность)."""
-        # Создаем обратную последовательную анимацию
-        reverse_group = QSequentialAnimationGroup(self)
-        
-        # Этап 1: 112x70 -> 25x25 (сжатие)
-        anim1 = QPropertyAnimation(self, b"bg_size")
-        anim1.setDuration(NAV_PARAMS['anim_stage3_duration'])
-        anim1.setStartValue(QSize(NAV_PARAMS['anim_stage4_width'], NAV_PARAMS['anim_stage4_height']))
-        anim1.setEndValue(QSize(NAV_PARAMS['anim_stage3_width'], NAV_PARAMS['anim_stage3_height']))
-        anim1.setEasingCurve(QEasingCurve.Type.InCubic)
-        reverse_group.addAnimation(anim1)
-        
-        # Этап 2: 25x25 -> 10x10 (сжатие)
-        anim2 = QPropertyAnimation(self, b"bg_size")
-        anim2.setDuration(NAV_PARAMS['anim_stage2_duration'])
-        anim2.setStartValue(QSize(NAV_PARAMS['anim_stage3_width'], NAV_PARAMS['anim_stage3_height']))
-        anim2.setEndValue(QSize(NAV_PARAMS['anim_stage2_width'], NAV_PARAMS['anim_stage2_height']))
-        anim2.setEasingCurve(QEasingCurve.Type.InQuad)
-        reverse_group.addAnimation(anim2)
-        
-        # Этап 3: 10x10 -> 15x15 (немного расширяем)
-        anim3 = QPropertyAnimation(self, b"bg_size")
-        anim3.setDuration(NAV_PARAMS['anim_stage1_duration'])
-        anim3.setStartValue(QSize(NAV_PARAMS['anim_stage2_width'], NAV_PARAMS['anim_stage2_height']))
-        anim3.setEndValue(QSize(NAV_PARAMS['anim_stage1_width'], NAV_PARAMS['anim_stage1_height']))
-        anim3.setEasingCurve(QEasingCurve.Type.OutQuad)
-        reverse_group.addAnimation(anim3)
-        
-        # Запускаем обратную анимацию прозрачности
-        self.opacity_animation.setStartValue(1.0)
-        self.opacity_animation.setEndValue(0.0)
-        self.opacity_animation.start()
-        
-        # Запускаем обратную анимацию размера
-        reverse_group.start()
-
-    # --- Свойства для анимации ---
-    def get_bg_size(self) -> QSize:
-        return self._bg_size
-
-    def set_bg_size(self, size: QSize):
-        if self._bg_size != size:
-            self._bg_size = size
-            self.update()
-
-    bg_size = pyqtProperty(QSize, get_bg_size, set_bg_size)
-
-    def get_bg_opacity(self) -> float:
-        return self._bg_opacity
-
-    def set_bg_opacity(self, value: float):
-        if self._bg_opacity != value:
-            self._bg_opacity = value
-            self.update()
-
-    bg_opacity = pyqtProperty(float, get_bg_opacity, set_bg_opacity)
-
-    # --- Свойство checked ---
-    def get_checked(self) -> bool:
-        return self._checked
-
-    def set_checked(self, value: bool):
-        if self._checked != value:
-            self._checked = value
-            self.setProperty("checked", value)
-            self.style().unpolish(self)
-            self.style().polish(self)
-            self.update()
-
-            if value:
-                self._animate_to_active()
-            else:
-                self._animate_to_default_reverse()
-            self._update_colors()
-
-    checked = pyqtProperty(bool, get_checked, set_checked)
-
-    def setChecked(self, checked: bool):
-        self.checked = checked
-
-    def isChecked(self):
-        return self.checked
 
 
 class MainWindow(QMainWindow):
@@ -346,7 +37,7 @@ class MainWindow(QMainWindow):
 
         # === ГОРИЗОНТАЛЬНАЯ НАВИГАЦИОННАЯ ПАНЕЛЬ ===
         nav_container = QWidget()
-        nav_container.setFixedSize(NAV_PARAMS['sidebar_width'], NAV_PARAMS['sidebar_height'])
+        nav_container.setFixedSize(NAV_PANEL_PARAMS['sidebar_width'], NAV_PANEL_PARAMS['sidebar_height'])
         nav_container.setObjectName("nav_container")
 
         # Стиль панели: белый фон, скругленные углы
@@ -367,12 +58,12 @@ class MainWindow(QMainWindow):
         # Горизонтальный layout для кнопок
         nav_horizontal_layout = QHBoxLayout()
         nav_horizontal_layout.setContentsMargins(
-            NAV_PARAMS['sidebar_padding_left'], 
-            0, 
-            NAV_PARAMS['sidebar_padding_right'], 
+            NAV_PANEL_PARAMS['sidebar_padding_left'],
+            0,
+            NAV_PANEL_PARAMS['sidebar_padding_right'],
             0
         )
-        nav_horizontal_layout.setSpacing(NAV_PARAMS['btn_spacing'])
+        nav_horizontal_layout.setSpacing(NAV_PANEL_PARAMS['btn_spacing'])
         nav_horizontal_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         nav_container.setLayout(nav_horizontal_layout)
 
@@ -385,6 +76,7 @@ class MainWindow(QMainWindow):
         ]
         for icon, text in btn_data:
             btn = NavButton(icon, text)
+            btn.setStyleSheet("background-color: transparent")
             btn.setObjectName(f"nav_{text}")
             btn.clicked.connect(lambda b=btn, t=text: self.switch_to_tab(b, t))
             nav_horizontal_layout.addWidget(btn)

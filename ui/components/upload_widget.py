@@ -40,21 +40,21 @@ class DragDropArea(QFrame):
 
         # Иконка (эмодзи как временная замена)
         icon_label = QLabel("📂")
-        icon_label.setStyleSheet("font-size: 40px;")
+        icon_label.setStyleSheet("font-size: 40px; background-color: transparent")
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon_label)
 
         # Текст
         text_label = QLabel("Перетащите Excel файл сюда")
         text_label.setFont(get_font("section_title"))
-        text_label.setStyleSheet("color: #000000;")
+        text_label.setStyleSheet("color: #000000; background-color: transparent;")
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(text_label)
 
         # Подсказка
         hint_label = QLabel("или нажмите, чтобы выбрать файл (.xlsx, .xls)")
         hint_label.setFont(get_font("hint"))
-        hint_label.setStyleSheet("color: #707579;")
+        hint_label.setStyleSheet("color: #707579; background-color: transparent;")
         hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint_label)
 
@@ -121,7 +121,7 @@ class ConfigSummary(QFrame):
         # Заголовок
         title = QLabel("⚙️ Текущая конфигурация")
         title.setFont(get_font("section_title_small"))
-        title.setStyleSheet("color: #707579; text-transform: uppercase; letter-spacing: 0.5px;")
+        title.setStyleSheet("color: #707579; text-transform: uppercase; letter-spacing: 0.5px; background-color: transparent;")
         layout.addWidget(title)
 
         # Строки конфигурации с разделителями
@@ -137,7 +137,7 @@ class ConfigSummary(QFrame):
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_label = QLabel("Статус:")
         status_label.setFont(get_font("caption"))
-        status_label.setStyleSheet("color: #707579;")
+        status_label.setStyleSheet("color: #707579; background-color: transparent;")
         status_value = QLabel("✅ Готов к обработке")
         status_value.setFont(get_font("badge_text"))
         status_value.setStyleSheet("color: #2E7D32; background-color: #E8F5E9; "
@@ -170,10 +170,10 @@ class ConfigSummary(QFrame):
         row.setContentsMargins(0, 0, 0, 0)
         label = QLabel(label_text + ":")
         label.setFont(get_font("caption"))
-        label.setStyleSheet("color: #707579;")
+        label.setStyleSheet("color: #707579; background-color: transparent;")
         value = QLabel(value_text)
         value.setFont(get_font("form_input"))
-        value.setStyleSheet("color: #000000; font-weight: 500;")
+        value.setStyleSheet("color: #000000; font-weight: 500; background-color: transparent;")
         row.addWidget(label)
         row.addStretch()
         row.addWidget(value)

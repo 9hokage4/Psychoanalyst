@@ -65,20 +65,20 @@ class ResultsWidget(QWidget):
         self.nav_buttons = []
 
         # Кнопки навигации
-        btn_table = ResultsNavButton("resources/icons/table.svg", "Таблица")
+        btn_table = ResultsNavButton("resources/icons/table.svg", "")
         btn_table.setChecked(True)
         btn_table.clicked.connect(lambda: self._switch_view(0))
         self.nav_buttons.append(btn_table)
 
-        btn_pie = ResultsNavButton("resources/icons/pie.svg", "Круговая")
+        btn_pie = ResultsNavButton("resources/icons/pie.svg", "")
         btn_pie.clicked.connect(lambda: self._switch_view(1))
         self.nav_buttons.append(btn_pie)
 
-        btn_bar = ResultsNavButton("resources/icons/bar.svg", "Столбчатая")
+        btn_bar = ResultsNavButton("resources/icons/bar.svg", "")
         btn_bar.clicked.connect(lambda: self._switch_view(2))
         self.nav_buttons.append(btn_bar)
 
-        btn_line = ResultsNavButton("resources/icons/line.svg", "График")
+        btn_line = ResultsNavButton("resources/icons/line.svg", "")
         btn_line.clicked.connect(lambda: self._switch_view(3))
         self.nav_buttons.append(btn_line)
 
@@ -159,8 +159,10 @@ class ResultsWidget(QWidget):
 
         # ===== СТИЛИ ДЛЯ КНОПОК НАВИГАЦИИ =====
         # Задаём глобальные стили для кастомных кнопок
-        self.setStyleSheet("""
-            ResultsNavButton {
+        self._nav_font_size = 12
+        self._nav_icon_size = 32
+        self.setStyleSheet(f"""
+            ResultsNavButton {{
                 background-color: transparent;
                 border: none;
                 min-width: 80px;
@@ -169,22 +171,21 @@ class ResultsWidget(QWidget):
                 max-height: 90px;
                 border-radius: 70px;
                 padding: 8px;
-            }
-            ResultsNavButton:hover {
+                font-size: {self._nav_font_size}px;
+            }}
+            ResultsNavButton:hover {{
                 background-color: #F4F4F5;
-            }
-            ResultsNavButton:checked {
+            }}
+            ResultsNavButton:checked {{
                 background-color: #b4d1ee;
-            }
-            ResultsNavButton QLabel {
+            }}
+            ResultsNavButton QLabel {{
                 background-color: transparent;
-            }
+            }}
+            ResultsNavButton #nav_text {{
+                font-size: {self._nav_font_size}px;
+            }}
         """)
-
-        # Принудительно устанавливаем шрифт для кнопок (чтобы текст не обрезался)
-        nav_font = get_font("nav_button")
-        for btn in self.nav_buttons:
-            btn.setFont(nav_font)
 
     def _create_sheet_selector(self) -> QWidget:
         """Создаёт выпадающий список выбора листа"""
@@ -503,3 +504,40 @@ class ResultsWidget(QWidget):
     def get_current_sheet(self) -> str:
         """Возвращает текущий выбранный лист"""
         return self.current_sheet
+
+    def set_nav_font_size(self, size: int):
+        """Установить размер шрифта текста кнопок."""
+        self._nav_font_size = size
+        self.setStyleSheet(f"""
+            ResultsNavButton {{
+                background-color: transparent;
+                border: none;
+                min-width: 80px;
+                max-width: 80px;
+                min-height: 90px;
+                max-height: 90px;
+                border-radius: 70px;
+                padding: 8px;
+                font-size: {size}px;
+            }}
+            ResultsNavButton:hover {{
+                background-color: #F4F4F5;
+            }}
+            ResultsNavButton:checked {{
+                background-color: #b4d1ee;
+            }}
+            ResultsNavButton QLabel {{
+                background-color: transparent;
+            }}
+            ResultsNavButton #nav_text {{
+                font-size: {size}px;
+            }}
+        """)
+
+    def set_nav_icon_size(self, size: int):
+        """Установить размер иконок кнопок."""
+        self._nav_icon_size = size
+        for btn in self.nav_buttons:
+            btn.icon_size = size
+            btn._update_icon()
+            btn.icon_label.setFixedSize(size, size)

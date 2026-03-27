@@ -13,7 +13,7 @@ from ui.components.history_widget import HistoryWidget
 
 # Параметры навигационной панели
 NAV_PANEL_PARAMS = {
-    'sidebar_width': 569,
+    'sidebar_width': 550,
     'sidebar_height': 88,
     'sidebar_padding_left': 32,
     'sidebar_padding_right': 32,
@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         nav_container.setStyleSheet("""
             #nav_container {
                 background-color: #FFFFFF;
-                border-radius: 20px;
+                border-radius: 44px;
             }
         """)
 
@@ -95,6 +95,10 @@ class MainWindow(QMainWindow):
         self.upload_tab = UploadWidget()
         self.results_tab = ResultsWidget()
         self.history_tab = HistoryWidget()
+
+        # Настройка размера шрифта и иконок кнопок навигации
+        self.results_tab.set_nav_font_size(14)
+        self.results_tab.set_nav_icon_size(40)
 
         self.stacked_widget.addWidget(self.upload_tab)
         self.stacked_widget.addWidget(self.results_tab)

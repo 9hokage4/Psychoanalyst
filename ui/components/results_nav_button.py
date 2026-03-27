@@ -19,7 +19,7 @@ RESULTS_NAV_PARAMS = {
     'highlight_initial_width': 35,
     'highlight_initial_height': 30,
     'highlight_radius_h': '47%',
-    'highlight_radius_v': 35,
+    'highlight_radius_v': 40,
     # Анимация
     'animation_duration': 300,
     # Цвета
@@ -34,12 +34,17 @@ class ResultsNavButton(QWidget):
     """Кнопка вертикальной навигации с пружинистой анимацией."""
     clicked = pyqtSignal()
 
-    def __init__(self, icon_path: str, text: str, parent=None):
+    def __init__(self, icon_path: str, text: str, parent=None, 
+                 icon_size: int = None, font_size: int = None):
         super().__init__(parent)
         self.setFixedSize(RESULTS_NAV_PARAMS['button_min_width'], RESULTS_NAV_PARAMS['button_min_height'])
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._checked = False
         self._hover = False
+
+        # Настраиваемые размеры
+        self.icon_size = icon_size if icon_size is not None else RESULTS_NAV_PARAMS['icon_size']
+        self.font_size = font_size if font_size is not None else RESULTS_NAV_PARAMS['font_size']
 
         # Анимация размера фона
         self._bg_size = QSize(
@@ -60,12 +65,11 @@ class ResultsNavButton(QWidget):
 
         # Иконка
         self.icon_path = str(Path(icon_path).absolute()) if not Path(icon_path).is_absolute() else icon_path
-        self.icon_size = RESULTS_NAV_PARAMS['icon_size']
 
         # Layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 12, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(0)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Иконка
@@ -73,18 +77,21 @@ class ResultsNavButton(QWidget):
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label.setFixedSize(self.icon_size, self.icon_size)
         self.icon_label.setStyleSheet("background-color: transparent;")
-        layout.addWidget(self.icon_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(self.icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Текст
-        self.text_label = QLabel(text)
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setObjectName("nav_text")
-        from PyQt6.QtGui import QFont
-        font = QFont("Genzsch Antiqua", RESULTS_NAV_PARAMS['font_size'])
-        font.setWeight(QFont.Weight.Medium)
-        self.text_label.setFont(font)
-        self.text_label.setStyleSheet("color: #000000; background-color: transparent;")
-        layout.addWidget(self.text_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+        # Текст (скрыт, если пустой)
+        if text:
+            self.text_label = QLabel(text)
+            self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.text_label.setObjectName("nav_text")
+            from PyQt6.QtGui import QFont
+            font = QFont("Genzsch Antiqua", self.font_size)
+            font.setWeight(QFont.Weight.Medium)
+            self.text_label.setFont(font)
+            self.text_label.setStyleSheet("color: #000000; background-color: transparent;")
+            layout.addWidget(self.text_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+        else:
+            self.text_label = None
 
         # Загружаем иконку
         self._update_icon()
@@ -135,7 +142,8 @@ class ResultsNavButton(QWidget):
         else:
             color = RESULTS_NAV_PARAMS['color_text_default']
 
-        self.text_label.setStyleSheet(f"color: {color};")
+        if self.text_label is not None:
+            self.text_label.setStyleSheet(f"color: {color};")
         self._update_icon()
         self.update()
 

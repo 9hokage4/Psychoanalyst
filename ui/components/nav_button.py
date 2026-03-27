@@ -2,7 +2,7 @@
 """Кастомная кнопка для горизонтальной навигации с анимацией выделения."""
 from pathlib import Path
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve, QSize, QSequentialAnimationGroup
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve, QSize
 from PyQt6.QtGui import QIcon, QColor, QFont, QPainter, QBrush, QPainterPath, QPixmap, QImage, qRgba, qAlpha
 
 
@@ -17,19 +17,11 @@ NAV_BUTTON_PARAMS = {
     'icon_size': 30,
     # Шрифт
     'font_size': 14,
-    # Анимация - размеры по этапам (в пикселях)
-    'anim_stage1_width': 15,
-    'anim_stage1_height': 15,
-    'anim_stage2_width': 10,
-    'anim_stage2_height': 10,
-    'anim_stage3_width': 25,
-    'anim_stage3_height': 25,
-    'anim_stage4_width': 150,
-    'anim_stage4_height': 70,
-    # Длительность каждого этапа анимации (мс)
-    'anim_stage1_duration': 80,  # 15x15 -> 10x10
-    'anim_stage2_duration': 80,  # 10x10 -> 25x25
-    'anim_stage3_duration': 130,  # 25x25 -> 112x70
+    # Анимация - начальный и финальный размер
+    'anim_initial_width': 35,
+    'anim_initial_height': 30,
+    # Длительность анимации (мс)
+    'anim_duration': 300,
     # Цвета
     'color_highlight_bg': '#b4d1ee',      # фон активной кнопки
     'color_hover_bg': '#e6e6e6',          # фон при наведении
@@ -49,57 +41,29 @@ class NavButton(QWidget):
         self._checked = False
         self._hover = False
 
-        # Анимация размера фона - последовательная анимация
-        self._bg_size = QSize(NAV_BUTTON_PARAMS['anim_stage1_width'], NAV_BUTTON_PARAMS['anim_stage1_height'])
+        # Анимация размера фона - пружинистая
+        self._bg_size = QSize(NAV_BUTTON_PARAMS['anim_initial_width'], NAV_BUTTON_PARAMS['anim_initial_height'])
 
-        # Создаем группу последовательных анимаций
-        self.bg_animation_group = QSequentialAnimationGroup(self)
+        # Анимация с пружинистым easing
+        self.bg_animation = QPropertyAnimation(self, b"bg_size")
+        self.bg_animation.setDuration(NAV_BUTTON_PARAMS['anim_duration'])
+        self.bg_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
 
-        # Этап 1: 15x15 -> 10x10 (сжатие)
-        self.anim_stage1 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage1.setDuration(NAV_BUTTON_PARAMS['anim_stage1_duration'])
-        self.anim_stage1.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage1_width'], NAV_BUTTON_PARAMS['anim_stage1_height']))
-        self.anim_stage1.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage2_width'], NAV_BUTTON_PARAMS['anim_stage2_height']))
-        self.anim_stage1.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.bg_animation_group.addAnimation(self.anim_stage1)
-
-        # Этап 2: 10x10 -> 25x25 (расширение)
-        self.anim_stage2 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage2.setDuration(NAV_BUTTON_PARAMS['anim_stage2_duration'])
-        self.anim_stage2.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage2_width'], NAV_BUTTON_PARAMS['anim_stage2_height']))
-        self.anim_stage2.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage3_width'], NAV_BUTTON_PARAMS['anim_stage3_height']))
-        self.anim_stage2.setEasingCurve(QEasingCurve.Type.OutQuad)
-        self.bg_animation_group.addAnimation(self.anim_stage2)
-
-        # Этап 3: 25x25 -> 112x70 (финальный размер)
-        self.anim_stage3 = QPropertyAnimation(self, b"bg_size")
-        self.anim_stage3.setDuration(NAV_BUTTON_PARAMS['anim_stage3_duration'])
-        self.anim_stage3.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage3_width'], NAV_BUTTON_PARAMS['anim_stage3_height']))
-        self.anim_stage3.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage4_width'], NAV_BUTTON_PARAMS['anim_stage4_height']))
-        self.anim_stage3.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.bg_animation_group.addAnimation(self.anim_stage3)
-
-        # Анимация прозрачности (появление фона)
+        # Анимация прозрачности
         self._bg_opacity = 0.0
         self.opacity_animation = QPropertyAnimation(self, b"bg_opacity")
-        self.opacity_animation.setDuration(
-            NAV_BUTTON_PARAMS['anim_stage1_duration'] +
-            NAV_BUTTON_PARAMS['anim_stage2_duration'] +
-            NAV_BUTTON_PARAMS['anim_stage3_duration']
-        )
-        self.opacity_animation.setStartValue(0.0)
-        self.opacity_animation.setEndValue(1.0)
+        self.opacity_animation.setDuration(NAV_BUTTON_PARAMS['anim_duration'])
         self.opacity_animation.setEasingCurve(QEasingCurve.Type.Linear)
 
         # Сохраняем путь к иконке (преобразуем в абсолютный)
         self.icon_path = str(Path(icon_path).absolute()) if not Path(icon_path).is_absolute() else icon_path
         self.icon_size = NAV_BUTTON_PARAMS['icon_size']
 
-        # Layout - вертикальный, центрирование по горизонтали
+        # Layout - вертикальный, центрирование
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 8, 0, 8)
         layout.setSpacing(6)
-        layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Иконка
         self.icon_label = QLabel()
@@ -204,11 +168,15 @@ class NavButton(QWidget):
 
     def enterEvent(self, event):
         self._hover = True
+        if not self._checked:
+            self._animate_to_hover()
         self.update()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self._hover = False
+        if not self._checked:
+            self._animate_to_default()
         self.update()
         super().leaveEvent(event)
 
@@ -218,42 +186,52 @@ class NavButton(QWidget):
         super().mousePressEvent(event)
 
     def _animate_to_active(self):
-        """Анимация к активному состоянию (последовательная)."""
-        self._bg_size = QSize(NAV_BUTTON_PARAMS['anim_stage1_width'], NAV_BUTTON_PARAMS['anim_stage1_height'])
-        self.bg_animation_group.start()
+        """Анимация к активному состоянию."""
+        self.bg_animation.stop()
+        self.bg_animation.setStartValue(QSize(
+            NAV_BUTTON_PARAMS['anim_initial_width'],
+            NAV_BUTTON_PARAMS['anim_initial_height']
+        ))
+        self.bg_animation.setEndValue(QSize(
+            NAV_BUTTON_PARAMS['highlight_width'],
+            NAV_BUTTON_PARAMS['highlight_height']
+        ))
+        self.bg_animation.start()
+
+        self.opacity_animation.stop()
         self.opacity_animation.setStartValue(0.0)
         self.opacity_animation.setEndValue(1.0)
         self.opacity_animation.start()
 
-    def _animate_to_default_reverse(self):
-        """Анимация к состоянию по умолчанию (обратная последовательность)."""
-        reverse_group = QSequentialAnimationGroup(self)
+    def _animate_to_default(self):
+        """Анимация к состоянию по умолчанию."""
+        self.bg_animation.stop()
+        self.bg_animation.setStartValue(self._bg_size)
+        self.bg_animation.setEndValue(QSize(
+            NAV_BUTTON_PARAMS['anim_initial_width'],
+            NAV_BUTTON_PARAMS['anim_initial_height']
+        ))
+        self.bg_animation.start()
 
-        anim1 = QPropertyAnimation(self, b"bg_size")
-        anim1.setDuration(NAV_BUTTON_PARAMS['anim_stage3_duration'])
-        anim1.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage4_width'], NAV_BUTTON_PARAMS['anim_stage4_height']))
-        anim1.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage3_width'], NAV_BUTTON_PARAMS['anim_stage3_height']))
-        anim1.setEasingCurve(QEasingCurve.Type.InCubic)
-        reverse_group.addAnimation(anim1)
-
-        anim2 = QPropertyAnimation(self, b"bg_size")
-        anim2.setDuration(NAV_BUTTON_PARAMS['anim_stage2_duration'])
-        anim2.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage3_width'], NAV_BUTTON_PARAMS['anim_stage3_height']))
-        anim2.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage2_width'], NAV_BUTTON_PARAMS['anim_stage2_height']))
-        anim2.setEasingCurve(QEasingCurve.Type.InQuad)
-        reverse_group.addAnimation(anim2)
-
-        anim3 = QPropertyAnimation(self, b"bg_size")
-        anim3.setDuration(NAV_BUTTON_PARAMS['anim_stage1_duration'])
-        anim3.setStartValue(QSize(NAV_BUTTON_PARAMS['anim_stage2_width'], NAV_BUTTON_PARAMS['anim_stage2_height']))
-        anim3.setEndValue(QSize(NAV_BUTTON_PARAMS['anim_stage1_width'], NAV_BUTTON_PARAMS['anim_stage1_height']))
-        anim3.setEasingCurve(QEasingCurve.Type.OutQuad)
-        reverse_group.addAnimation(anim3)
-
-        self.opacity_animation.setStartValue(1.0)
+        self.opacity_animation.stop()
+        self.opacity_animation.setStartValue(self._bg_opacity)
         self.opacity_animation.setEndValue(0.0)
         self.opacity_animation.start()
-        reverse_group.start()
+
+    def _animate_to_hover(self):
+        """Анимация к состоянию наведения."""
+        self.bg_animation.stop()
+        self.bg_animation.setStartValue(self._bg_size)
+        self.bg_animation.setEndValue(QSize(
+            NAV_BUTTON_PARAMS['highlight_width'],
+            NAV_BUTTON_PARAMS['highlight_height']
+        ))
+        self.bg_animation.start()
+
+        self.opacity_animation.stop()
+        self.opacity_animation.setStartValue(self._bg_opacity)
+        self.opacity_animation.setEndValue(1.0)
+        self.opacity_animation.start()
 
     # --- Свойства для анимации ---
     def get_bg_size(self) -> QSize:
@@ -291,7 +269,7 @@ class NavButton(QWidget):
             if value:
                 self._animate_to_active()
             else:
-                self._animate_to_default_reverse()
+                self._animate_to_default()
             self._update_colors()
 
     checked = pyqtProperty(bool, get_checked, set_checked)

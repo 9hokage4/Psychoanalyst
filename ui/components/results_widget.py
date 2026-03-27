@@ -51,14 +51,16 @@ class ResultsWidget(QWidget):
         self.sidebar.setStyleSheet("""
             QWidget#results_sidebar {
                 background-color: #FFFFFF;
-                border-radius: 80px;
+                border-radius: 70px;
             }
         """)
 
         sidebar_layout = QVBoxLayout(self.sidebar)
-        sidebar_layout.setContentsMargins(12, 20, 12, 20)
+        sidebar_layout.setContentsMargins(12, 20, 12, 40)
         sidebar_layout.setSpacing(16)
-        sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Пружина сверху для центрирования
+        sidebar_layout.addStretch()
 
         self.nav_buttons = []
 
@@ -80,8 +82,12 @@ class ResultsWidget(QWidget):
         btn_line.clicked.connect(lambda: self._switch_view(3))
         self.nav_buttons.append(btn_line)
 
+        # Добавляем кнопки в панель
         for btn in self.nav_buttons:
             sidebar_layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Пружина снизу для равного отступа
+        sidebar_layout.addStretch()
 
         results_layout.addWidget(self.sidebar)
 
@@ -150,6 +156,35 @@ class ResultsWidget(QWidget):
         results_layout.addWidget(content_widget)
 
         main_layout.addWidget(results_container)
+
+        # ===== СТИЛИ ДЛЯ КНОПОК НАВИГАЦИИ =====
+        # Задаём глобальные стили для кастомных кнопок
+        self.setStyleSheet("""
+            ResultsNavButton {
+                background-color: transparent;
+                border: none;
+                min-width: 80px;
+                max-width: 80px;
+                min-height: 90px;
+                max-height: 90px;
+                border-radius: 70px;
+                padding: 8px;
+            }
+            ResultsNavButton:hover {
+                background-color: #F4F4F5;
+            }
+            ResultsNavButton:checked {
+                background-color: #b4d1ee;
+            }
+            ResultsNavButton QLabel {
+                background-color: transparent;
+            }
+        """)
+
+        # Принудительно устанавливаем шрифт для кнопок (чтобы текст не обрезался)
+        nav_font = get_font("nav_button")
+        for btn in self.nav_buttons:
+            btn.setFont(nav_font)
 
     def _create_sheet_selector(self) -> QWidget:
         """Создаёт выпадающий список выбора листа"""

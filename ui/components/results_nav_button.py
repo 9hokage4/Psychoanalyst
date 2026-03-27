@@ -9,8 +9,8 @@ from PyQt6.QtGui import QIcon, QColor, QPainter, QBrush, QPainterPath, QPixmap, 
 # Параметры для кнопок результатов
 RESULTS_NAV_PARAMS = {
     # Размеры
-    'button_min_width': 100,
-    'button_min_height': 80,
+    'button_min_width': 80,
+    'button_min_height': 60,
     'icon_size': 32,
     'font_size': 12,
     # Выделение (фон)

@@ -1,7 +1,7 @@
 # utils/fonts.py
 """
 Модуль управления шрифтами приложения.
-Все шрифты семейства PizzaHutCYR из resources/fonts.
+Все шрифты семейства Vollkorn из resources/fonts.
 """
 from PyQt6.QtGui import QFont, QFontDatabase
 from PyQt6.QtCore import QDir
@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 class FontWeights:
-    """Константы весов шрифтов PizzaHutCYR Antiqua."""
+    """Константы весов шрифтов Vollkorn."""
     THIN = 100
     LIGHT = 300
     REGULAR = 400
@@ -23,40 +23,40 @@ class FontWeights:
 FONT_CONTEXTS = {
     # Заголовки окон и крупные заголовки
     "window_title": {"weight": FontWeights.BOLD, "size": 20, "italic": False},
-    
+
     # Заголовки разделов (вкладки, группы)
-    "section_title": {"weight": FontWeights.BOLD, "size": 16, "italic": False},
-    "section_title_small": {"weight": FontWeights.SEMIBOLD, "size": 14, "italic": False},
-    
+    "section_title": {"weight": FontWeights.BOLD, "size": 20, "italic": False},
+    "section_title_small": {"weight": FontWeights.SEMIBOLD, "size": 18, "italic": False},
+
     # Заголовки элементов (шкалы, уровни)
-    "item_title": {"weight": FontWeights.BOLD, "size": 20, "italic": False},
-    "badge_text": {"weight": FontWeights.MEDIUM, "size": 13, "italic": False},
-    
+    "item_title": {"weight": FontWeights.BOLD, "size": 24, "italic": False},
+    "badge_text": {"weight": FontWeights.MEDIUM, "size": 17, "italic": False},
+
     # Основной текст
     "body": {"weight": FontWeights.REGULAR, "size": 14, "italic": False},
     "body_small": {"weight": FontWeights.REGULAR, "size": 12, "italic": False},
-    
+
     # Подписи, hint-текст
-    "caption": {"weight": FontWeights.REGULAR, "size": 13, "italic": False},
-    "hint": {"weight": FontWeights.LIGHT, "size": 12, "italic": False},
-    
-    # Кнопки
+    "caption": {"weight": FontWeights.REGULAR, "size": 17, "italic": False},
+    "hint": {"weight": FontWeights.LIGHT, "size": 16, "italic": False},
+
+    # Кнопки (размеры не меняем)
     "button": {"weight": FontWeights.MEDIUM, "size": 14, "italic": False},
     "button_small": {"weight": FontWeights.MEDIUM, "size": 13, "italic": False},
-    
-    # Навигация
+
+    # Навигация (размеры не меняем)
     "nav_button": {"weight": FontWeights.MEDIUM, "size": 14, "italic": False},
-    
+
     # Таблицы и данные
-    "table_header": {"weight": FontWeights.SEMIBOLD, "size": 14, "italic": False},
-    "table_cell": {"weight": FontWeights.REGULAR, "size": 14, "italic": False},
-    
+    "table_header": {"weight": FontWeights.SEMIBOLD, "size": 18, "italic": False},
+    "table_cell": {"weight": FontWeights.REGULAR, "size": 18, "italic": False},
+
     # Формы (label, input)
-    "form_label": {"weight": FontWeights.MEDIUM, "size": 13, "italic": False},
-    "form_input": {"weight": FontWeights.REGULAR, "size": 14, "italic": False},
-    
+    "form_label": {"weight": FontWeights.MEDIUM, "size": 17, "italic": False},
+    "form_input": {"weight": FontWeights.REGULAR, "size": 18, "italic": False},
+
     # Цифровые данные (спинбоксы, значения)
-    "numeric": {"weight": FontWeights.REGULAR, "size": 14, "italic": False},
+    "numeric": {"weight": FontWeights.REGULAR, "size": 18, "italic": False},
 }
 
 
@@ -85,7 +85,7 @@ def get_font(context: str, size: int = None, weight: int = None, italic: bool = 
     if italic is not None:
         config["italic"] = italic
 
-    font = QFont("PizzaHutCYR")
+    font = QFont("Vollkorn")
     font.setPointSize(config["size"])
     font.setWeight(_weight_to_qt_weight(config["weight"]))
     font.setItalic(config["italic"])
@@ -139,7 +139,7 @@ def load_fonts() -> bool:
 
 def get_font_family() -> str:
     """Получить название семейства шрифтов."""
-    return "PizzaHutCYR"
+    return "Vollkorn"
 
 
 def apply_font_to_widget(widget, context: str):

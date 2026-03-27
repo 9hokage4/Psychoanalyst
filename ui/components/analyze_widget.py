@@ -14,13 +14,14 @@ class ProcessWorker(QThread):
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
 
-    def __init__(self, df):
+    def __init__(self, df, config=None):
         super().__init__()
         self.df = df
+        self.config = config
 
     def run(self):
         try:
-            processed_df = process_data(self.df)
+            processed_df = process_data(self.df, self.config)
             self.finished.emit(processed_df)
         except Exception as e:
             self.error.emit(str(e))
@@ -34,7 +35,8 @@ class AnalyzeWidget(QWidget):
         self.current_df = None
         self.processed_df = None
         self.original_filename = None
-        
+        self.config = None  # Конфигурация для обработки
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 10, 0, 0)
         
@@ -79,22 +81,26 @@ class AnalyzeWidget(QWidget):
     
     def set_original_filename(self, filename):
         self.original_filename = filename
-    
+
     def set_data(self, df):
         self.current_df = df
         self.process_button.setEnabled(True)
         self.save_button.setEnabled(False)
         self.result_table.setModel(None)
-    
+
+    def set_config(self, config):
+        """Устанавливает конфигурацию для обработки."""
+        self.config = config
+
     def start_processing(self):
         if self.current_df is None:
             return
-        
+
         self.process_button.setEnabled(False)
         self.save_button.setEnabled(False)
         self.progress_bar.setVisible(True)
-        
-        self.worker = ProcessWorker(self.current_df)
+
+        self.worker = ProcessWorker(self.current_df, self.config)
         self.worker.finished.connect(self.on_processing_finished)
         self.worker.error.connect(self.on_processing_error)
         self.worker.start()

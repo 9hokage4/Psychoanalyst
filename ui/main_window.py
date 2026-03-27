@@ -136,15 +136,21 @@ class MainWindow(QMainWindow):
         from ui.components.settings_dialog import SettingsDialog
         dialog = SettingsDialog(self)
         dialog.config_saved.connect(self.on_config_saved)
+        dialog.profile_loaded_with_name.connect(self.on_profile_loaded)
         dialog.exec()
 
-    def on_config_saved(self, scales_config, level_order, level_ru, answer_weights):
-        # Сохраняем конфигурацию
-        self.current_config = {
-            "scales_config": scales_config,
-            "level_order": level_order,
-            "level_ru": level_ru,
-            "answer_weights": answer_weights
-        }
+    def on_profile_loaded(self, profile_name, config):
+        """Обработчик загрузки профиля с именем."""
+        self.current_config = config
+        self.upload_tab.set_config(config)
+        self.upload_tab.config_summary.set_profile_name(profile_name)
+        self.upload_tab.config_summary.update_config_from_dict(config)
+
+    def on_config_saved(self, full_config, profile_name):
+        """Обработчик сохранения конфигурации."""
+        # Сохраняем полную конфигурацию
+        self.current_config = full_config
         # Передаём в upload_widget
-        self.upload_tab.set_config(self.current_config)
+        self.upload_tab.set_config(full_config)
+        # Обновляем имя профиля
+        self.upload_tab.config_summary.set_profile_name(profile_name if profile_name else "Сохраненный профиль")

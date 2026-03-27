@@ -116,6 +116,7 @@ class EditLevelDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
+                font-size: 18px;
                 background-color: white;
             }
             QLineEdit:focus {
@@ -138,6 +139,7 @@ class EditLevelDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 24px 8px 12px;
+                font-size: 18px;
                 background-color: white;
             }
             QSpinBox:focus {
@@ -212,7 +214,7 @@ class AnimatedCheckBox(QAbstractButton):
     """Кастомный чекбокс с анимацией переключения между двумя SVG-иконками"""
     def __init__(self, text="", unchecked_svg="resources/icons/checkbox_unchecked.svg",
                  checked_svg="resources/icons/checkbox_checked.svg",
-                 icon_size=24, font_size=14, spacing=10, parent=None):
+                 icon_size=70, font_size=20, spacing=5, parent=None):
         super().__init__(parent)
         self.setText(text)
         self.setCheckable(True)
@@ -352,7 +354,7 @@ class LevelBadge(QWidget):
         self.label.setStyleSheet(f"""
             QLabel {{
                 color: {self.text_color.name()};
-                font-size: 13px;
+                font-size: 17px;
                 font-weight: 500;
                 background: transparent;
                 border: none;
@@ -605,16 +607,16 @@ class AddScaleDialog(QDialog):
 
         # Название шкалы
         name_label = QLabel("Название шкалы:")
-        name_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579;")
+        name_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579;")
         self.name_edit = QLineEdit(self.scale_data.get("name", ""))
         self.name_edit.setPlaceholderText("например, 'Тревожность'")
-        self.name_edit.setFixedHeight(36)
+        self.name_edit.setFixedHeight(40)
         self.name_edit.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
             }
             QLineEdit:focus {
@@ -626,7 +628,7 @@ class AddScaleDialog(QDialog):
 
         # Вопросы
         questions_label = QLabel("Вопросы:")
-        questions_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579;")
+        questions_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579;")
         self.questions_edit = QLineEdit()
         if "questions" in self.scale_data:
             q_list = sorted(self.scale_data["questions"])
@@ -644,13 +646,13 @@ class AddScaleDialog(QDialog):
                 ranges.append(f"{start}-{end}" if start != end else str(start))
                 self.questions_edit.setText(", ".join(ranges))
         self.questions_edit.setPlaceholderText("Пример: 1-20, 25, 30-40")
-        self.questions_edit.setFixedHeight(36)
+        self.questions_edit.setFixedHeight(40)
         self.questions_edit.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
             }
             QLineEdit:focus {
@@ -662,7 +664,7 @@ class AddScaleDialog(QDialog):
 
         # Уровни
         levels_label = QLabel("Уровни:")
-        levels_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #707579; margin-top: 8px;")
+        levels_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579; margin-top: 8px;")
         layout.addWidget(levels_label)
 
         self.levels_container = QWidget()
@@ -684,7 +686,7 @@ class AddScaleDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 13px;
+                font-size: 17px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -776,7 +778,7 @@ class AddScaleDialog(QDialog):
             row_layout.setSpacing(8)
 
             label = QLabel(f"{lvl['name']} ({lvl['range_start']}-{lvl['range_end']} баллов)")
-            label.setStyleSheet("color: #000000; font-size: 13px;")
+            label.setStyleSheet("color: #000000; font-size: 17px;")
             row_layout.addWidget(label, 1)
 
             del_btn = QPushButton()
@@ -905,8 +907,9 @@ class AddScaleDialog(QDialog):
 
 
 class SettingsDialog(QDialog):
-    config_saved = pyqtSignal(dict, list, dict, dict)
-    
+    config_saved = pyqtSignal(dict, str)  # передаём полную конфигурацию и имя профиля
+    profile_loaded_with_name = pyqtSignal(str, dict)  # имя профиля, конфигурация
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("⚙️ Настройки теста")
@@ -919,6 +922,7 @@ class SettingsDialog(QDialog):
         self.levels_data = []
         self.profile_manager = ProfileManager()
         self.current_config = None
+        self.current_profile_name = None  # Имя текущего загруженного профиля
         self.init_ui()
         self.adjustSize()
 
@@ -937,7 +941,7 @@ class SettingsDialog(QDialog):
         nav_container.setStyleSheet("""
             #nav_container {
                 background-color: #FFFFFF;
-                border-radius: 20px;
+                border-radius: 40px;
             }
         """)
 
@@ -995,7 +999,7 @@ class SettingsDialog(QDialog):
         self.stacked_widget.addWidget(self.scales_tab)
         self.stacked_widget.addWidget(self.weights_tab)
 
-        # Кнопки управления
+        # ===== Панель кнопок внизу =====
         btn_frame = QFrame()
         btn_frame.setObjectName("btn_frame")
         btn_frame.setStyleSheet("""
@@ -1009,10 +1013,33 @@ class SettingsDialog(QDialog):
         btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_layout.setSpacing(12)
 
-        self.profile_btn = QPushButton("📁 Профили")
+        # 1. Кнопка "Отмена" (теперь первая)
+        self.cancel_btn = QPushButton(" Отмена")
+        self.cancel_btn.setObjectName("btn_cancel")
+        #self.cancel_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-size: 20px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+        """)
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+
+        btn_layout.addSpacing(20)  # ← Расстояние между "Отмена" и "Профили"
+
+        # 2. Кнопка "Профили" (теперь вторая)
+        self.profile_btn = QPushButton(" Профили")
         self.profile_btn.setObjectName("btn_profile")
-        self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
-        self.profile_btn.setFont(get_font("button"))
+        #self.profile_btn.setIcon(QIcon("resources/icons/folder.svg"))
         self.profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3390EC;
@@ -1020,6 +1047,8 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
+                font-size: 20px;
+                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #2B80D9;
@@ -1028,12 +1057,12 @@ class SettingsDialog(QDialog):
         self.profile_btn.clicked.connect(self.open_profile_dialog)
         btn_layout.addWidget(self.profile_btn)
 
-        btn_layout.addStretch()
+        btn_layout.addStretch()  # ← Растяжка между "Профили" и "Сохранить"
 
-        self.save_btn = QPushButton("💾 Сохранить профиль")
+        # 3. Кнопка "Сохранить настройки" (теперь третья, текст изменён)
+        self.save_btn = QPushButton(" Сохранить настройки")  # ← Изменён текст
         self.save_btn.setObjectName("btn_save")
-        self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
-        self.save_btn.setFont(get_font("button"))
+        #self.save_btn.setIcon(QIcon("resources/icons/save.svg"))
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #6BBF8A;
@@ -1041,6 +1070,8 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
+                font-size: 20px;
+                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #5AA878;
@@ -1048,25 +1079,6 @@ class SettingsDialog(QDialog):
         """)
         self.save_btn.clicked.connect(self.save_config)
         btn_layout.addWidget(self.save_btn)
-
-        self.cancel_btn = QPushButton("Отмена")
-        self.cancel_btn.setObjectName("btn_cancel")
-        self.cancel_btn.setIcon(QIcon("resources/icons/close.svg"))
-        self.cancel_btn.setFont(get_font("button"))
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                color: #3390EC;
-                border: 1px solid #3390EC;
-                border-radius: 8px;
-                padding: 10px 20px;
-            }
-            QPushButton:hover {
-                background-color: #F5F5F5;
-            }
-        """)
-        self.cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(self.cancel_btn)
 
         btn_frame.setLayout(btn_layout)
         main_layout.addWidget(btn_frame)
@@ -1106,7 +1118,7 @@ class SettingsDialog(QDialog):
 
         self.test_name_edit = QLineEdit()
         self.test_name_edit.setPlaceholderText("Введите название")
-        self.test_name_edit.setText("Опросник агрессивности")
+        self.test_name_edit.setText("")
         self.test_name_edit.setFixedHeight(40)
         self.test_name_edit.setFont(get_font("form_input"))
         self.test_name_edit.setStyleSheet("""
@@ -1114,6 +1126,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
+                font-size: 18px;
                 background-color: white;
                 color: #000000;
             }
@@ -1141,7 +1154,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 24px 8px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
                 color: #000000;
             }
@@ -1195,7 +1208,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 24px 8px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
                 color: #000000;
             }
@@ -1242,6 +1255,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 8px 12px;
+                font-size: 18px;
                 background-color: white;
                 color: #000000;
             }
@@ -1276,7 +1290,7 @@ class SettingsDialog(QDialog):
         layout.setSpacing(8)
 
         title_label = QLabel("Активные уровни")
-        title_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 4px;")
+        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 4px;")
         layout.addWidget(title_label)
 
         self.levels_container = QWidget()
@@ -1343,13 +1357,13 @@ class SettingsDialog(QDialog):
 
         self.level_name_edit = QLineEdit()
         self.level_name_edit.setPlaceholderText("Название уровня")
-        self.level_name_edit.setFixedHeight(36)
+        self.level_name_edit.setFixedHeight(40)
         self.level_name_edit.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
             }
             QLineEdit:focus {
@@ -1361,13 +1375,13 @@ class SettingsDialog(QDialog):
         self.level_boundary_spin = QSpinBox()
         self.level_boundary_spin.setRange(1, 10000)
         self.level_boundary_spin.setValue(10)
-        self.level_boundary_spin.setFixedHeight(36)
+        self.level_boundary_spin.setFixedHeight(40)
         self.level_boundary_spin.setStyleSheet("""
             QSpinBox {
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 14px;
+                font-size: 18px;
                 background-color: white;
             }
             QSpinBox:focus {
@@ -1406,7 +1420,7 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 8px 16px;
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -1497,7 +1511,7 @@ class SettingsDialog(QDialog):
         top_layout.setContentsMargins(0, 0, 0, 0)
 
         title_label = QLabel("Список шкал")
-        title_label.setStyleSheet("color: #000000; font-size: 16px; font-weight: 600;")
+        title_label.setStyleSheet("color: #000000; font-size: 20px; font-weight: 600;")
         top_layout.addWidget(title_label)
 
         top_layout.addStretch()
@@ -1515,7 +1529,7 @@ class SettingsDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 padding: 10px 20px;
-                font-size: 15px;
+                font-size: 19px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -1740,7 +1754,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #3390EC;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 13px;
+                font-size: 17px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -1767,7 +1781,7 @@ class SettingsDialog(QDialog):
                 border: 1px solid #3390EC;
                 border-radius: 8px;
                 padding: 6px 12px;
-                font-size: 13px;
+                font-size: 17px;
                 font-weight: 500;
             }
             QPushButton:hover {
@@ -1816,7 +1830,7 @@ class SettingsDialog(QDialog):
         row_layout.setSpacing(10)
 
         label = QLabel(f"Вопрос {question_num}")
-        label.setStyleSheet("font-size: 14px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
         row_layout.addWidget(label)
 
         spins = []
@@ -1824,13 +1838,13 @@ class SettingsDialog(QDialog):
             spin = QSpinBox()
             spin.setRange(1, 100)
             spin.setValue(j)
-            spin.setFixedHeight(32)
+            spin.setFixedHeight(40)
             spin.setStyleSheet("""
                 QSpinBox {
                     border: 1px solid #DFE1E5;
                     border-radius: 8px;
                     padding: 4px 8px;
-                    font-size: 14px;
+                    font-size: 18px;
                     background-color: white;
                 }
                 QSpinBox:focus {
@@ -1865,7 +1879,7 @@ class SettingsDialog(QDialog):
         row_layout.setSpacing(10)
 
         label = QLabel("Вопрос")
-        label.setStyleSheet("font-size: 14px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
         row_layout.addWidget(label)
 
         spins = []
@@ -1873,13 +1887,13 @@ class SettingsDialog(QDialog):
             spin = QSpinBox()
             spin.setRange(1, 100)
             spin.setValue(j)
-            spin.setFixedHeight(32)
+            spin.setFixedHeight(40)
             spin.setStyleSheet("""
                 QSpinBox {
                     border: 1px solid #DFE1E5;
                     border-radius: 8px;
                     padding: 4px 8px;
-                    font-size: 14px;
+                    font-size: 18px;
                     background-color: white;
                 }
                 QSpinBox:focus {
@@ -2059,14 +2073,35 @@ class SettingsDialog(QDialog):
                 return
 
         self._save_debug_config(scales_config, level_order, level_ru, answer_weights)
-        self.config_saved.emit(scales_config, level_order, level_ru, answer_weights)
+        
+        # Сохраняем полную конфигурацию для обновления UI
+        full_config = {
+            "test_name": self.test_name_edit.text().strip(),
+            "questions_count": self.questions_spin.value(),
+            "answers_count": self.answers_spin.value(),
+            "shared_questions": self.shared_checkbox.isChecked(),
+            "levels": {key: level_ru[key] for key in level_order},
+            "level_boundaries": {key: lvl['boundary'] for key, lvl in zip(level_order, self.levels_data)},
+            "level_order": level_order,
+            "scales": scales_config,
+            "answer_weights": answer_weights,
+        }
+        self.current_config = full_config
+        
+        # Отправляем полную конфигурацию и имя профиля
+        self.config_saved.emit(full_config, self.current_profile_name or "")
         self.accept()
 
     def open_profile_dialog(self):
         self.current_config = self._get_current_config()
-        dialog = ProfileDialog(self, self.current_config)
-        dialog.profile_loaded.connect(self.on_profile_loaded)
-        dialog.exec()
+        self.profile_dialog = ProfileDialog(self, self.current_config)
+        self.profile_dialog.profile_loaded.connect(self.on_profile_loaded)
+        self.profile_dialog.profile_saved_with_name.connect(self.on_profile_saved)
+        self.profile_dialog.exec()
+
+    def on_profile_saved(self, profile_name):
+        """Обработчик сохранения профиля."""
+        self.current_profile_name = profile_name
 
     def _get_current_config(self):
         scales = {}
@@ -2093,18 +2128,30 @@ class SettingsDialog(QDialog):
             levels[key] = lvl['name']
             level_boundaries[key] = lvl['boundary']
 
+        # === Веса ответов ===
         answer_weights = {}
-        if hasattr(self, 'same_weights_checkbox'):
-            if self.same_weights_checkbox.isChecked():
-                weight = getattr(self, 'single_weight_spin', None)
-                if weight:
-                    for i in range(1, self.answers_spin.value() + 1):
-                        answer_weights[i] = weight.value()
+        a_count = self.answers_spin.value()
+        q_count = self.questions_spin.value()
+
+        if hasattr(self, '_weights_unified') and self._weights_unified:
+            if hasattr(self, 'weight_spins') and self.weight_spins:
+                for i, val in enumerate(self.weight_spins):
+                    answer_weights[i+1] = val
             else:
-                for i, spin in getattr(self, 'weight_spins', {}).items():
-                    answer_weights[i] = spin.value()
+                for i in range(1, a_count + 1):
+                    answer_weights[i] = i
+        else:
+            if hasattr(self, 'weight_spins') and self.weight_spins and isinstance(self.weight_spins[0], list):
+                for q_idx, row_spins in enumerate(self.weight_spins):
+                    for a_idx, spin in enumerate(row_spins):
+                        answer_weights[q_idx * a_count + a_idx + 1] = spin.value()
+            else:
+                for q in range(q_count):
+                    for a in range(1, a_count + 1):
+                        answer_weights[q * a_count + a] = a
 
         return {
+            "test_name": self.test_name_edit.text().strip(),
             "scales": scales,
             "levels": levels,
             "level_boundaries": level_boundaries,
@@ -2116,6 +2163,13 @@ class SettingsDialog(QDialog):
         }
 
     def on_profile_loaded(self, config):
+        # Получаем имя профиля из выбранного элемента
+        current_item = self.parent().profile_dialog.profiles_list.currentItem() if hasattr(self.parent(), 'profile_dialog') else None
+        if current_item:
+            self.current_profile_name = current_item.data(Qt.ItemDataRole.UserRole)
+        else:
+            self.current_profile_name = None
+        
         if "questions_count" in config:
             self.questions_spin.setValue(config["questions_count"])
         if "answers_count" in config:
@@ -2176,17 +2230,46 @@ class SettingsDialog(QDialog):
         if "answer_weights" in config:
             weights = config["answer_weights"]
             if weights and len(set(weights.values())) == 1:
-                self.same_weights_checkbox.setChecked(True)
+                # Все веса одинаковые - используем режим единых весов
+                if hasattr(self, '_weights_unified'):
+                    self._weights_unified = True
                 if hasattr(self, 'single_weight_spin'):
                     self.single_weight_spin.setValue(list(weights.values())[0])
-                self.on_weights_checkbox_changed()
+                if hasattr(self, 'apply_all_btn'):
+                    self.apply_all_btn.setEnabled(False)
+                if hasattr(self, 'cancel_unify_btn'):
+                    self.cancel_unify_btn.setVisible(True)
+                # Обновляем веса в первой строке
+                first_weight = list(weights.values())[0]
+                if hasattr(self, 'weight_spins') and self.weight_spins:
+                    for spin in self.weight_spins:
+                        spin.setValue(first_weight)
             elif weights:
-                self.same_weights_checkbox.setChecked(False)
-                self.on_weights_checkbox_changed()
+                # Разные веса
+                if hasattr(self, '_weights_unified'):
+                    self._weights_unified = False
+                if hasattr(self, 'apply_all_btn'):
+                    self.apply_all_btn.setEnabled(True)
+                if hasattr(self, 'cancel_unify_btn'):
+                    self.cancel_unify_btn.setVisible(False)
+                self._refresh_weights_tab()
                 for i, spin in getattr(self, 'weight_spins', {}).items():
-                    if i in weights:
-                        spin.setValue(weights[i])
+                    if isinstance(spin, list):
+                        for j, s in enumerate(spin):
+                            key = i * len(spin) + j + 1
+                            if key in weights:
+                                s.setValue(weights[key])
+                    elif hasattr(spin, 'setValue'):
+                        if (i+1) in weights:
+                            spin.setValue(weights[i+1])
 
+        # Сохраняем полную конфигурацию
+        self.current_config = config
+        
+        # Отправляем сигнал с именем профиля и конфигурацией
+        if self.current_profile_name:
+            self.profile_loaded_with_name.emit(self.current_profile_name, config)
+        
         QMessageBox.information(self, "Успех", "Профиль загружен!")
 
     def _refresh_levels_display(self):

@@ -106,6 +106,11 @@ class ConfigSummary(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.profile_name = "Без профиля"
+        self.questions_count = 0
+        self.active_scales = []
+        self.is_ready = False
+        
         self.setStyleSheet("""
             ConfigSummary {
                 background-color: #F8F9FA;
@@ -125,11 +130,16 @@ class ConfigSummary(QFrame):
         layout.addWidget(title)
 
         # Строки конфигурации с разделителями
-        self._add_config_row(layout, "Профиль настроек", "Default_v1.json")
+        self.profile_label = QLabel("Без профиля")
+        self._add_config_row_with_value(layout, "Профиль настроек", self.profile_label)
         self._add_separator(layout)
-        self._add_config_row(layout, "Количество вопросов", "45")
+        
+        self.questions_label = QLabel("0")
+        self._add_config_row_with_value(layout, "Количество вопросов", self.questions_label)
         self._add_separator(layout)
-        self._add_config_row(layout, "Активные шкалы", "3 (Агрессивность, Цинизм, Эмпатия)")
+        
+        self.scales_label = QLabel("—")
+        self._add_config_row_with_value(layout, "Активные шкалы", self.scales_label)
         self._add_separator(layout)
 
         # Статус
@@ -138,12 +148,19 @@ class ConfigSummary(QFrame):
         status_label = QLabel("Статус:")
         status_label.setFont(get_font("caption"))
         status_label.setStyleSheet("color: #707579; background-color: transparent;")
-        status_value = QLabel("✅ Готов к обработке")
-        status_value.setFont(get_font("badge_text"))
-        status_value.setStyleSheet("color: #2E7D32; background-color: #E8F5E9; "
-                                   "padding: 4px 12px; border-radius: 12px; font-weight: 600;")
+        self.status_value = QLabel("❌ Не готов к обработке")
+        self.status_value.setFont(get_font("badge_text"))
+        self.status_value.setStyleSheet("""
+            QLabel {
+                color: #C62828; 
+                background-color: #FFEBEE; 
+                padding: 4px 12px; 
+                border-radius: 12px; 
+                font-weight: 600;
+            }
+        """)
         status_layout.addWidget(status_label)
-        status_layout.addWidget(status_value)
+        status_layout.addWidget(self.status_value)
         status_layout.addStretch()
         layout.addLayout(status_layout)
 
@@ -165,18 +182,17 @@ class ConfigSummary(QFrame):
         settings_btn.clicked.connect(self.settings_clicked.emit)
         layout.addWidget(settings_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    def _add_config_row(self, layout, label_text, value_text):
+    def _add_config_row_with_value(self, layout, label_text, value_widget):
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         label = QLabel(label_text + ":")
         label.setFont(get_font("caption"))
         label.setStyleSheet("color: #707579; background-color: transparent;")
-        value = QLabel(value_text)
-        value.setFont(get_font("form_input"))
-        value.setStyleSheet("color: #000000; font-weight: 500; background-color: transparent;")
         row.addWidget(label)
         row.addStretch()
-        row.addWidget(value)
+        if isinstance(value_widget, QLabel):
+            value_widget.setStyleSheet("color: #000000; font-weight: 500; background-color: transparent;")
+        row.addWidget(value_widget)
         layout.addLayout(row)
 
     def _add_separator(self, layout):
@@ -186,9 +202,67 @@ class ConfigSummary(QFrame):
         line.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
         layout.addWidget(line)
 
-    def update_config(self, profile_name, questions_count, scales_text, status_text, status_color):
-        """Обновляет отображаемые значения. Пока заглушка."""
-        pass
+    def update_config_from_dict(self, config):
+        """Обновляет отображаемые значения из словаря конфигурации."""
+        if not config:
+            self.profile_name = "Без профиля"
+            self.questions_count = 0
+            self.active_scales = []
+            self.is_ready = False
+        else:
+            # Профиль берется из profile_manager или устанавливается отдельно
+            self.questions_count = config.get("questions_count", 0)
+            scales = config.get("scales", {})
+            self.active_scales = list(scales.keys()) if scales else []
+            
+            # Проверка готовности: есть ли шкалы, уровни, вопросы
+            has_scales = len(self.active_scales) > 0
+            has_questions = self.questions_count > 0
+            has_levels = len(config.get("levels", {})) > 0
+            has_weights = bool(config.get("answer_weights", {}))
+            
+            self.is_ready = has_scales and has_questions and has_levels and has_weights
+        
+        self._update_display()
+
+    def set_profile_name(self, name):
+        """Устанавливает имя профиля."""
+        self.profile_name = name if name else "Без профиля"
+        self._update_display()
+
+    def _update_display(self):
+        """Обновляет отображение конфигурации."""
+        self.profile_label.setText(self.profile_name)
+        self.questions_label.setText(str(self.questions_count))
+        
+        if self.active_scales:
+            scales_text = f"{len(self.active_scales)} ({', '.join(self.active_scales[:3])}{'...' if len(self.active_scales) > 3 else ''})"
+            self.scales_label.setText(scales_text)
+        else:
+            self.scales_label.setText("—")
+        
+        if self.is_ready:
+            self.status_value.setText("✅ Готов к обработке")
+            self.status_value.setStyleSheet("""
+                QLabel {
+                    color: #2E7D32; 
+                    background-color: #E8F5E9; 
+                    padding: 4px 12px; 
+                    border-radius: 12px; 
+                    font-weight: 600;
+                }
+            """)
+        else:
+            self.status_value.setText("❌ Не готов к обработке")
+            self.status_value.setStyleSheet("""
+                QLabel {
+                    color: #C62828; 
+                    background-color: #FFEBEE; 
+                    padding: 4px 12px; 
+                    border-radius: 12px; 
+                    font-weight: 600;
+                }
+            """)
 
 
 class UploadWidget(QWidget):
@@ -202,6 +276,7 @@ class UploadWidget(QWidget):
         self.current_df = None
         self.current_file_path = None
         self.sheet_names = []
+        self.current_config = None  # Текущая конфигурация
 
         # Главная карточка
         self.card = QFrame(self)
@@ -354,3 +429,8 @@ class UploadWidget(QWidget):
         print("Обработка запущена...")
         # Здесь будет вызов ProcessWorker, а потом переключение на вкладку результатов
         # TODO: реализовать
+
+    def set_config(self, config):
+        """Устанавливает текущую конфигурацию и обновляет отображение."""
+        self.current_config = config
+        self.config_summary.update_config_from_dict(config)

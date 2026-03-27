@@ -73,7 +73,7 @@ def _answer_to_int(x) -> int:
     return 0
 
 
-def _interpret_sum(scale_key: str, total: float) -> Tuple[str, str]:
+def _interpret_sum(scale_key: str, total: float, scales_config: dict = None, level_ru: dict = None) -> Tuple[str, str]:
     """
     Возвращает (level_code, level_text_ru_with_scale)
     Границы читаем так:
@@ -82,8 +82,13 @@ def _interpret_sum(scale_key: str, total: float) -> Tuple[str, str]:
       mid_high: [mid_high_min, high_min)
       high: >= high_min
     """
-    b = SCALES[scale_key]["bounds"]
-    title_ru = SCALES[scale_key]["title_ru"]
+    if scales_config is None:
+        scales_config = SCALES
+    if level_ru is None:
+        level_ru = LEVEL_RU
+        
+    b = scales_config[scale_key]["bounds"]
+    title_ru = scales_config[scale_key]["title_ru"]
 
     if pd.isna(total):
         return ("", "")
@@ -98,7 +103,7 @@ def _interpret_sum(scale_key: str, total: float) -> Tuple[str, str]:
     else:
         code = "low"
 
-    text = f"{LEVEL_RU[code]} {title_ru}"
+    text = f"{level_ru[code]} {title_ru}"
     return code, text
 
 
@@ -179,17 +184,30 @@ def _distribution_wide(df_long: pd.DataFrame) -> pd.DataFrame:
 
 # --- Основная функция ---
 
-def process_data(df: pd.DataFrame) -> pd.DataFrame:
+def process_data(df: pd.DataFrame, config: dict = None) -> pd.DataFrame:
     """
     Вход: датафрейм с колонками:
       - 'Время создания' (str/datetime)
       - 'Группа'
       - вопросы вида '1. ...' или '1) ...' с ответами '1 - никогда'..'6 - обычно'
+      - config (optional): конфигурация с шкалами, уровнями и весами
 
     Выход: df_out (персональный уровень) + сводки в df_out.attrs["summaries"].
     """
     if df is None or not isinstance(df, pd.DataFrame):
         raise ValueError("process_data ожидает pandas DataFrame (df).")
+
+    # Используем конфигурацию из параметра или дефолтную
+    if config:
+        scales_config = config.get("scales", config.get("scales_config", {}))
+        level_order = config.get("level_order", LEVEL_ORDER)
+        level_ru = config.get("level_ru", LEVEL_RU)
+        answer_weights = config.get("answer_weights", {})
+    else:
+        scales_config = SCALES
+        level_order = LEVEL_ORDER
+        level_ru = LEVEL_RU
+        answer_weights = {}
 
     df0 = df.copy()
 
@@ -214,7 +232,7 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
         df0[f"q{qn:02d}"] = df0[col].map(_answer_to_int).astype("Float64")  # allow NaN
 
     # 4) Считаем суммы и интерпретации по шкалам
-    for scale_key, cfg in SCALES.items():
+    for scale_key, cfg in scales_config.items():
         qcols = [f"q{qn:02d}" for qn in cfg["qnums"] if f"q{qn:02d}" in df0.columns]
         if len(qcols) != len(cfg["qnums"]):
             missing = sorted(set(cfg["qnums"]) - {int(c[1:]) for c in qcols})
@@ -231,12 +249,12 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
         # Здесь: считаем сумму только если нет NaN; иначе оставляем NaN.
         df0[sum_col] = df0[qcols].sum(axis=1, min_count=len(qcols))
 
-        interpreted = df0[sum_col].map(lambda x: _interpret_sum(scale_key, x))
+        interpreted = df0[sum_col].map(lambda x: _interpret_sum(scale_key, x, scales_config, level_ru))
         df0[level_code_col] = interpreted.map(lambda t: t[0])
         df0[level_text_col] = interpreted.map(lambda t: t[1])
 
     # 5) Средние "справа" по группе/году/колледжу (для каждой шкалы)
-    for scale_key in SCALES.keys():
+    for scale_key in scales_config.keys():
         sum_col = f"{scale_key}_sum"
         df0[f"{scale_key}_sum_group_mean"] = df0.groupby("Группа")[sum_col].transform("mean")
         df0[f"{scale_key}_sum_year_mean"] = df0.groupby("year")[sum_col].transform("mean")
@@ -245,7 +263,7 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     # 6) Сводки распределений: group/year/college
     long_parts: List[pd.DataFrame] = []
 
-    for scale_key in SCALES.keys():
+    for scale_key in scales_config.keys():
         level_code_col = f"{scale_key}_level_code"
 
         # По группам
@@ -291,9 +309,9 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     df0.attrs["summaries"] = {
         "long": df_long,
         "wide": df_wide,
-        "level_order": LEVEL_ORDER,
-        "level_ru": LEVEL_RU,
-        "scales": {k: {"title_ru": v["title_ru"], "qnums": v["qnums"], "bounds": v["bounds"]} for k, v in SCALES.items()},
+        "level_order": level_order,
+        "level_ru": level_ru,
+        "scales": {k: {"title_ru": v["title_ru"], "qnums": v["qnums"], "bounds": v["bounds"]} for k, v in scales_config.items()},
     }
 
     return df0

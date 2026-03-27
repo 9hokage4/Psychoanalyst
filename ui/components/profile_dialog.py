@@ -12,16 +12,17 @@ from utils.fonts import get_font, FontWeights
 
 class ProfileDialog(QDialog):
     profile_loaded = pyqtSignal(dict)
+    profile_saved_with_name = pyqtSignal(str)  # имя профиля
 
     def __init__(self, parent=None, current_config=None):
         super().__init__(parent)
         self.setWindowTitle(" Профили настроек")
         self.setMinimumSize(500, 400)
         self.setModal(True)
-        
+
         self.profile_manager = ProfileManager()
         self.current_config = current_config
-        
+
         self.init_ui()
         self.load_profiles_list()
     
@@ -112,11 +113,11 @@ class ProfileDialog(QDialog):
     
     def on_save_profile(self):
         profile_name = self.profile_name_input.text().strip()
-        
+
         if not profile_name:
             QMessageBox.warning(self, "Ошибка", "Введите имя профиля")
             return
-        
+
         if self.profile_manager.profile_exists(profile_name):
             reply = QMessageBox.question(
                 self,
@@ -126,17 +127,19 @@ class ProfileDialog(QDialog):
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
-        
+
         if self.current_config is None:
             QMessageBox.warning(self, "Ошибка", "Нет текущей конфигурации для сохранения")
             return
-        
+
         success = self.profile_manager.save_profile(profile_name, self.current_config)
-        
+
         if success:
             QMessageBox.information(self, "Успех", f"Профиль '{profile_name}' сохранён!")
             self.profile_name_input.clear()
             self.load_profiles_list()
+            # Отправляем сигнал с именем сохраненного профиля
+            self.profile_saved_with_name.emit(profile_name)
         else:
             QMessageBox.critical(self, "Ошибка", "Не удалось сохранить профиль")
     

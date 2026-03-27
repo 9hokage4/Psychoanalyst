@@ -141,6 +141,7 @@ class EditLevelDialog(QDialog):
                 padding: 8px 24px 8px 12px;
                 font-size: 18px;
                 background-color: white;
+                color: #000000;
             }
             QSpinBox:focus {
                 border-color: #3390EC;
@@ -161,6 +162,8 @@ class EditLevelDialog(QDialog):
                 height: 12px;
             }
         """)
+        # Отключаем выделение текста при фокусе
+        self.boundary_spin.lineEdit().setReadOnly(True)
         layout.addWidget(bound_label)
         layout.addWidget(self.boundary_spin)
 
@@ -321,7 +324,8 @@ class LevelBadge(QWidget):
         extra_width = 12 + 8 + 8 + 4  # left margin + spacing + right margin + padding
         if not self.hide_delete:
             extra_width += 20  # ширина кнопки удаления
-        return QSize(int(text_width + extra_width), self.BADGE_HEIGHT)
+        # Возвращаем размер с минимальной шириной 100px
+        return QSize(max(int(text_width + extra_width), 100), self.BADGE_HEIGHT)
 
     def __init__(self, level_data, index, total, parent=None, hide_delete=False):
         super().__init__(parent)
@@ -334,7 +338,9 @@ class LevelBadge(QWidget):
         # Фиксированная высота badge
         self.setFixedHeight(self.BADGE_HEIGHT)
         # Разрешаем виджету расширяться по горизонтали
-        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        # Устанавливаем минимальную ширину для корректного отображения в flow layout
+        self.setMinimumWidth(100)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 4, 8, 4)
@@ -411,10 +417,10 @@ class ScaleItem(QWidget):
     delete_clicked = pyqtSignal(object)
 
     # === НАСТРОЙКИ РАЗМЕРА КАРТОЧКИ (изменяемые) ===
-    CARD_MIN_WIDTH = 600     # Минимальная ширина карточки
-    CARD_MIN_HEIGHT = 300   # Минимальная высота карточки
-    CARD_MAX_WIDTH = 1400    # Максимальная ширина карточки
-    CARD_MAX_HEIGHT = 1200   # Максимальная высота карточки (подберите своё значение)
+    CARD_MIN_WIDTH = 640     # Минимальная ширина карточки (+40px)
+    CARD_MIN_HEIGHT = 380    # Минимальная высота карточки
+    CARD_MAX_WIDTH = 1440    # Максимальная ширина карточки (+40px)
+    CARD_MAX_HEIGHT = 1200   # Максимальная высота карточки
     # ===============================================
 
     def sizeHint(self):
@@ -514,10 +520,11 @@ class ScaleItem(QWidget):
 
         # ScrollArea для уровней (растёт до 3 строк, потом скролл)
         self.levels_scroll = QScrollArea()
-        self.levels_scroll.setWidgetResizable(True)
+        self.levels_scroll.setWidgetResizable(False)  # Важно: не растягивать виджет автоматически
         self.levels_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.levels_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.levels_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         self.levels_scroll.setStyleSheet("""
             QScrollArea {
                 background-color: transparent;
@@ -536,6 +543,22 @@ class ScaleItem(QWidget):
             QScrollBar::handle:vertical:hover {
                 background-color: #A0A5A9;
             }
+            QScrollBar:horizontal {
+                background-color: transparent;
+                height: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-width: 30px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                height: 0px;
+            }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
             }
@@ -543,9 +566,11 @@ class ScaleItem(QWidget):
 
         # Контейнер для уровней (горизонтальный flow layout)
         self.levels_container = QWidget()
-        self.levels_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.levels_container.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        self.levels_container.setMinimumWidth(800)  # Увеличенная минимальная ширина для горизонтального размещения
+        self.levels_container.setMaximumWidth(1600)  # Максимальная ширина контейнера
 
-        # Высота одной строки badge: 28px badge + 8px отступы = 36px
+        # Высота одной строки badge: 28px badge + 8px отступы layout = 36px
         self.BADGE_ROW_HEIGHT = 36
         # Максимум 3 строки без скролла
         self.MAX_ROWS_NO_SCROLL = 3
@@ -561,7 +586,7 @@ class ScaleItem(QWidget):
         # Максимальная высота перед появлением скролла (3 строки)
         self.levels_scroll.setMaximumHeight(self.BADGE_ROW_HEIGHT * self.MAX_ROWS_NO_SCROLL)
         # Устанавливаем size policy для scroll area
-        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
 
         layout.addWidget(self.levels_scroll)
 
@@ -666,17 +691,62 @@ class ScaleItem(QWidget):
         # Принудительно обновляем контейнер
         self.levels_container.updateGeometry()
         self.levels_container.adjustSize()
-        
+
         # Обновляем высоту scroll area после добавления badge (с задержкой для правильного расчёта)
-        QtCore.QTimer.singleShot(0, self._adjust_levels_scroll_height)
-    
+        QtCore.QTimer.singleShot(100, self._adjust_levels_scroll_height)
+
     def _adjust_levels_scroll_height(self):
-        """Обновляет геометрию контейнера для правильного отображения badge."""
-        # Просто обновляем геометрию - scroll area сама подстроится через minimumHeight/maximumHeight
+        """Обновляет высоту scroll area в зависимости от количества строк badge.
+        
+        Логика:
+        - 1 строка (36px) → высота 36px, скролл НЕ показывается
+        - 2 строки (72px) → высота 72px, скролл НЕ показывается
+        - 3 строки (108px) → высота 108px, скролл НЕ показывается
+        - 4+ строк (144px+) → высота 108px, скролл ПОКАЗЫВАЕТСЯ
+        """
+        # Считаем количество badge
+        badge_count = self.levels_layout.count()
+        if badge_count == 0:
+            return
+        
+        # Получаем ширину контейнера
+        container_width = self.levels_container.width()
+        if container_width <= 0:
+            container_width = self.levels_scroll.width()
+        
+        # Симулируем размещение badge для подсчёта строк
+        rows_count = 1
+        current_row_width = 0
+        
+        for i in range(badge_count):
+            item = self.levels_layout.itemAt(i)
+            if item and item.widget():
+                badge = item.widget()
+                badge_width = badge.sizeHint().width()
+                
+                # Если badge не помещается в текущую строку, переходим на следующую
+                if current_row_width + badge_width > container_width and current_row_width > 0:
+                    rows_count += 1
+                    current_row_width = badge_width + self.levels_layout.spacing()
+                else:
+                    current_row_width += badge_width + self.levels_layout.spacing()
+        
+        # Ограничиваем 3 строками
+        display_rows = min(rows_count, self.MAX_ROWS_NO_SCROLL)
+        
+        # Устанавливаем высоту scroll area
+        new_height = display_rows * self.BADGE_ROW_HEIGHT
+        self.levels_scroll.setFixedHeight(new_height)
+        
+        # Устанавливаем фиксированную высоту контейнера на основе реального количества строк
+        # Это предотвращает избыточную прокрутку
+        actual_content_height = rows_count * self.BADGE_ROW_HEIGHT
+        self.levels_container.setFixedHeight(actual_content_height)
+        
+        # Обновляем геометрию
         self.levels_layout.activate()
         self.levels_layout.update()
         self.levels_container.updateGeometry()
-        self.levels_container.adjustSize()
         self.levels_scroll.updateGeometry()
         self.levels_scroll.adjustSize()
 
@@ -823,7 +893,8 @@ class AddScaleDialog(QDialog):
                 background-color: #2B80D9;
             }
         """)
-        self.save_btn.clicked.connect(self.accept)
+        # Изменено: вызываем валидацию перед закрытием диалога
+        self.save_btn.clicked.connect(self._validate_and_accept)
 
         self.cancel_btn = QPushButton("Отмена")
         self.cancel_btn.setFixedHeight(36)
@@ -911,6 +982,16 @@ class AddScaleDialog(QDialog):
         self.selected_levels.pop(index)
         self._refresh_levels_display()
 
+    def _validate_and_accept(self):
+        """Валидация данных перед закрытием диалога.
+        Если есть ошибка - показываем сообщение, но НЕ закрываем диалог.
+        """
+        data = self.get_data()
+        if data is not None:
+            # Валидация прошла успешно - закрываем диалог
+            self.accept()
+        # Если data is None - ошибка уже показана, диалог остается открытым
+
     def _on_add_level(self):
         parent = self.parent()
         if not hasattr(parent, 'levels_data'):
@@ -984,38 +1065,80 @@ class AddScaleDialog(QDialog):
         dialog.exec()
 
     def get_data(self):
+        """Возвращает данные шкалы. Показывает ошибку и возвращает None при проблемах.
+        Диалог НЕ закрывается при ошибке.
+        """
         name = self.name_edit.text().strip()
         questions_text = self.questions_edit.text().strip()
+
+        # Проверяем название
+        if not name:
+            self.parent_dialog._show_error_message(
+                "Ошибка валидации",
+                "Название шкалы обязательно.")
+            return None
+
+        # Парсим вопросы (ошибка показывается внутри метода)
         questions = self._parse_questions(questions_text)
-        
-        # Валидация вопросов
-        if questions:
-            max_question = max(questions)
-            max_allowed = self.parent_dialog.questions_spin.value()
-            if max_question > max_allowed:
-                self.parent_dialog._show_error_message(
-                    "Ошибка валидации",
-                    f"Обнаружен номер вопроса, превышающий лимит: {max_question}.\n"
-                    f"Во вкладке 'Основные' установлено максимальное количество вопросов: {max_allowed}.\n"
-                    f"Измените лимит или укажите корректные номера вопросов.")
+
+        # Если вопросы пустые после парсинга - ошибка уже показана
+        if questions is None:
+            return None
+
+        # Проверяем, что вопросы есть
+        if not questions:
+            self.parent_dialog._show_error_message(
+                "Ошибка валидации",
+                "Укажите хотя бы один вопрос для шкалы.")
+            return None
+
+        # Проверяем лимит вопросов
+        max_question = max(questions)
+        max_allowed = self.parent_dialog.questions_spin.value()
+        if max_question > max_allowed:
+            self.parent_dialog._show_error_message(
+                "Ошибка валидации",
+                f"Обнаружен номер вопроса, превышающий лимит: {max_question}.\n"
+                f"Во вкладке 'Основные' установлено максимальное количество вопросов: {max_allowed}.\n"
+                f"Измените лимит или укажите корректные номера вопросов.")
+            return None
+
+        # Проверяем на дубликаты вопросов с другими шкалами
+        if not self.parent_dialog.shared_checkbox.isChecked():
+            all_questions = {}
+            # Получаем существующие шкалы из родительского диалога
+            scales = self.parent_dialog.scales
+            # Если редактируем существующую шкалу, исключаем её из проверки
+            if self.scale_data and "name" in self.scale_data:
+                scales = [s for s in scales if s.get("name") != self.scale_data["name"]]
+            
+            for scale in scales:
+                for q in scale.get("questions", []):
+                    if q not in all_questions:
+                        all_questions[q] = []
+                    all_questions[q].append(scale["name"])
+            
+            duplicate = [q for q in questions if q in all_questions]
+            if duplicate:
+                error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
+                error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
+                self.parent_dialog._show_error_message("Ошибка валидации", error)
                 return None
-            if min(questions) < 1:
-                self.parent_dialog._show_error_message(
-                    "Ошибка валидации",
-                    f"Номер вопроса должен быть в диапазоне от 1 до {max_allowed}.")
-                return None
-        
+
         levels = self.selected_levels
         return {"name": name, "questions": questions, "levels": levels}
 
     def _parse_questions(self, text):
+        """Парсит текст вопросов. Возвращает список вопросов или None при ошибке.
+        При ошибке показывает сообщение, но НЕ закрывает диалог.
+        """
         if not text:
             return []
         parts = text.split(',')
         questions = set()
         invalid_parts = []
         max_allowed = self.parent_dialog.questions_spin.value()
-        
+
         for part in parts:
             part = part.strip()
             if not part:
@@ -1042,15 +1165,16 @@ class AddScaleDialog(QDialog):
                     questions.add(q_num)
                 except ValueError:
                     invalid_parts.append(part)
-        
+
         if invalid_parts:
+            # Показываем ошибку, но НЕ закрываем диалог!
             self.parent_dialog._show_error_message(
                 "Ошибка валидации",
                 f"Некорректные номера вопросов: {', '.join(invalid_parts)}\n"
                 f"Номер вопроса должен быть числом от 1 до {max_allowed}.\n"
                 f"Диапазоны указываются в формате '1-10'.")
-            return []
-        
+            return None  # Возвращаем None вместо []
+
         return sorted(questions)
 
 
@@ -1058,11 +1182,44 @@ class SettingsDialog(QDialog):
     config_saved = pyqtSignal(dict, str)  # передаём полную конфигурацию и имя профиля
     profile_loaded_with_name = pyqtSignal(str, dict)  # имя профиля, конфигурация
 
+    # === НАСТРОЙКИ РАЗМЕРОВ ОКНА (в процентах от экрана и пикселях) ===
+    # Отступы от краев экрана (в процентах от ширины/высоты экрана)
+    SCREEN_MARGIN_PERCENT_X = 15  # Отступ слева и справа (% от ширины экрана)
+    SCREEN_MARGIN_PERCENT_Y = 15  # Отступ сверху и снизу (% от высоты экрана)
+    
+    # Минимальные и максимальные размеры для каждой вкладки (в пикселях)
+    TAB_SIZES = {
+        "basic": {
+            "min_width": 900,
+            "max_width": 900,
+            "min_height": 400,
+            "max_height": 700,
+        },
+        "levels": {
+            "min_width": 900,
+            "max_width": 900,
+            "min_height": 280,
+            "max_height": 550,
+        },
+        "scales": {
+            "min_width": 900,
+            "max_width": 1100,
+            "min_height": 800,
+            "max_height": 800,
+        },
+        "weights": {
+            "min_width": 950,
+            "max_width": 950,
+            "min_height": 400,  # Высота когда нажата кнопка "Применить ко всем вопросам"
+            "max_height": 650,  # Высота когда не нажата кнопка
+        },
+    }
+    # =======================================================================
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("⚙️ Настройки теста")
+        self.setWindowTitle("Настройки теста")
         self.setWindowIcon(QIcon("resources/icons/cog.svg"))
-        self.setMinimumSize(900, 350)
         self.setModal(True)
         self.scales = []
         self.levels = []
@@ -1072,7 +1229,7 @@ class SettingsDialog(QDialog):
         self.current_config = None
         self.current_profile_name = None  # Имя текущего загруженного профиля
         self.init_ui()
-        self.adjustSize()
+        self._center_and_resize()  # Центрируем и устанавливаем размер при открытии
 
     def init_ui(self):
         main_layout = QVBoxLayout()
@@ -1233,6 +1390,69 @@ class SettingsDialog(QDialog):
 
         self.setLayout(main_layout)
 
+    def _get_tab_name_for_index(self, index):
+        """Возвращает имя вкладки по индексу."""
+        tab_map = {
+            0: "basic",
+            1: "levels",
+            2: "scales",
+            3: "weights",
+        }
+        return tab_map.get(index, "basic")
+
+    def _center_and_resize(self):
+        """Центрирует окно на экране и устанавливает размер в зависимости от вкладки."""
+        # Получаем текущую вкладку
+        current_index = self.stacked_widget.currentIndex()
+        tab_name = self._get_tab_name_for_index(current_index)
+
+        # Получаем настройки размеров для текущей вкладки
+        sizes = self.TAB_SIZES.get(tab_name, self.TAB_SIZES["basic"])
+
+        # Получаем размер экрана
+        screen = self.screen().size()
+        screen_width = screen.width()
+        screen_height = screen.height()
+
+        # Вычисляем доступную ширину и высоту (с учётом отступов в процентах)
+        available_width = int(screen_width * (100 - 2 * self.SCREEN_MARGIN_PERCENT_X) / 100)
+        available_height = int(screen_height * (100 - 2 * self.SCREEN_MARGIN_PERCENT_Y) / 100)
+
+        # Вычисляем желаемый размер вкладки (на основе контента)
+        content_size = self.stacked_widget.currentWidget().sizeHint()
+
+        # Для вкладки "Веса" используем разную высоту в зависимости от режима
+        if tab_name == "weights":
+            if hasattr(self, '_weights_unified') and self._weights_unified:
+                # Режим "единые веса" - 1 строка
+                desired_height = sizes["min_height"]  # 400px
+            else:
+                # Обычный режим - много строк
+                desired_height = sizes["max_height"]  # 650px
+            desired_width = sizes["min_width"]  # 950px (фиксированная ширина)
+        else:
+            # Ограничиваем размер вкладки мин/макс значениями и доступным пространством
+            desired_width = max(
+                sizes["min_width"],
+                min(content_size.width() + 100, sizes["max_width"], available_width)
+            )
+            desired_height = max(
+                sizes["min_height"],
+                min(content_size.height() + 200, sizes["max_height"], available_height)
+            )
+
+        # Устанавливаем мин/макс размеры
+        self.setMinimumSize(sizes["min_width"], sizes["min_height"])
+        self.setMaximumSize(sizes["max_width"], sizes["max_height"])
+
+        # Устанавливаем желаемый размер
+        self.resize(desired_width, desired_height)
+
+        # Центрируем окно на экране
+        x = (screen_width - desired_width) // 2
+        y = (screen_height - desired_height) // 2
+        self.move(x, y)
+
     def switch_to_tab(self, button: NavButton, tab_name: str):
         """Переключает вкладку по нажатию на кнопку навигации."""
         for btn in self.nav_buttons:
@@ -1247,9 +1467,9 @@ class SettingsDialog(QDialog):
             self.stacked_widget.setCurrentWidget(self.scales_tab)
         elif tab_name == "Веса":
             self.stacked_widget.setCurrentWidget(self.weights_tab)
-            # Сбрасываем ограничение (устанавливаем очень большое значение)
-            self.setMaximumHeight(16777215)  # максимальное значение высоты в Qt
-        self.adjustSize()
+        
+        # Адаптируем размер окна под новую вкладку
+        QtCore.QTimer.singleShot(0, self._center_and_resize)
 
     def _create_basic_tab(self):
         tab = QWidget()
@@ -1329,6 +1549,8 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
             }
         """)
+        # Отключаем выделение текста при фокусе
+        self.questions_spin.lineEdit().setReadOnly(True)
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
         questions_group.addWidget(self.questions_spin)
         
@@ -1346,7 +1568,7 @@ class SettingsDialog(QDialog):
         answers_group.addWidget(answers_label)
 
         self.answers_spin = QSpinBox()
-        self.answers_spin.setRange(2, 10)
+        self.answers_spin.setRange(2, 100)
         self.answers_spin.setValue(5)
         self.answers_spin.setFixedHeight(40)
         self.answers_spin.setFont(get_font("numeric"))
@@ -1383,6 +1605,8 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
             }
         """)
+        # Отключаем выделение текста при фокусе
+        self.answers_spin.lineEdit().setReadOnly(True)
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
         answers_group.addWidget(self.answers_spin)
         main_layout.addLayout(answers_group)
@@ -1437,9 +1661,17 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(0)  # Убираем отступы между элементами
 
+        # === НАСТРОЙКА ОТСТУПА ===
+        LEVELS_TITLE_SPACING = 8  # Отступ от заголовка до badge
+        LEVELS_FORM_SPACING = 16  # Отступ между scroll area и формой настройки уровня
+        # =========================
+
         title_label = QLabel("Активные уровни")
-        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 8px;")
+        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600;")
         layout.addWidget(title_label)
+
+        # Добавляем фиксированный отступ
+        layout.addSpacing(LEVELS_TITLE_SPACING)
 
         self.levels_container = QWidget()
         self.levels_container.setMinimumHeight(36)
@@ -1453,6 +1685,7 @@ class SettingsDialog(QDialog):
         scroll.setWidget(self.levels_container)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setMaximumHeight(150)
+        scroll.setMinimumWidth(400)  # Фиксированная минимальная ширина
         scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         scroll.setStyleSheet("""
             QScrollArea {
@@ -1493,6 +1726,9 @@ class SettingsDialog(QDialog):
             }
         """)
         layout.addWidget(scroll)
+
+        # Добавляем фиксированный отступ перед формой
+        layout.addSpacing(LEVELS_FORM_SPACING)
 
         # Форма настройки уровня
         form_frame = QFrame()
@@ -1550,6 +1786,7 @@ class SettingsDialog(QDialog):
                 padding: 6px 12px;
                 font-size: 18px;
                 background-color: white;
+                color: #000000;
             }
             QSpinBox:focus {
                 border-color: #3390EC;
@@ -1570,6 +1807,8 @@ class SettingsDialog(QDialog):
                 height: 12px;
             }
         """)
+        # Отключаем выделение текста при фокусе
+        self.level_boundary_spin.lineEdit().setReadOnly(True)
         fields_layout.addWidget(self.level_boundary_spin, 1)
 
         form_layout.addLayout(fields_layout)
@@ -1783,26 +2022,8 @@ class SettingsDialog(QDialog):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
             if data is None:
-                return  # Ошибка валидации
-            if not data["name"]:
-                self._show_error_message("Ошибка", "Название шкалы обязательно.")
-                return
-            if not data["questions"]:
-                self._show_error_message("Ошибка", "Укажите вопросы для шкалы.")
-                return
-            if not self.shared_checkbox.isChecked():
-                all_questions = {}
-                for scale in self.scales:
-                    for q in scale.get("questions", []):
-                        if q not in all_questions:
-                            all_questions[q] = []
-                        all_questions[q].append(scale["name"])
-                duplicate = [q for q in data["questions"] if q in all_questions]
-                if duplicate:
-                    error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
-                    error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
-                    self._show_error_message("Ошибка", error)
-                    return
+                return  # Ошибка валидации - диалог остается открытым, данные сохранены
+
             new_scale = {
                 "name": data["name"],
                 "questions": data["questions"],
@@ -1817,28 +2038,8 @@ class SettingsDialog(QDialog):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_data()
             if new_data is None:
-                return  # Ошибка валидации
-            if not new_data["name"]:
-                self._show_error_message("Ошибка", "Название шкалы обязательно.")
-                return
-            if not new_data["questions"]:
-                self._show_error_message("Ошибка", "Укажите вопросы для шкалы.")
-                return
-            if not self.shared_checkbox.isChecked():
-                all_questions = {}
-                for i, scale in enumerate(self.scales):
-                    if i == index:
-                        continue
-                    for q in scale.get("questions", []):
-                        if q not in all_questions:
-                            all_questions[q] = []
-                        all_questions[q].append(scale["name"])
-                duplicate = [q for q in new_data["questions"] if q in all_questions]
-                if duplicate:
-                    error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
-                    error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
-                    self._show_error_message("Ошибка", error)
-                    return
+                return  # Ошибка валидации - диалог остается открытым, данные сохранены
+
             self.scales[index] = new_data
             self._refresh_scales_list()
 
@@ -1877,7 +2078,7 @@ class SettingsDialog(QDialog):
         """)
         group_layout = QVBoxLayout(weights_group)
         group_layout.setContentsMargins(8, 8, 8, 8)
-        group_layout.setSpacing(12)
+        group_layout.setSpacing(0)  # Убираем отступы для плотного прилегания
 
         # Контейнер для строк весов (прокручиваемый, без фона)
         self.weights_container = QWidget()
@@ -1890,6 +2091,10 @@ class SettingsDialog(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.weights_container)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
+        scroll.setMinimumHeight(60)  # Минимальная высота scroll area (1 строка)
+        scroll.setMaximumHeight(300)  # Максимальная высота scroll area
+        scroll.setObjectName("weights_scroll_area")  # Добавляем objectName для поиска
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -1908,19 +2113,62 @@ class SettingsDialog(QDialog):
             QScrollBar::handle:vertical:hover {
                 background-color: #A0A5A9;
             }
+            QScrollBar:horizontal {
+                background-color: #F0F0F0;
+                height: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-width: 30px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                height: 0px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
         """)
         group_layout.addWidget(scroll)
 
-        # Кнопки управления
+        # Кнопки управления (поменяли местами: 1. Отмена, 2. Применить)
         btn_layout = QHBoxLayout()
-        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setContentsMargins(0, 8, 0, 0)  # Отступ только сверху
         btn_layout.setSpacing(10)
-        btn_layout.addStretch()
 
+        # 1. Кнопка "Отмена" (теперь первая)
+        self.cancel_unify_btn = QPushButton("Отмена")
+        self.cancel_unify_btn.setFixedHeight(32)
+        self.cancel_unify_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        font_metrics = self.cancel_unify_btn.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(self.cancel_unify_btn.text())
+        self.cancel_unify_btn.setFixedWidth(text_width + 40)
+        self.cancel_unify_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 17px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #F5F5F5;
+            }
+        """)
+        self.cancel_unify_btn.clicked.connect(self._cancel_unify_weights)
+        self.cancel_unify_btn.setVisible(False)  # изначально скрыта
+        btn_layout.addWidget(self.cancel_unify_btn)
+
+        # 2. Кнопка "Применить ко всем вопросам" (теперь вторая)
         self.apply_all_btn = QPushButton("Применить ко всем вопросам")
         self.apply_all_btn.setFixedHeight(32)
         self.apply_all_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        font_metrics = self.apply_all_btn.fontMetrics()
         text_width = font_metrics.horizontalAdvance(self.apply_all_btn.text())
         self.apply_all_btn.setFixedWidth(text_width + 40)
         self.apply_all_btn.setStyleSheet("""
@@ -1944,29 +2192,6 @@ class SettingsDialog(QDialog):
         """)
         self.apply_all_btn.clicked.connect(self._apply_weights_to_all)
         btn_layout.addWidget(self.apply_all_btn)
-
-        self.cancel_unify_btn = QPushButton("Отмена")
-        self.cancel_unify_btn.setFixedHeight(32)
-        self.cancel_unify_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        text_width = font_metrics.horizontalAdvance(self.cancel_unify_btn.text())
-        self.cancel_unify_btn.setFixedWidth(text_width + 40)
-        self.cancel_unify_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                color: #3390EC;
-                border: 1px solid #3390EC;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 17px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #F5F5F5;
-            }
-        """)
-        self.cancel_unify_btn.clicked.connect(self._cancel_unify_weights)
-        self.cancel_unify_btn.setVisible(False)  # изначально скрыта
-        btn_layout.addWidget(self.cancel_unify_btn)
 
         group_layout.addLayout(btn_layout)
 
@@ -2022,6 +2247,7 @@ class SettingsDialog(QDialog):
                     padding: 4px 8px;
                     font-size: 18px;
                     background-color: white;
+                    color: #000000;
                 }
                 QSpinBox:focus {
                     border-color: #3390EC;
@@ -2042,6 +2268,8 @@ class SettingsDialog(QDialog):
                     height: 12px;
                 }
             """)
+            # Отключаем выделение текста при фокусе
+            spin.lineEdit().setReadOnly(True)
             row_layout.addWidget(spin)
             spins.append(spin)
 
@@ -2071,6 +2299,7 @@ class SettingsDialog(QDialog):
                     padding: 4px 8px;
                     font-size: 18px;
                     background-color: white;
+                    color: #000000;
                 }
                 QSpinBox:focus {
                     border-color: #3390EC;
@@ -2091,6 +2320,8 @@ class SettingsDialog(QDialog):
                     height: 12px;
                 }
             """)
+            # Отключаем выделение текста при фокусе
+            spin.lineEdit().setReadOnly(True)
             row_layout.addWidget(spin)
             spins.append(spin)
 
@@ -2122,6 +2353,22 @@ class SettingsDialog(QDialog):
         self.apply_all_btn.setEnabled(False)
         self.cancel_unify_btn.setVisible(True)
         self.weight_spins = first_row_spins
+        
+        # Устанавливаем фиксированную высоту scroll area для режима "единые веса"
+        scroll = self.findChild(QScrollArea, "weights_scroll_area")
+        if scroll:
+            scroll.setMinimumHeight(60)
+            scroll.setMaximumHeight(60)
+
+        # Обновляем layout без мерцания
+        self.weights_layout.activate()
+        self.weights_container.updateGeometry()
+        self.weights_container.adjustSize()
+        
+        # Блокируем сигналы во время изменения размера для предотвращения мерцания
+        self.blockSignals(True)
+        self._center_and_resize()
+        self.blockSignals(False)
 
     def _cancel_unify_weights(self):
         """Отменяет режим единых весов, возвращает исходное состояние"""
@@ -2129,6 +2376,17 @@ class SettingsDialog(QDialog):
         if hasattr(self, '_weights_unified'):
             del self._weights_unified
         self._refresh_weights_tab()
+        
+        # Восстанавливаем высоту scroll area
+        scroll = self.findChild(QScrollArea, "weights_scroll_area")
+        if scroll:
+            scroll.setMinimumHeight(60)
+            scroll.setMaximumHeight(300)
+        
+        # Блокируем сигналы во время изменения размера для предотвращения мерцания
+        self.blockSignals(True)
+        self._center_and_resize()
+        self.blockSignals(False)
 
     def on_questions_changed(self, value):
         if hasattr(self, 'weights_layout'):
@@ -2460,7 +2718,7 @@ class SettingsDialog(QDialog):
         if self.current_profile_name:
             self.profile_loaded_with_name.emit(self.current_profile_name, config)
         
-        QMessageBox.information(self, "Успех", "Профиль загружен!")
+        self._show_success_message("Успех", "Профиль загружен!")
 
     def _refresh_levels_display(self):
         self.levels_data.sort(key=lambda x: x['boundary'])
@@ -2489,12 +2747,53 @@ class SettingsDialog(QDialog):
         QtCore.QTimer.singleShot(100, self.adjustSize)
 
     def _show_error_message(self, title, message):
+        """Показывает сообщение об ошибке в стиле SettingsDialog."""
+        self._show_message_box(title, message, "error")
+    
+    def _show_success_message(self, title, message):
+        """Показывает сообщение об успехе в стиле SettingsDialog."""
+        self._show_message_box(title, message, "success")
+    
+    def _show_message_box(self, title, message, msg_type="error"):
+        """Показывает сообщение в стиле SettingsDialog."""
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(title)
         msg_box.setText(message)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Стиль для кнопок QMessageBox
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+            QMessageBox QLabel {
+                color: #000000;
+                font-size: 14px;
+            }
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+            QPushButton:pressed {
+                background-color: #1E6BC5;
+            }
+        """)
+        
         icon_label = QLabel()
-        icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
+        if msg_type == "success":
+            icon_pixmap = QPixmap("resources/icons/attention-circle.svg")
+        else:
+            icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
+        
         if not icon_pixmap.isNull():
             icon_label.setPixmap(icon_pixmap.scaled(48, 48,
                 Qt.AspectRatioMode.KeepAspectRatio,
@@ -2537,3 +2836,4 @@ class SettingsDialog(QDialog):
 
     def set_config(self, config):
         self.config = config
+        

@@ -350,7 +350,7 @@ class UploadWidget(QWidget):
         button_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Кнопка обработки
-        self.process_btn = QPushButton("🚀 ОБРАБОТАТЬ ДАННЫЕ")
+        self.process_btn = QPushButton("ОБРАБОТАТЬ ДАННЫЕ")
         self.process_btn.setEnabled(False)
         self.process_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
         self.process_btn.setStyleSheet("""

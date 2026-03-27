@@ -17,8 +17,32 @@ def main():
     default_font = get_font("body")
     app.setFont(default_font)
 
+    # Убираем пунктирное выделение фокуса для всех виджетов
+    app.setStyleSheet("""
+        QPushButton:focus,
+        QSpinBox:focus,
+        QLineEdit:focus,
+        QTextEdit:focus,
+        QCheckBox:focus,
+        QRadioButton:focus,
+        QComboBox:focus,
+        QTabWidget:focus,
+        QSlider:focus,
+        QScrollBar:focus,
+        QToolButton:focus {
+            outline: none;
+            border: none;
+        }
+        QTableView:focus,
+        QListWidget:focus,
+        QTableWidget:focus {
+            outline: none;
+        }
+    """)
+
     window = MainWindow()
-    window.show()
+    window.showMaximized()
+    # window.showFullScreen()  # Альтернатива: полный экран без рамок окна
 
     sys.exit(app.exec())
 

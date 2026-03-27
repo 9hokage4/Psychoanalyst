@@ -76,7 +76,7 @@ class NavButton(QWidget):
         self.text_label = QLabel(text)
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.text_label.setObjectName("nav_text")
-        font = QFont("Genzsch Antiqua", NAV_BUTTON_PARAMS['font_size'])
+        font = QFont("Vollkorn", NAV_BUTTON_PARAMS['font_size'])
         font.setWeight(QFont.Weight.Medium)
         self.text_label.setFont(font)
         self.text_label.setStyleSheet("color: #000000; background-color: transparent;")

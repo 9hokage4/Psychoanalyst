@@ -26,20 +26,26 @@ class ExcelTable(QTableView):
             background-color: transparent;
             border: none;
             gridline-color: #DEE2E6;
+            outline: none;
         }
         QTableView::item {
             padding: 4px 8px;
             border-right: 1px solid #F0F0F0;
             border-bottom: 1px solid #F0F0F0;
+            outline: none;
+        }
+        QTableView::item:focus {
+            outline: none;
         }
         QHeaderView::section {
             background-color: #E9ECEF;
             color: #212529;
-            font: bold 13px "PizzaHutCYR";
+            font: bold 13px "Vollkorn";
             padding: 8px 12px;
             border: none;
             border-top-left-radius: 8px;
             border-top-right-radius: 8px;
+            outline: none;
         }
         QHeaderView::section:first {
             border-top-left-radius: 8px;
@@ -52,6 +58,7 @@ class ExcelTable(QTableView):
         QHeaderView {
             background-color: transparent;  /* ← Убираем серый фон */
             border: none;
+            outline: none;
         }
     """)
 
@@ -69,7 +76,7 @@ class ExcelTable(QTableView):
     def update_font_size(self):
         base_font_size = 11
         font_size = max(8, int(base_font_size * self.scale))
-        font = QFont("PizzaHutCYR", font_size)
+        font = QFont("Vollkorn", font_size)
         self.setFont(font)
 
         row_height = max(20, int(34 * self.scale))

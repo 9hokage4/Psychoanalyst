@@ -2,7 +2,7 @@
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QDialog, QGridLayout, QGroupBox, QTextEdit, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QSpinBox, QCheckBox, QScrollArea, QWidget,
+    QSpinBox, QCheckBox, QScrollArea, QWidget, QWIDGETSIZE_MAX,
     QLineEdit, QMessageBox, QFrame, QSizePolicy, QStackedWidget
 )
 from PyQt6.QtGui import QFont, QIcon, QPixmap
@@ -308,7 +308,21 @@ class AnimatedCheckBox(QAbstractButton):
 class LevelBadge(QWidget):
     edited = pyqtSignal()
     deleted = pyqtSignal()
-    
+
+    BADGE_HEIGHT = 28  # Фиксированная высота badge
+
+    def sizeHint(self):
+        # Ширина зависит от содержимого (текста), высота фиксированная
+        # Вычисляем ширину текста
+        text = f"{self.level_data['name']} ({self.level_data['range_start']}-{self.level_data['range_end']} баллов)"
+        font_metrics = self.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(text)
+        # Добавляем отступы layout и ширину кнопки удаления (если есть)
+        extra_width = 12 + 8 + 8 + 4  # left margin + spacing + right margin + padding
+        if not self.hide_delete:
+            extra_width += 20  # ширина кнопки удаления
+        return QSize(int(text_width + extra_width), self.BADGE_HEIGHT)
+
     def __init__(self, level_data, index, total, parent=None, hide_delete=False):
         super().__init__(parent)
         self.level_data = level_data
@@ -317,13 +331,18 @@ class LevelBadge(QWidget):
         self.hide_delete = hide_delete
 
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Фиксированная высота badge
+        self.setFixedHeight(self.BADGE_HEIGHT)
+        # Разрешаем виджету расширяться по горизонтали
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 6, 8, 6)
+        layout.setContentsMargins(12, 4, 8, 4)
         layout.setSpacing(8)
 
         text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
         self.label = QLabel(text)
+        self.label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.label)
 
         self.delete_btn = QPushButton()
@@ -368,7 +387,8 @@ class LevelBadge(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(self.bg_color)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(self.rect(), 20, 20)
+        # Рисуем скругленный прямоугольник по размеру виджета
+        painter.drawRoundedRect(self.rect(), 14, 14)
         super().paintEvent(event)
 
     def eventFilter(self, obj, event):
@@ -382,40 +402,51 @@ class LevelBadge(QWidget):
         text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
         self.label.setText(text)
         self.update()
+        # Обновляем геометрию после изменения текста
+        self.updateGeometry()
 
 
 class ScaleItem(QWidget):
     edit_clicked = pyqtSignal(object)
     delete_clicked = pyqtSignal(object)
-    
+
+    # === НАСТРОЙКИ РАЗМЕРА КАРТОЧКИ (изменяемые) ===
+    CARD_MIN_WIDTH = 600     # Минимальная ширина карточки
+    CARD_MIN_HEIGHT = 300   # Минимальная высота карточки
+    CARD_MAX_WIDTH = 1400    # Максимальная ширина карточки
+    CARD_MAX_HEIGHT = 1200   # Максимальная высота карточки (подберите своё значение)
+    # ===============================================
+
     def sizeHint(self):
-        return QSize(200, 100)
+        return QSize(self.CARD_MIN_WIDTH, self.CARD_MIN_HEIGHT)
 
     def __init__(self, scale_data, parent=None):
         super().__init__(parent)
         self.scale_data = scale_data
-        self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
-        self.setMinimumHeight(100)  # временно, чтобы убедиться, что виджет имеет размер
+        # Запрещаем сжатие по вертикали, разрешаем растягивание по горизонтали
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.setMinimumSize(self.CARD_MIN_WIDTH, self.CARD_MIN_HEIGHT)
+        self.setMaximumSize(self.CARD_MAX_WIDTH, self.CARD_MAX_HEIGHT)
 
         # Ручная отрисовка фона и рамки
-        self.setAutoFillBackground(False)  # отключаем автоматический фон
+        self.setAutoFillBackground(False)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)  # увеличенные отступы
-        layout.setSpacing(10)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
 
         # Верхняя панель: название + количество вопросов справа
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(6)
+        top_layout.setSpacing(10)
 
         self.title_label = QLabel(scale_data["name"])
         self.title_label.setFont(get_font("item_title"))
         self.title_label.setStyleSheet("""
     color: #000000;
-    border: 2px solid #000000;
-    border-radius: 8px;
-    padding: 4px 8px;
+    border: 1px solid #DFE1E5;
+    border-radius: 12px;
+    padding: 6px 14px;
     background-color: #FFFFFF;
 """)
         top_layout.addWidget(self.title_label)
@@ -426,14 +457,15 @@ class ScaleItem(QWidget):
         self.count_label.setFont(get_font("caption"))
         self.count_label.setStyleSheet("color: #58616a; border: none; margin: 0; padding: 0;")
         top_layout.addWidget(self.count_label)
-        
+
         top_layout.addStretch()
 
-        # Иконки справа
+        # Иконки справа (увеличенные)
         self.edit_btn = QPushButton()
         self.edit_btn.setIcon(QIcon("resources/icons/edit.svg"))
-        self.edit_btn.setIconSize(QSize(24, 24))
-        self.edit_btn.setFixedSize(28, 28)
+        self.edit_btn.setIconSize(QSize(32, 32))
+        self.edit_btn.setFixedSize(40, 40)
+        self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.edit_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -441,7 +473,7 @@ class ScaleItem(QWidget):
             }
             QPushButton:hover {
                 background: rgba(0,0,0,0.05);
-                border-radius: 14px;
+                border-radius: 20px;
             }
         """)
         self.edit_btn.clicked.connect(lambda: self.edit_clicked.emit(self.scale_data))
@@ -449,8 +481,9 @@ class ScaleItem(QWidget):
 
         self.delete_btn = QPushButton()
         self.delete_btn.setIcon(QIcon("resources/icons/trash.svg"))
-        self.delete_btn.setIconSize(QSize(24, 24))
-        self.delete_btn.setFixedSize(28, 28)
+        self.delete_btn.setIconSize(QSize(32, 32))
+        self.delete_btn.setFixedSize(40, 40)
+        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.delete_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -458,7 +491,7 @@ class ScaleItem(QWidget):
             }
             QPushButton:hover {
                 background: rgba(0,0,0,0.05);
-                border-radius: 14px;
+                border-radius: 20px;
             }
         """)
         self.delete_btn.clicked.connect(lambda: self.delete_clicked.emit(self.scale_data))
@@ -470,7 +503,7 @@ class ScaleItem(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #000000; max-height: 1px; margin: 4px 0 8px 0;")
+        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px; margin: 4px 0 8px 0;")
         layout.addWidget(line)
 
         # Уровни
@@ -479,13 +512,58 @@ class ScaleItem(QWidget):
         levels_title.setStyleSheet("color: #000000; font-weight: 500; margin-bottom: 4px; border: none;")
         layout.addWidget(levels_title)
 
+        # ScrollArea для уровней (растёт до 3 строк, потом скролл)
+        self.levels_scroll = QScrollArea()
+        self.levels_scroll.setWidgetResizable(True)
+        self.levels_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.levels_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.levels_scroll.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background-color: transparent;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+
         # Контейнер для уровней (горизонтальный flow layout)
         self.levels_container = QWidget()
-        self.levels_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.levels_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+
+        # Высота одной строки badge: 28px badge + 8px отступы = 36px
+        self.BADGE_ROW_HEIGHT = 36
+        # Максимум 3 строки без скролла
+        self.MAX_ROWS_NO_SCROLL = 3
+
         self.levels_layout = QFlowLayout(self.levels_container)
-        self.levels_layout.setContentsMargins(0, 0, 0, 0)
+        self.levels_layout.setContentsMargins(4, 4, 4, 4)
         self.levels_layout.setSpacing(8)
-        layout.addWidget(self.levels_container)
+        self.levels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.levels_scroll.setWidget(self.levels_container)
+
+        # Устанавливаем минимальную высоту scroll area (1 строка)
+        self.levels_scroll.setMinimumHeight(self.BADGE_ROW_HEIGHT)
+        # Максимальная высота перед появлением скролла (3 строки)
+        self.levels_scroll.setMaximumHeight(self.BADGE_ROW_HEIGHT * self.MAX_ROWS_NO_SCROLL)
+        # Устанавливаем size policy для scroll area
+        self.levels_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+
+        layout.addWidget(self.levels_scroll)
 
         # Вопросы для шкалы
         questions_title = QLabel("Вопросы для шкалы:")
@@ -502,14 +580,14 @@ class ScaleItem(QWidget):
 
         self._update_levels_display()
         self._update_questions_display()
-        
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         # Белый фон
         painter.setBrush(QColor(255, 255, 255))
-        painter.setPen(QPen(QColor(0, 0, 0), 3))
-        painter.drawRoundedRect(self.rect(), 8, 8)
+        painter.setPen(QPen(QColor(223, 225, 229), 2))  # Светло-серая граница
+        painter.drawRoundedRect(self.rect(), 16, 16)  # Увеличенный border-radius
         super().paintEvent(event)
 
     def _format_questions_groups(self, questions):
@@ -547,7 +625,13 @@ class ScaleItem(QWidget):
         if not groups:
             label = QLabel("—")
             label.setFont(get_font("table_cell"))
-            label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
+            label.setStyleSheet("""
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                background-color: #FFFFFF;
+                color: #58616a;
+            """)
             label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
             self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
             return
@@ -556,7 +640,13 @@ class ScaleItem(QWidget):
         for line in lines:
             label = QLabel(line)
             label.setFont(get_font("table_cell"))
-            label.setStyleSheet("border: 2px solid #000000; border-radius: 8px; padding: 6px 12px; background-color: #FFFFFF;")
+            label.setStyleSheet("""
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                background-color: #FFFFFF;
+                color: #000000;
+            """)
             label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
             self.questions_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -569,9 +659,26 @@ class ScaleItem(QWidget):
         levels = self.scale_data.get("levels", [])
         for i, lvl in enumerate(levels):
             badge = LevelBadge(lvl, i, len(levels), self, hide_delete=True)
-            badge.setCursor(Qt.CursorShape.ArrowCursor)   # убираем руку, если не нужно
+            badge.setCursor(Qt.CursorShape.ArrowCursor)
             self.levels_layout.addWidget(badge)
         self.levels_layout.activate()
+
+        # Принудительно обновляем контейнер
+        self.levels_container.updateGeometry()
+        self.levels_container.adjustSize()
+        
+        # Обновляем высоту scroll area после добавления badge (с задержкой для правильного расчёта)
+        QtCore.QTimer.singleShot(0, self._adjust_levels_scroll_height)
+    
+    def _adjust_levels_scroll_height(self):
+        """Обновляет геометрию контейнера для правильного отображения badge."""
+        # Просто обновляем геометрию - scroll area сама подстроится через minimumHeight/maximumHeight
+        self.levels_layout.activate()
+        self.levels_layout.update()
+        self.levels_container.updateGeometry()
+        self.levels_container.adjustSize()
+        self.levels_scroll.updateGeometry()
+        self.levels_scroll.adjustSize()
 
     def update_data(self, scale_data):
         self.scale_data = scale_data
@@ -880,6 +987,24 @@ class AddScaleDialog(QDialog):
         name = self.name_edit.text().strip()
         questions_text = self.questions_edit.text().strip()
         questions = self._parse_questions(questions_text)
+        
+        # Валидация вопросов
+        if questions:
+            max_question = max(questions)
+            max_allowed = self.parent_dialog.questions_spin.value()
+            if max_question > max_allowed:
+                self.parent_dialog._show_error_message(
+                    "Ошибка валидации",
+                    f"Обнаружен номер вопроса, превышающий лимит: {max_question}.\n"
+                    f"Во вкладке 'Основные' установлено максимальное количество вопросов: {max_allowed}.\n"
+                    f"Измените лимит или укажите корректные номера вопросов.")
+                return None
+            if min(questions) < 1:
+                self.parent_dialog._show_error_message(
+                    "Ошибка валидации",
+                    f"Номер вопроса должен быть в диапазоне от 1 до {max_allowed}.")
+                return None
+        
         levels = self.selected_levels
         return {"name": name, "questions": questions, "levels": levels}
 
@@ -888,21 +1013,44 @@ class AddScaleDialog(QDialog):
             return []
         parts = text.split(',')
         questions = set()
+        invalid_parts = []
+        max_allowed = self.parent_dialog.questions_spin.value()
+        
         for part in parts:
             part = part.strip()
+            if not part:
+                continue
             if '-' in part:
                 try:
-                    start, end = map(int, part.split('-'))
-                    if start > end:
+                    range_parts = part.split('-')
+                    if len(range_parts) != 2:
+                        invalid_parts.append(part)
+                        continue
+                    start, end = map(int, range_parts)
+                    if start > end or start < 1 or end > max_allowed:
+                        invalid_parts.append(part)
                         continue
                     questions.update(range(start, end + 1))
                 except ValueError:
-                    continue
+                    invalid_parts.append(part)
             else:
                 try:
-                    questions.add(int(part))
+                    q_num = int(part)
+                    if q_num < 1 or q_num > max_allowed:
+                        invalid_parts.append(part)
+                        continue
+                    questions.add(q_num)
                 except ValueError:
-                    continue
+                    invalid_parts.append(part)
+        
+        if invalid_parts:
+            self.parent_dialog._show_error_message(
+                "Ошибка валидации",
+                f"Некорректные номера вопросов: {', '.join(invalid_parts)}\n"
+                f"Номер вопроса должен быть числом от 1 до {max_allowed}.\n"
+                f"Диапазоны указываются в формате '1-10'.")
+            return []
+        
         return sorted(questions)
 
 
@@ -1287,29 +1435,29 @@ class SettingsDialog(QDialog):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(8)
+        layout.setSpacing(0)  # Убираем отступы между элементами
 
         title_label = QLabel("Активные уровни")
-        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 4px;")
+        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600; margin-bottom: 8px;")
         layout.addWidget(title_label)
 
         self.levels_container = QWidget()
-        self.levels_container.setMinimumHeight(40)
-        self.levels_container.setStyleSheet("background-color: #f5f5f5")# минимальная высота
+        self.levels_container.setMinimumHeight(36)
+        self.levels_container.setStyleSheet("background-color: transparent")
         self.levels_layout = QFlowLayout(self.levels_container)
-        self.levels_layout.setContentsMargins(6, 2, 6, 2)
+        self.levels_layout.setContentsMargins(0, 0, 0, 0)
         self.levels_layout.setSpacing(6)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.levels_container)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMaximumHeight(150)                 # ограничиваем высоту
+        scroll.setMaximumHeight(150)
         scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background: #FFFFFF;
+                background: transparent;
             }
             QScrollBar:vertical {
                 background-color: #F0F0F0;
@@ -1323,6 +1471,25 @@ class SettingsDialog(QDialog):
             }
             QScrollBar::handle:vertical:hover {
                 background-color: #A0A5A9;
+            }
+            QScrollBar:horizontal {
+                background-color: #F0F0F0;
+                height: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #C4C9CC;
+                border-radius: 4px;
+                min-width: 30px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                height: 0px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
         """)
         layout.addWidget(scroll)
@@ -1541,38 +1708,31 @@ class SettingsDialog(QDialog):
 
         layout.addLayout(top_layout)
 
-        # Обёртка для скролла
-        wrapper = QFrame()
-        wrapper.setStyleSheet("""
-            QFrame {
-                background-color: #FFFFFF;
-                border: 2px solid #000000;
-                border-radius: 12px;
-            }
-        """)
-        wrapper_layout = QVBoxLayout(wrapper)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        # Горизонтальная линия (от текста до правого края кнопки)
+        line_container = QWidget()
+        line_container.setStyleSheet("background-color: transparent;")
+        line_layout = QHBoxLayout(line_container)
+        line_layout.setContentsMargins(0, 0, 0, 0)
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
+        line_layout.addWidget(line)
+        layout.addWidget(line_container)
 
-        # Контейнер для списка шкал
-        self.scales_container = QWidget()
-        self.scales_container.setStyleSheet("background: transparent;")
-        self.scales_layout = QVBoxLayout(self.scales_container)
-        self.scales_layout.setContentsMargins(12, 12, 12, 12)
-        self.scales_layout.setSpacing(12)
-
+        # ScrollArea с карточками шкал
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(self.scales_container)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMinimumHeight(200)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("""
             QScrollArea {
-                background: transparent;
+                background-color: #F5F5F5;
                 border: none;
+                border-radius: 12px;
             }
             QScrollBar:vertical {
-                background-color: #F0F0F0;
+                background-color: transparent;
                 width: 10px;
                 border-radius: 5px;
             }
@@ -1584,10 +1744,21 @@ class SettingsDialog(QDialog):
             QScrollBar::handle:vertical:hover {
                 background-color: #A0A5A9;
             }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
         """)
-        wrapper_layout.addWidget(scroll)
 
-        layout.addWidget(wrapper, 1)
+        # Контейнер для списка шкал
+        self.scales_container = QWidget()
+        self.scales_container.setStyleSheet("background-color: transparent;")
+        self.scales_layout = QVBoxLayout(self.scales_container)
+        self.scales_layout.setContentsMargins(12, 12, 12, 12)
+        self.scales_layout.setSpacing(12)
+        self.scales_layout.addStretch()  # Чтобы карточки не растягивались
+
+        scroll.setWidget(self.scales_container)
+        layout.addWidget(scroll, 1)
 
         self._refresh_scales_list()
         return tab
@@ -1604,17 +1775,20 @@ class SettingsDialog(QDialog):
             item.edit_clicked.connect(self._edit_scale)
             item.delete_clicked.connect(self._delete_scale)
             self.scales_layout.addWidget(item)
-        self.adjustSize()
+        # Добавляем распорку в конец, чтобы карточки не растягивались
+        self.scales_layout.addStretch()
 
     def _add_scale_from_form(self):
         dialog = AddScaleDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
+            if data is None:
+                return  # Ошибка валидации
             if not data["name"]:
-                QMessageBox.warning(self, "Ошибка", "Название шкалы обязательно.")
+                self._show_error_message("Ошибка", "Название шкалы обязательно.")
                 return
             if not data["questions"]:
-                QMessageBox.warning(self, "Ошибка", "Укажите вопросы для шкалы.")
+                self._show_error_message("Ошибка", "Укажите вопросы для шкалы.")
                 return
             if not self.shared_checkbox.isChecked():
                 all_questions = {}
@@ -1627,7 +1801,7 @@ class SettingsDialog(QDialog):
                 if duplicate:
                     error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
                     error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
-                    QMessageBox.warning(self, "Ошибка", error)
+                    self._show_error_message("Ошибка", error)
                     return
             new_scale = {
                 "name": data["name"],
@@ -1642,11 +1816,13 @@ class SettingsDialog(QDialog):
         dialog = AddScaleDialog(self, scale_data=scale_data)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_data()
+            if new_data is None:
+                return  # Ошибка валидации
             if not new_data["name"]:
-                QMessageBox.warning(self, "Ошибка", "Название шкалы обязательно.")
+                self._show_error_message("Ошибка", "Название шкалы обязательно.")
                 return
             if not new_data["questions"]:
-                QMessageBox.warning(self, "Ошибка", "Укажите вопросы для шкалы.")
+                self._show_error_message("Ошибка", "Укажите вопросы для шкалы.")
                 return
             if not self.shared_checkbox.isChecked():
                 all_questions = {}
@@ -1661,7 +1837,7 @@ class SettingsDialog(QDialog):
                 if duplicate:
                     error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
                     error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
-                    QMessageBox.warning(self, "Ошибка", error)
+                    self._show_error_message("Ошибка", error)
                     return
             self.scales[index] = new_data
             self._refresh_scales_list()
@@ -2077,6 +2253,7 @@ class SettingsDialog(QDialog):
         # Сохраняем полную конфигурацию для обновления UI
         full_config = {
             "test_name": self.test_name_edit.text().strip(),
+            "test_description": self.test_description_edit.toPlainText().strip(),
             "questions_count": self.questions_spin.value(),
             "answers_count": self.answers_spin.value(),
             "shared_questions": self.shared_checkbox.isChecked(),
@@ -2152,6 +2329,7 @@ class SettingsDialog(QDialog):
 
         return {
             "test_name": self.test_name_edit.text().strip(),
+            "test_description": self.test_description_edit.toPlainText().strip(),
             "scales": scales,
             "levels": levels,
             "level_boundaries": level_boundaries,
@@ -2169,13 +2347,20 @@ class SettingsDialog(QDialog):
             self.current_profile_name = current_item.data(Qt.ItemDataRole.UserRole)
         else:
             self.current_profile_name = None
-        
+
+        # Загружаем основные настройки
         if "questions_count" in config:
             self.questions_spin.setValue(config["questions_count"])
         if "answers_count" in config:
             self.answers_spin.setValue(config["answers_count"])
         if "shared_questions" in config:
             self.shared_checkbox.setChecked(config["shared_questions"])
+        
+        # Загружаем название и описание теста
+        if "test_name" in config:
+            self.test_name_edit.setText(config["test_name"])
+        if "test_description" in config:
+            self.test_description_edit.setPlainText(config["test_description"])
 
         self.levels_data = []
         if "levels" in config:
@@ -2253,15 +2438,20 @@ class SettingsDialog(QDialog):
                 if hasattr(self, 'cancel_unify_btn'):
                     self.cancel_unify_btn.setVisible(False)
                 self._refresh_weights_tab()
-                for i, spin in getattr(self, 'weight_spins', {}).items():
-                    if isinstance(spin, list):
-                        for j, s in enumerate(spin):
-                            key = i * len(spin) + j + 1
-                            if key in weights:
-                                s.setValue(weights[key])
-                    elif hasattr(spin, 'setValue'):
-                        if (i+1) in weights:
-                            spin.setValue(weights[i+1])
+                weight_spins = getattr(self, 'weight_spins', [])
+                if isinstance(weight_spins, list) and len(weight_spins) > 0:
+                    if isinstance(weight_spins[0], list):
+                        # Список списков спинбоксов
+                        for q_idx, row_spins in enumerate(weight_spins):
+                            for a_idx, spin in enumerate(row_spins):
+                                key = q_idx * len(row_spins) + a_idx + 1
+                                if key in weights:
+                                    spin.setValue(weights[key])
+                    else:
+                        # Единый список спинбоксов
+                        for idx, spin in enumerate(weight_spins):
+                            if (idx+1) in weights:
+                                spin.setValue(weights[idx+1])
 
         # Сохраняем полную конфигурацию
         self.current_config = config

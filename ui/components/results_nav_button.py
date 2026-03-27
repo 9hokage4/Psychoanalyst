@@ -85,7 +85,7 @@ class ResultsNavButton(QWidget):
             self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.text_label.setObjectName("nav_text")
             from PyQt6.QtGui import QFont
-            font = QFont("Genzsch Antiqua", self.font_size)
+            font = QFont("Vollkorn", self.font_size)
             font.setWeight(QFont.Weight.Medium)
             self.text_label.setFont(font)
             self.text_label.setStyleSheet("color: #000000; background-color: transparent;")

@@ -107,10 +107,12 @@ class ConfigSummary(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.profile_name = "Без профиля"
+        self.test_name = ""
+        self.test_description = ""
         self.questions_count = 0
         self.active_scales = []
         self.is_ready = False
-        
+
         self.setStyleSheet("""
             ConfigSummary {
                 background-color: #F8F9FA;
@@ -133,11 +135,15 @@ class ConfigSummary(QFrame):
         self.profile_label = QLabel("Без профиля")
         self._add_config_row_with_value(layout, "Профиль настроек", self.profile_label)
         self._add_separator(layout)
-        
+
+        self.test_name_label = QLabel("")
+        self._add_config_row_with_value(layout, "Название теста", self.test_name_label)
+        self._add_separator(layout)
+
         self.questions_label = QLabel("0")
         self._add_config_row_with_value(layout, "Количество вопросов", self.questions_label)
         self._add_separator(layout)
-        
+
         self.scales_label = QLabel("—")
         self._add_config_row_with_value(layout, "Активные шкалы", self.scales_label)
         self._add_separator(layout)
@@ -206,23 +212,27 @@ class ConfigSummary(QFrame):
         """Обновляет отображаемые значения из словаря конфигурации."""
         if not config:
             self.profile_name = "Без профиля"
+            self.test_name = ""
+            self.test_description = ""
             self.questions_count = 0
             self.active_scales = []
             self.is_ready = False
         else:
             # Профиль берется из profile_manager или устанавливается отдельно
+            self.test_name = config.get("test_name", "")
+            self.test_description = config.get("test_description", "")
             self.questions_count = config.get("questions_count", 0)
             scales = config.get("scales", {})
             self.active_scales = list(scales.keys()) if scales else []
-            
+
             # Проверка готовности: есть ли шкалы, уровни, вопросы
             has_scales = len(self.active_scales) > 0
             has_questions = self.questions_count > 0
             has_levels = len(config.get("levels", {})) > 0
             has_weights = bool(config.get("answer_weights", {}))
-            
+
             self.is_ready = has_scales and has_questions and has_levels and has_weights
-        
+
         self._update_display()
 
     def set_profile_name(self, name):
@@ -233,8 +243,9 @@ class ConfigSummary(QFrame):
     def _update_display(self):
         """Обновляет отображение конфигурации."""
         self.profile_label.setText(self.profile_name)
+        self.test_name_label.setText(self.test_name if self.test_name else "—")
         self.questions_label.setText(str(self.questions_count))
-        
+
         if self.active_scales:
             scales_text = f"{len(self.active_scales)} ({', '.join(self.active_scales[:3])}{'...' if len(self.active_scales) > 3 else ''})"
             self.scales_label.setText(scales_text)

@@ -162,8 +162,6 @@ class EditLevelDialog(QDialog):
                 height: 12px;
             }
         """)
-        # Отключаем выделение текста при фокусе
-        self.boundary_spin.lineEdit().setReadOnly(True)
         layout.addWidget(bound_label)
         layout.addWidget(self.boundary_spin)
 
@@ -317,7 +315,11 @@ class LevelBadge(QWidget):
     def sizeHint(self):
         # Ширина зависит от содержимого (текста), высота фиксированная
         # Вычисляем ширину текста
-        text = f"{self.level_data['name']} ({self.level_data['range_start']}-{self.level_data['range_end']} баллов)"
+        if self.index == self.total - 1:
+            # Последний уровень с открытой верхней границей
+            text = f"{self.level_data['name']} ({self.level_data['range_start']}+ баллов)"
+        else:
+            text = f"{self.level_data['name']} ({self.level_data['range_start']}-{self.level_data['range_end']} баллов)"
         font_metrics = self.fontMetrics()
         text_width = font_metrics.horizontalAdvance(text)
         # Добавляем отступы layout и ширину кнопки удаления (если есть)
@@ -346,7 +348,11 @@ class LevelBadge(QWidget):
         layout.setContentsMargins(12, 4, 8, 4)
         layout.setSpacing(8)
 
-        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
+        # Для последнего уровня показываем "60+" вместо "60-10000"
+        if index == total - 1:
+            text = f"{level_data['name']} ({level_data['range_start']}+ баллов)"
+        else:
+            text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
         self.label = QLabel(text)
         self.label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.label)
@@ -405,7 +411,11 @@ class LevelBadge(QWidget):
 
     def update_level_data(self, level_data):
         self.level_data = level_data
-        text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
+        # Для последнего уровня показываем "60+" вместо "60-10000"
+        if self.index == self.total - 1:
+            text = f"{level_data['name']} ({level_data['range_start']}+ баллов)"
+        else:
+            text = f"{level_data['name']} ({level_data['range_start']}-{level_data['range_end']} баллов)"
         self.label.setText(text)
         self.update()
         # Обновляем геометрию после изменения текста
@@ -1111,17 +1121,22 @@ class AddScaleDialog(QDialog):
             # Если редактируем существующую шкалу, исключаем её из проверки
             if self.scale_data and "name" in self.scale_data:
                 scales = [s for s in scales if s.get("name") != self.scale_data["name"]]
-            
+
             for scale in scales:
                 for q in scale.get("questions", []):
                     if q not in all_questions:
                         all_questions[q] = []
                     all_questions[q].append(scale["name"])
-            
+
             duplicate = [q for q in questions if q in all_questions]
             if duplicate:
-                error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах.\n"
-                error += "Отметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
+                # Формируем подробное сообщение с названиями шкал
+                error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах:\n\n"
+                for q in sorted(duplicate):
+                    scales_with_q = all_questions.get(q, [])
+                    if scales_with_q:
+                        error += f"  Вопрос {q}: {', '.join(scales_with_q)}\n"
+                error += "\nОтметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
                 self.parent_dialog._show_error_message("Ошибка валидации", error)
                 return None
 
@@ -1216,7 +1231,7 @@ class SettingsDialog(QDialog):
     }
     # =======================================================================
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, initial_config=None):
         super().__init__(parent)
         self.setWindowTitle("Настройки теста")
         self.setWindowIcon(QIcon("resources/icons/cog.svg"))
@@ -1226,9 +1241,14 @@ class SettingsDialog(QDialog):
         self.level_order = []
         self.levels_data = []
         self.profile_manager = ProfileManager()
-        self.current_config = None
+        self.current_config = initial_config  # Сохраняем конфигурацию между открытиями
         self.current_profile_name = None  # Имя текущего загруженного профиля
         self.init_ui()
+        
+        # Загружаем конфигурацию при открытии
+        if initial_config:
+            self._load_config(initial_config)
+        
         self._center_and_resize()  # Центрируем и устанавливаем размер при открытии
 
     def init_ui(self):
@@ -1549,8 +1569,6 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
             }
         """)
-        # Отключаем выделение текста при фокусе
-        self.questions_spin.lineEdit().setReadOnly(True)
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
         questions_group.addWidget(self.questions_spin)
         
@@ -1605,8 +1623,6 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
             }
         """)
-        # Отключаем выделение текста при фокусе
-        self.answers_spin.lineEdit().setReadOnly(True)
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
         answers_group.addWidget(self.answers_spin)
         main_layout.addLayout(answers_group)
@@ -1807,8 +1823,6 @@ class SettingsDialog(QDialog):
                 height: 12px;
             }
         """)
-        # Отключаем выделение текста при фокусе
-        self.level_boundary_spin.lineEdit().setReadOnly(True)
         fields_layout.addWidget(self.level_boundary_spin, 1)
 
         form_layout.addLayout(fields_layout)
@@ -2204,25 +2218,33 @@ class SettingsDialog(QDialog):
 
     def _refresh_weights_tab(self):
         """Обновляет отображение весов (создаёт строки для всех вопросов или одну строку)"""
-        if hasattr(self, '_weights_unified') and self._weights_unified:
-            return
-
         q_count = self.questions_spin.value()
         a_count = self.answers_spin.value()
 
+        # Очищаем текущие строки
         while self.weights_layout.count():
             item = self.weights_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         self.weight_spins = []  # список списков спинбоксов
-        for i in range(1, q_count + 1):
-            row, spins = self._create_question_row(i, a_count)
+
+        if hasattr(self, '_weights_unified') and self._weights_unified:
+            # Режим единых весов - создаём одну строку
+            row, spins = self._create_unified_weights_row(q_count, a_count)
             self.weights_layout.addWidget(row)
             self.weight_spins.append(spins)
+            self.apply_all_btn.setEnabled(False)
+            self.cancel_unify_btn.setVisible(True)
+        else:
+            # Обычный режим - создаём строку для каждого вопроса
+            for i in range(1, q_count + 1):
+                row, spins = self._create_question_row(i, a_count)
+                self.weights_layout.addWidget(row)
+                self.weight_spins.append(spins)
 
-        self.apply_all_btn.setEnabled(True)
-        self.cancel_unify_btn.setVisible(False)
+            self.apply_all_btn.setEnabled(True)
+            self.cancel_unify_btn.setVisible(False)
 
     def _create_question_row(self, question_num, answer_count):
         row_widget = QWidget()
@@ -2268,8 +2290,6 @@ class SettingsDialog(QDialog):
                     height: 12px;
                 }
             """)
-            # Отключаем выделение текста при фокусе
-            spin.lineEdit().setReadOnly(True)
             row_layout.addWidget(spin)
             spins.append(spin)
 
@@ -2320,14 +2340,11 @@ class SettingsDialog(QDialog):
                     height: 12px;
                 }
             """)
-            # Отключаем выделение текста при фокусе
-            spin.lineEdit().setReadOnly(True)
             row_layout.addWidget(spin)
             spins.append(spin)
 
         row_layout.addStretch()
-        self.weight_spins = spins
-        self.weights_layout.addWidget(row_widget)
+        return row_widget, spins
 
     def _apply_weights_to_all(self):
         if self.weights_layout.count() <= 1:
@@ -2337,7 +2354,7 @@ class SettingsDialog(QDialog):
         first_row = self.weights_layout.itemAt(0).widget()
         first_row_spins = []
         for child in first_row.findChildren(QSpinBox):
-            first_row_spins.append(child.value())
+            first_row_spins.append(child)  # Сохраняем сами спинбоксы, а не значения
 
         # Удаляем все строки, кроме первой
         while self.weights_layout.count() > 1:
@@ -2352,8 +2369,8 @@ class SettingsDialog(QDialog):
         self._weights_unified = True
         self.apply_all_btn.setEnabled(False)
         self.cancel_unify_btn.setVisible(True)
-        self.weight_spins = first_row_spins
-        
+        self.weight_spins = [first_row_spins]  # Сохраняем как список списков
+
         # Устанавливаем фиксированную высоту scroll area для режима "единые веса"
         scroll = self.findChild(QScrollArea, "weights_scroll_area")
         if scroll:
@@ -2364,7 +2381,7 @@ class SettingsDialog(QDialog):
         self.weights_layout.activate()
         self.weights_container.updateGeometry()
         self.weights_container.adjustSize()
-        
+
         # Блокируем сигналы во время изменения размера для предотвращения мерцания
         self.blockSignals(True)
         self._center_and_resize()
@@ -2464,9 +2481,15 @@ class SettingsDialog(QDialog):
         if hasattr(self, '_weights_unified') and self._weights_unified:
             # Единые веса для всех вопросов
             if hasattr(self, 'weight_spins') and self.weight_spins:
-                # self.weight_spins — список значений для ответов (длина = a_count)
-                for i, val in enumerate(self.weight_spins):
-                    answer_weights[i+1] = val
+                # self.weight_spins — список списков спинбоксов
+                # Берём первую строку (список спинбоксов)
+                if isinstance(self.weight_spins[0], list):
+                    for i, spin in enumerate(self.weight_spins[0]):
+                        answer_weights[i + 1] = spin.value()
+                else:
+                    # Если вдруг не список списков, используем значения по умолчанию
+                    for i in range(1, a_count + 1):
+                        answer_weights[i] = i
             else:
                 # Если self.weight_spins не существует, используем значения по умолчанию
                 for i in range(1, a_count + 1):
@@ -2507,7 +2530,7 @@ class SettingsDialog(QDialog):
                 return
 
         self._save_debug_config(scales_config, level_order, level_ru, answer_weights)
-        
+
         # Сохраняем полную конфигурацию для обновления UI
         full_config = {
             "test_name": self.test_name_edit.text().strip(),
@@ -2520,6 +2543,7 @@ class SettingsDialog(QDialog):
             "level_order": level_order,
             "scales": scales_config,
             "answer_weights": answer_weights,
+            "weights_unified": hasattr(self, '_weights_unified') and self._weights_unified,  # Сохраняем режим весов
         }
         self.current_config = full_config
         
@@ -2566,24 +2590,27 @@ class SettingsDialog(QDialog):
         # === Веса ответов ===
         answer_weights = {}
         a_count = self.answers_spin.value()
-        q_count = self.questions_spin.value()
 
         if hasattr(self, '_weights_unified') and self._weights_unified:
-            if hasattr(self, 'weight_spins') and self.weight_spins:
-                for i, val in enumerate(self.weight_spins):
-                    answer_weights[i+1] = val
+            # Режим единых весов - берём значения из первой строки
+            if hasattr(self, 'weight_spins') and self.weight_spins and len(self.weight_spins) > 0:
+                # weight_spins[0] - список спинбоксов первой строки
+                for i, spin in enumerate(self.weight_spins[0]):
+                    answer_weights[i + 1] = spin.value()
             else:
+                # Если спинбоксов нет, используем значения по умолчанию
                 for i in range(1, a_count + 1):
                     answer_weights[i] = i
         else:
+            # Разные веса для каждого вопроса
             if hasattr(self, 'weight_spins') and self.weight_spins and isinstance(self.weight_spins[0], list):
                 for q_idx, row_spins in enumerate(self.weight_spins):
                     for a_idx, spin in enumerate(row_spins):
                         answer_weights[q_idx * a_count + a_idx + 1] = spin.value()
             else:
-                for q in range(q_count):
-                    for a in range(1, a_count + 1):
-                        answer_weights[q * a_count + a] = a
+                # Если вкладка не была открыта, используем значения по умолчанию
+                for a in range(1, a_count + 1):
+                    answer_weights[a] = a
 
         return {
             "test_name": self.test_name_edit.text().strip(),
@@ -2596,6 +2623,7 @@ class SettingsDialog(QDialog):
             "questions_count": self.questions_spin.value(),
             "answers_count": self.answers_spin.value(),
             "shared_questions": self.shared_checkbox.isChecked(),
+            "weights_unified": hasattr(self, '_weights_unified') and self._weights_unified,  # Сохраняем режим весов
         }
 
     def on_profile_loaded(self, config):
@@ -2672,53 +2700,154 @@ class SettingsDialog(QDialog):
 
         if "answer_weights" in config:
             weights = config["answer_weights"]
-            if weights and len(set(weights.values())) == 1:
-                # Все веса одинаковые - используем режим единых весов
-                if hasattr(self, '_weights_unified'):
-                    self._weights_unified = True
-                if hasattr(self, 'single_weight_spin'):
-                    self.single_weight_spin.setValue(list(weights.values())[0])
-                if hasattr(self, 'apply_all_btn'):
-                    self.apply_all_btn.setEnabled(False)
-                if hasattr(self, 'cancel_unify_btn'):
-                    self.cancel_unify_btn.setVisible(True)
-                # Обновляем веса в первой строке
-                first_weight = list(weights.values())[0]
-                if hasattr(self, 'weight_spins') and self.weight_spins:
-                    for spin in self.weight_spins:
-                        spin.setValue(first_weight)
+
+            # Восстанавливаем режим единых весов из сохранённой конфигурации
+            weights_unified = config.get("weights_unified", False)
+            
+            # Устанавливаем режим единых весов ПЕРЕД обновлением таблицы
+            self._weights_unified = weights_unified
+
+            # Сначала обновляем таблицу весов (создаст одну строку или много в зависимости от _weights_unified)
+            self._refresh_weights_tab()
+
+            if weights_unified and weights:
+                # Режим единых весов - загружаем в первую строку
+                # Обновляем веса в первой строке (после _refresh_weights_tab weight_spins - список списков)
+                if hasattr(self, 'weight_spins') and self.weight_spins and len(self.weight_spins) > 0:
+                    # weight_spins[0] - это список спинбоксов для первой строки
+                    for i, spin in enumerate(self.weight_spins[0]):
+                        weight_value = weights.get(str(i + 1), i + 1)
+                        spin.setValue(weight_value)
             elif weights:
-                # Разные веса
-                if hasattr(self, '_weights_unified'):
-                    self._weights_unified = False
-                if hasattr(self, 'apply_all_btn'):
-                    self.apply_all_btn.setEnabled(True)
-                if hasattr(self, 'cancel_unify_btn'):
-                    self.cancel_unify_btn.setVisible(False)
-                self._refresh_weights_tab()
+                # Разные веса для каждого вопроса
+                # Загружаем веса в таблицу
                 weight_spins = getattr(self, 'weight_spins', [])
                 if isinstance(weight_spins, list) and len(weight_spins) > 0:
                     if isinstance(weight_spins[0], list):
-                        # Список списков спинбоксов
+                        # Список списков спинбоксов (для каждого вопроса)
                         for q_idx, row_spins in enumerate(weight_spins):
                             for a_idx, spin in enumerate(row_spins):
                                 key = q_idx * len(row_spins) + a_idx + 1
                                 if key in weights:
                                     spin.setValue(weights[key])
                     else:
-                        # Единый список спинбоксов
+                        # Единый список спинбоксов (режим единых весов)
                         for idx, spin in enumerate(weight_spins):
                             if (idx+1) in weights:
                                 spin.setValue(weights[idx+1])
 
         # Сохраняем полную конфигурацию
         self.current_config = config
-        
+
         # Отправляем сигнал с именем профиля и конфигурацией
         if self.current_profile_name:
             self.profile_loaded_with_name.emit(self.current_profile_name, config)
-        
+
         self._show_success_message("Успех", "Профиль загружен!")
+
+    def _load_config(self, config):
+        """Загружает конфигурацию без показа сообщения (для восстановления при открытии)."""
+        # Загружаем основные настройки
+        if "questions_count" in config:
+            self.questions_spin.setValue(config["questions_count"])
+        if "answers_count" in config:
+            self.answers_spin.setValue(config["answers_count"])
+        if "shared_questions" in config:
+            self.shared_checkbox.setChecked(config["shared_questions"])
+
+        # Загружаем название и описание теста
+        if "test_name" in config:
+            self.test_name_edit.setText(config["test_name"])
+        if "test_description" in config:
+            self.test_description_edit.setPlainText(config["test_description"])
+
+        self.levels_data = []
+        if "levels" in config:
+            level_boundaries = config.get("level_boundaries", {})
+            for key, name in config["levels"].items():
+                boundary = level_boundaries.get(key, 0)
+                if boundary > 0:
+                    self.levels_data.append({'name': name, 'boundary': boundary})
+        self._refresh_levels_display()
+
+        self.scales = []
+        if "scales" in config:
+            for name, scale_config in config["scales"].items():
+                questions = scale_config.get("qnums", [])
+                levels = []
+                bounds = scale_config.get("bounds", {})
+                order = config.get("level_order", [])
+                for i, key in enumerate(order):
+                    max_key = f"{key}_max"
+                    if max_key in bounds:
+                        boundary = bounds[max_key]
+                        prev = 0
+                        for lvl in self.levels_data:
+                            if lvl['boundary'] == boundary:
+                                start = (levels[-1]['boundary'] + 1) if levels else 1
+                                levels.append({
+                                    'name': lvl['name'],
+                                    'boundary': boundary,
+                                    'range_start': start,
+                                    'range_end': boundary
+                                })
+                                break
+                if not levels:
+                    prev = 0
+                    for lvl in self.levels_data:
+                        start = prev + 1
+                        end = lvl['boundary']
+                        levels.append({
+                            'name': lvl['name'],
+                            'boundary': lvl['boundary'],
+                            'range_start': start,
+                            'range_end': end
+                        })
+                        prev = lvl['boundary']
+                self.scales.append({
+                    "name": name,
+                    "questions": questions,
+                    "levels": levels
+                })
+        self._refresh_scales_list()
+
+        if "answer_weights" in config:
+            weights = config["answer_weights"]
+
+            # Восстанавливаем режим единых весов из сохранённой конфигурации
+            weights_unified = config.get("weights_unified", False)
+            
+            # Устанавливаем режим единых весов ПЕРЕД обновлением таблицы
+            self._weights_unified = weights_unified
+
+            # Сначала обновляем таблицу весов (создаст одну строку или много в зависимости от _weights_unified)
+            self._refresh_weights_tab()
+
+            if weights_unified and weights:
+                # Режим единых весов - загружаем в первую строку
+                # Обновляем веса в первой строке (после _refresh_weights_tab weight_spins - список списков)
+                if hasattr(self, 'weight_spins') and self.weight_spins and len(self.weight_spins) > 0:
+                    # weight_spins[0] - это список спинбоксов для первой строки
+                    for i, spin in enumerate(self.weight_spins[0]):
+                        weight_value = weights.get(str(i + 1), i + 1)
+                        spin.setValue(weight_value)
+            elif weights:
+                # Разные веса для каждого вопроса
+                # Загружаем веса в таблицу
+                weight_spins = getattr(self, 'weight_spins', [])
+                if isinstance(weight_spins, list) and len(weight_spins) > 0:
+                    if isinstance(weight_spins[0], list):
+                        # Список списков спинбоксов (для каждого вопроса)
+                        for q_idx, row_spins in enumerate(weight_spins):
+                            for a_idx, spin in enumerate(row_spins):
+                                key = q_idx * len(row_spins) + a_idx + 1
+                                if key in weights:
+                                    spin.setValue(weights[key])
+                    else:
+                        # Единый список спинбоксов (режим единых весов)
+                        for idx, spin in enumerate(weight_spins):
+                            if (idx+1) in weights:
+                                spin.setValue(weights[idx+1])
 
     def _refresh_levels_display(self):
         self.levels_data.sort(key=lambda x: x['boundary'])

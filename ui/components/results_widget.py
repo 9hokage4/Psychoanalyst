@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
 # ui/components/results_widget.py
 import pandas as pd
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QStackedWidget, QComboBox, QTableWidget,
-    QTableWidgetItem, QHeaderView, QFrame, QScrollArea, QGraphicsDropShadowEffect
+    QTableWidgetItem, QHeaderView, QFrame, QScrollArea,
+    QGraphicsDropShadowEffect, QFileDialog, QMessageBox, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont
@@ -35,10 +37,10 @@ class ResultsWidget(QWidget):
         results_layout.setContentsMargins(0, 0, 0, 0)
         results_layout.setSpacing(20)
 
-        # ===== ЛЕВАЯ ВЕРТИКАЛЬНАЯ ПАНЕЛЬ (140×450px) =====
+        # ===== ЛЕВАЯ ВЕРТИКАЛЬНАЯ ПАНЕЛЬ =====
         self.sidebar = QWidget()
         self.sidebar.setObjectName("results_sidebar")
-        self.sidebar.setFixedSize(140, 450)
+        self.sidebar.setFixedSize(140, 450)  # Фиксированный размер как было изначально
 
         # Тень для sidebar
         sidebar_shadow = QGraphicsDropShadowEffect()
@@ -94,7 +96,7 @@ class ResultsWidget(QWidget):
         # ===== ОСНОВНАЯ ОБЛАСТЬ =====
         content_widget = QWidget()
         content_widget.setObjectName("results_content")
-        content_widget.setFixedHeight(450)
+        content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         # Тень для content
         content_shadow = QGraphicsDropShadowEffect()
@@ -119,10 +121,11 @@ class ResultsWidget(QWidget):
         self.sheet_selector_widget = self._create_sheet_selector()
         content_layout.addWidget(self.sheet_selector_widget)
 
-        # Стек видов
+        # Стек видов (растягивается на всю доступную высоту)
         self.views_stack = QStackedWidget()
         self.views_stack.setObjectName("views_stack")
         self.views_stack.setStyleSheet("background-color: transparent;")
+        self.views_stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         # Таблица
         self.table_view = self._create_table_view()
@@ -157,6 +160,28 @@ class ResultsWidget(QWidget):
 
         main_layout.addWidget(results_container)
 
+        # ===== КНОПКА ЭКСПОРТА =====
+        export_btn = QPushButton("💾 Экспорт в Excel")
+        export_btn.setFixedHeight(44)
+        export_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6BBF8A;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 14px 48px;
+            }
+            QPushButton:hover {
+                background-color: #5AA878;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+            }
+        """)
+        export_btn.clicked.connect(self.export_to_excel)
+        main_layout.addWidget(export_btn)
+
         # ===== СТИЛИ ДЛЯ КНОПОК НАВИГАЦИИ =====
         # Задаём глобальные стили для кастомных кнопок
         self._nav_font_size = 12
@@ -190,6 +215,7 @@ class ResultsWidget(QWidget):
     def _create_sheet_selector(self) -> QWidget:
         """Создаёт выпадающий список выбора листа"""
         widget = QWidget()
+        widget.setStyleSheet("background-color: transparent;")
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -245,22 +271,38 @@ class ResultsWidget(QWidget):
 
         table.setRowCount(0)
 
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setDragEnabled(False)
+        
+        # Плавная прокрутка (как в Excel)
+        table.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+        table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         table.setStyleSheet("""
             QTableWidget {
                 background-color: transparent;
                 border: none;
                 gridline-color: #DFE1E5;
+                show-decoration-selected: 0;
             }
             QTableWidget::item {
                 padding: 12px;
                 border-bottom: 1px solid #DFE1E5;
+                background-color: transparent;
             }
             QTableWidget::item:hover {
                 background-color: #F4F4F5;
+            }
+            QTableWidget::item:focus {
+                background-color: #E3F2FD;
+            }
+            QTableWidget::item:selected {
+                background-color: #B3D9F5;
+                color: #000000;
             }
             QHeaderView::section {
                 background-color: transparent;
@@ -270,6 +312,44 @@ class ResultsWidget(QWidget):
                 padding: 12px;
                 border: none;
                 border-bottom: 1px solid #DFE1E5;
+            }
+            QScrollBar:vertical {
+                background-color: #F0F0F0;
+                width: 10px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #C4C9CC;
+                border-radius: 5px;
+                min-height: 40px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            QScrollBar:horizontal {
+                background-color: #F0F0F0;
+                height: 10px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #C4C9CC;
+                border-radius: 5px;
+                min-width: 40px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #A0A5A9;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
             }
         """)
 
@@ -402,38 +482,39 @@ class ResultsWidget(QWidget):
         self.views_stack.setCurrentIndex(index)
 
     def set_data(self, df):
-        """Устанавливает данные из pandas DataFrame"""
+        """Устанавливает данные из pandas DataFrame (результаты процессора)"""
         if df is None or df.empty:
             return
 
+        self.current_df = df
+
         # Очистка таблицы
         self.table_view.setRowCount(0)
+        self.table_view.setColumnCount(len(df.columns))
+        self.table_view.setHorizontalHeaderLabels([str(col) for col in df.columns])
 
         # Заполнение из DataFrame
-        for row_idx, row in df.iterrows():
+        for row_idx, (_, row) in enumerate(df.iterrows()):
             self.table_view.insertRow(row_idx)
+            for col_idx, value in enumerate(row):
+                item = QTableWidgetItem(str(value) if pd.notna(value) else "")
+                self.table_view.setItem(row_idx, col_idx, item)
 
-            # ID
-            item = QTableWidgetItem(str(row.get('ID', f'#{row_idx}')))
-            self.table_view.setItem(row_idx, 0, item)
+        # Автоподбор ширины колонок по содержимому
+        self.table_view.resizeColumnsToContents()
+        
+        # Устанавливаем минимальную ширину для колонок
+        for col in range(self.table_view.columnCount()):
+            current_width = self.table_view.columnWidth(col)
+            if current_width < 100:
+                self.table_view.setColumnWidth(col, 100)
 
-            # Респондент
-            item = QTableWidgetItem(str(row.get('Респондент', 'Unknown')))
-            self.table_view.setItem(row_idx, 1, item)
-
-            # Дата
-            item = QTableWidgetItem(str(row.get('Дата', '')))
-            self.table_view.setItem(row_idx, 2, item)
-
-            # Уровень (с бейджем)
-            level = str(row.get('Уровень', 'Не определено'))
-            level_type = self._get_level_type(level)
-            badge_widget = self._create_badge(level, level_type)
-            self.table_view.setCellWidget(row_idx, 3, badge_widget)
-
-            # Баллы
-            item = QTableWidgetItem(str(row.get('Баллы', '0/0')))
-            self.table_view.setItem(row_idx, 4, item)
+    def clear_data(self):
+        """Очищает данные из таблицы результатов."""
+        self.current_df = None
+        self.table_view.setRowCount(0)
+        self.table_view.setColumnCount(5)
+        self.table_view.setHorizontalHeaderLabels(["ID", "Респондент", "Дата", "Уровень", "Баллы"])
 
     def _get_level_type(self, level: str) -> str:
         """Определяет тип уровня для бейджа"""
@@ -541,3 +622,57 @@ class ResultsWidget(QWidget):
             btn.icon_size = size
             btn._update_icon()
             btn.icon_label.setFixedSize(size, size)
+
+    def export_to_excel(self):
+        """Экспортирует результаты в Excel файл."""
+        if self.current_df is None or self.current_df.empty:
+            QMessageBox.warning(self, "Ошибка", "Нет данных для экспорта")
+            return
+
+        # Диалог сохранения файла
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить результаты",
+            "",
+            "Excel Files (*.xlsx)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            # Создаём Excel writer с несколькими листами
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                # Лист 1: Индивидуальные результаты
+                self.current_df.to_excel(writer, sheet_name='Результаты', index=False)
+
+                # Лист 2: Сводки (если есть в атрибутах)
+                if hasattr(self.current_df, 'attrs') and 'сводки' in self.current_df.attrs:
+                    summaries = self.current_df.attrs['сводки']
+                    
+                    if 'длинная_таблица' in summaries:
+                        summaries['длинная_таблица'].to_excel(
+                            writer, 
+                            sheet_name='Сводка по группам', 
+                            index=False
+                        )
+                    
+                    if 'широкая_таблица' in summaries:
+                        summaries['широкая_таблица'].to_excel(
+                            writer, 
+                            sheet_name='Сводка для отчёта', 
+                            index=False
+                        )
+
+            QMessageBox.information(
+                self, 
+                "Успех", 
+                f"Результаты успешно сохранены в:\n{file_path}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, 
+                "Ошибка экспорта", 
+                f"Не удалось сохранить файл:\n{str(e)}"
+            )

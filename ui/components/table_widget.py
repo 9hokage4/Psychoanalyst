@@ -14,11 +14,17 @@ class ExcelTable(QTableView):
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setDragEnabled(False)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setShowGrid(True)
         self.horizontalHeader().setStretchLastSection(False)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.verticalHeader().setVisible(False)
+        
+        # Плавная прокрутка (как в Excel)
+        self.setVerticalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
 
         # Стиль
         self.setStyleSheet("""
@@ -27,15 +33,22 @@ class ExcelTable(QTableView):
             border: none;
             gridline-color: #DEE2E6;
             outline: none;
+            show-decoration-selected: 0;
         }
         QTableView::item {
             padding: 4px 8px;
             border-right: 1px solid #F0F0F0;
             border-bottom: 1px solid #F0F0F0;
             outline: none;
+            background-color: transparent;
         }
         QTableView::item:focus {
             outline: none;
+            background-color: #E3F2FD;
+        }
+        QTableView::item:selected {
+            background-color: #B3D9F5;
+            color: #000000;
         }
         QHeaderView::section {
             background-color: #E9ECEF;
@@ -56,9 +69,47 @@ class ExcelTable(QTableView):
             padding-right: 12px;
         }
         QHeaderView {
-            background-color: transparent;  /* ← Убираем серый фон */
+            background-color: transparent;
             border: none;
             outline: none;
+        }
+        QScrollBar:vertical {
+            background-color: #F0F0F0;
+            width: 10px;
+            border-radius: 5px;
+        }
+        QScrollBar::handle:vertical {
+            background-color: #C4C9CC;
+            border-radius: 5px;
+            min-height: 40px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background-color: #A0A5A9;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            background: none;
+        }
+        QScrollBar:horizontal {
+            background-color: #F0F0F0;
+            height: 10px;
+            border-radius: 5px;
+        }
+        QScrollBar::handle:horizontal {
+            background-color: #C4C9CC;
+            border-radius: 5px;
+            min-width: 40px;
+        }
+        QScrollBar::handle:horizontal:hover {
+            background-color: #A0A5A9;
+        }
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+            width: 0px;
+        }
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+            background: none;
         }
     """)
 
@@ -105,13 +156,11 @@ class ExcelTable(QTableView):
         self.setModel(model)
         self.update_font_size()
 
-        # Логика растяжения
-        cols = len(df.columns)
-        if cols <= 10:
-            self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        else:
-            self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-            parent_width = self.parent().width() if self.parent() else 800
-            col_width = max(80, int(parent_width / 10))
-            for col in range(cols):
-                self.setColumnWidth(col, col_width)
+        # Авто-подбор ширины колонок по содержимому
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for col in range(len(df.columns)):
+            self.resizeColumnToContents(col)
+            # Минимальная ширина колонки
+            current_width = self.columnWidth(col)
+            if current_width < 100:
+                self.setColumnWidth(col, 100)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ui/main_window.py
 from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -107,12 +108,14 @@ class MainWindow(QMainWindow):
         # Подключаем сигналы
         self.upload_tab.file_loaded.connect(self.on_file_loaded)
         self.upload_tab.settings_requested.connect(self.open_settings_dialog)
-        
+        self.upload_tab.processing_finished.connect(self.on_processing_finished)
+        self.upload_tab.data_cleared.connect(self.on_data_cleared)
+
         print("Nav buttons created:", len(self.nav_buttons))
         print("Nav container size:", nav_container.size())
         print("Nav container layout:", nav_container.layout())
         print("First button visible:", self.nav_buttons[0].isVisible())
-        
+
         self.current_config = None
 
     def switch_to_tab(self, button: NavButton, tab_name: str):
@@ -132,9 +135,22 @@ class MainWindow(QMainWindow):
         """Обработчик загрузки файла."""
         pass
 
+    def on_processing_finished(self, result_df, success, message):
+        """Обработчик завершения обработки данных."""
+        if success:
+            # Переключаемся на вкладку результатов
+            self.switch_to_tab(self.nav_buttons[1], "Результаты")
+            # Передаём данные в results_tab
+            self.results_tab.set_data(result_df)
+
+    def on_data_cleared(self):
+        """Обработчик очистки данных (при нажатии 'Отмена')."""
+        # Очищаем таблицу результатов
+        self.results_tab.clear_data()
+
     def open_settings_dialog(self):
         from ui.components.settings_dialog import SettingsDialog
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self, self.current_config)
         dialog.config_saved.connect(self.on_config_saved)
         dialog.profile_loaded_with_name.connect(self.on_profile_loaded)
         dialog.exec()
@@ -148,9 +164,9 @@ class MainWindow(QMainWindow):
 
     def on_config_saved(self, full_config, profile_name):
         """Обработчик сохранения конфигурации."""
-        # Сохраняем полную конфигурацию
+        # Сохраняем полную конфигурацию (всегда, даже без профиля)
         self.current_config = full_config
         # Передаём в upload_widget
         self.upload_tab.set_config(full_config)
         # Обновляем имя профиля
-        self.upload_tab.config_summary.set_profile_name(profile_name if profile_name else "Сохраненный профиль")
+        self.upload_tab.config_summary.set_profile_name(profile_name if profile_name else "Настройки")

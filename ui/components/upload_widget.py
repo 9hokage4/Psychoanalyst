@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
 # ui/components/upload_widget.py
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFrame,
                              QLabel, QPushButton, QFileDialog, QStackedWidget,
-                             QGridLayout, QGraphicsDropShadowEffect)
+                             QGridLayout, QGraphicsDropShadowEffect, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPoint
-from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon, QFont
+from PyQt6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon, QFont, QPixmap
 
 import pandas as pd
 from ui.components.table_widget import ExcelTable
 from utils.fonts import get_font, FontWeights
+from utils.worker import ProcessWorker
 
 
 class DragDropArea(QFrame):
@@ -103,6 +105,7 @@ class DragDropArea(QFrame):
 class ConfigSummary(QFrame):
     """Блок «Текущая конфигурация» с разделителями."""
     settings_clicked = pyqtSignal()
+    config_ready_changed = pyqtSignal(bool)  # Сигнал об изменении готовности конфигурации
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -251,15 +254,15 @@ class ConfigSummary(QFrame):
             self.scales_label.setText(scales_text)
         else:
             self.scales_label.setText("—")
-        
+
         if self.is_ready:
             self.status_value.setText("✅ Готов к обработке")
             self.status_value.setStyleSheet("""
                 QLabel {
-                    color: #2E7D32; 
-                    background-color: #E8F5E9; 
-                    padding: 4px 12px; 
-                    border-radius: 12px; 
+                    color: #2E7D32;
+                    background-color: #E8F5E9;
+                    padding: 4px 12px;
+                    border-radius: 12px;
                     font-weight: 600;
                 }
             """)
@@ -267,13 +270,16 @@ class ConfigSummary(QFrame):
             self.status_value.setText("❌ Не готов к обработке")
             self.status_value.setStyleSheet("""
                 QLabel {
-                    color: #C62828; 
-                    background-color: #FFEBEE; 
-                    padding: 4px 12px; 
-                    border-radius: 12px; 
+                    color: #C62828;
+                    background-color: #FFEBEE;
+                    padding: 4px 12px;
+                    border-radius: 12px;
                     font-weight: 600;
                 }
             """)
+        
+        # Уведомляем об изменении готовности
+        self.config_ready_changed.emit(self.is_ready)
 
 
 class UploadWidget(QWidget):
@@ -281,6 +287,9 @@ class UploadWidget(QWidget):
     file_loaded = pyqtSignal(object)  # передаёт DataFrame
     filename_updated = pyqtSignal(str)
     settings_requested = pyqtSignal()
+    processing_started = pyqtSignal()  # сигнал о начале обработки
+    processing_finished = pyqtSignal(object, bool, str)  # результат, успех, сообщение
+    data_cleared = pyqtSignal()  # сигнал об очистке данных
 
     def __init__(self):
         super().__init__()
@@ -288,6 +297,7 @@ class UploadWidget(QWidget):
         self.current_file_path = None
         self.sheet_names = []
         self.current_config = None  # Текущая конфигурация
+        self.worker = None  # ProcessWorker для фоновой обработки
 
         # Главная карточка
         self.card = QFrame(self)
@@ -335,6 +345,7 @@ class UploadWidget(QWidget):
         # Блок конфигурации
         self.config_summary = ConfigSummary()
         self.config_summary.settings_clicked.connect(self.settings_requested.emit)
+        self.config_summary.config_ready_changed.connect(self._update_process_button)
         card_layout.addWidget(self.config_summary)
 
         # Разделитель
@@ -418,10 +429,16 @@ class UploadWidget(QWidget):
             self.file_loaded.emit(df)
             file_name = file_path.split("/")[-1].split("\\")[-1]
             self.filename_updated.emit(file_name)
-            # Активируем кнопку обработки (позже будет зависеть от конфигурации)
-            self.process_btn.setEnabled(True)
+            # Активируем кнопку обработки (зависит от конфигурации и файла)
+            self._update_process_button()
         except Exception as e:
             print(f"Ошибка загрузки: {e}")
+
+    def _update_process_button(self):
+        """Обновляет состояние кнопки обработки (файл загружен + конфигурация готова)."""
+        has_file = self.current_df is not None
+        config_ready = self.config_summary.is_ready
+        self.process_btn.setEnabled(has_file and config_ready)
 
     def cancel_selection(self):
         """Отменяет выбор файла, возвращает область загрузки."""
@@ -431,15 +448,104 @@ class UploadWidget(QWidget):
         self.table_view.set_data_frame(None)  # очищаем таблицу
         self.upload_stack.setCurrentWidget(self.drag_drop_area)
         self.cancel_btn.setVisible(False)
-        self.process_btn.setEnabled(False)
+        self._update_process_button()  # Обновляем состояние кнопки
         # Можно также сбросить имя файла, если оно где-то отображается
         self.filename_updated.emit("")  # или None
+        
+        # Уведомляем об очистке данных (для очистки других вкладок)
+        self.data_cleared.emit()
 
     def start_processing(self):
-        """Запускает обработку данных (пока заглушка)."""
-        print("Обработка запущена...")
-        # Здесь будет вызов ProcessWorker, а потом переключение на вкладку результатов
-        # TODO: реализовать
+        """Запускает обработку данных в фоновом режиме."""
+        if self.current_df is None:
+            self._show_error_message("Ошибка", "Файл не загружен")
+            return
+
+        if self.current_config is None:
+            self._show_error_message(
+                "Ошибка",
+                "Конфигурация не задана.\n"
+                "Нажмите 'Изменить настройки' и настройте тест."
+            )
+            return
+
+        # Блокируем кнопку на время обработки
+        self.process_btn.setEnabled(False)
+        self.process_btn.setText("⏳ Обработка...")
+
+        # Создаём и запускаем воркер
+        self.worker = ProcessWorker(self.current_df, self.current_config, self)
+        self.worker.started.connect(self.processing_started.emit)
+        self.worker.finished.connect(self.on_processing_finished)
+        self.worker.error.connect(self.on_processing_error)
+        self.worker.start()
+
+    def on_processing_finished(self, result_df, success, message):
+        """Обработчик завершения обработки."""
+        # Разблокируем кнопку
+        self.process_btn.setEnabled(True)
+        self.process_btn.setText("ОБРАБОТАТЬ ДАННЫЕ")
+
+        if success:
+            # Передаём результат дальше
+            self.processing_finished.emit(result_df, True, message)
+        else:
+            self._show_error_message("Ошибка обработки", message)
+
+    def on_processing_error(self, error_msg):
+        """Обработчик ошибки обработки."""
+        # Разблокируем кнопку
+        self.process_btn.setEnabled(True)
+        self.process_btn.setText("ОБРАБОТАТЬ ДАННЫЕ")
+        self._show_error_message("Ошибка", error_msg)
+
+    def _show_error_message(self, title, message):
+        """Показывает сообщение об ошибке в стиле SettingsDialog."""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Стиль для кнопок QMessageBox
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+            QMessageBox QLabel {
+                color: #000000;
+                font-size: 14px;
+            }
+            QPushButton {
+                background-color: #3390EC;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2B80D9;
+            }
+            QPushButton:pressed {
+                background-color: #1E6BC5;
+            }
+        """)
+        
+        icon_label = QLabel()
+        icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
+        if not icon_pixmap.isNull():
+            icon_label.setPixmap(icon_pixmap.scaled(48, 48,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation))
+        else:
+            icon_label.setPixmap(self.style().standardIcon(
+                QMessageBox.Style.Warning).pixmap(48, 48))
+        layout = msg_box.layout()
+        layout.addWidget(icon_label, 0, 0, 1, 1,
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        msg_box.exec()
 
     def set_config(self, config):
         """Устанавливает текущую конфигурацию и обновляет отображение."""

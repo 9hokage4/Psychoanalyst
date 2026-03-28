@@ -288,7 +288,7 @@ class UploadWidget(QWidget):
     filename_updated = pyqtSignal(str)
     settings_requested = pyqtSignal()
     processing_started = pyqtSignal()  # сигнал о начале обработки
-    processing_finished = pyqtSignal(object, bool, str)  # результат, успех, сообщение
+    processing_finished = pyqtSignal(object, object, object, bool, str)  # table_df, charts_data, summary_data, успех, сообщение
     data_cleared = pyqtSignal()  # сигнал об очистке данных
 
     def __init__(self):
@@ -480,7 +480,7 @@ class UploadWidget(QWidget):
         self.worker.error.connect(self.on_processing_error)
         self.worker.start()
 
-    def on_processing_finished(self, result_df, success, message):
+    def on_processing_finished(self, table_df, charts_data, summary_data, success, message):
         """Обработчик завершения обработки."""
         # Разблокируем кнопку
         self.process_btn.setEnabled(True)
@@ -488,7 +488,7 @@ class UploadWidget(QWidget):
 
         if success:
             # Передаём результат дальше
-            self.processing_finished.emit(result_df, True, message)
+            self.processing_finished.emit(table_df, charts_data, summary_data, True, message)
         else:
             self._show_error_message("Ошибка обработки", message)
 

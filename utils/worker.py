@@ -17,7 +17,7 @@ from core.processor import process_data
 class ProcessWorker(QThread):
     """
     Воркер для фоновой обработки данных.
-    
+
     Сигналы:
         started - начало обработки
         finished - обработка завершена (успех или ошибка)
@@ -25,7 +25,7 @@ class ProcessWorker(QThread):
         error - произошла ошибка
     """
     started = pyqtSignal()
-    finished = pyqtSignal(object, bool, str)  # результат, успех, сообщение
+    finished = pyqtSignal(object, object, object, bool, str)  # table_df, charts_data, summary_data, успех, сообщение
     progress = pyqtSignal(int, int)  # текущий шаг, всего шагов
     error = pyqtSignal(str)  # сообщение об ошибке
 
@@ -44,12 +44,12 @@ class ProcessWorker(QThread):
             # Проверка входных данных
             if self.df is None or self.df.empty:
                 self.error.emit("DataFrame пуст или не загружен")
-                self.finished.emit(None, False, "DataFrame пуст")
+                self.finished.emit(None, None, None, False, "DataFrame пуст")
                 return
 
             if not self.config:
                 self.error.emit("Конфигурация не задана")
-                self.finished.emit(None, False, "Конфигурация не задана")
+                self.finished.emit(None, None, None, False, "Конфигурация не задана")
                 return
 
             self.progress.emit(2, 4)  # Проверка завершена
@@ -64,23 +64,23 @@ class ProcessWorker(QThread):
             if not scales_config:
                 error_msg = "Не заданы шкалы в конфигурации"
                 self.error.emit(error_msg)
-                self.finished.emit(None, False, error_msg)
+                self.finished.emit(None, None, None, False, error_msg)
                 return
 
             if not level_order:
                 error_msg = "Не задан порядок уровней в конфигурации"
                 self.error.emit(error_msg)
-                self.finished.emit(None, False, error_msg)
+                self.finished.emit(None, None, None, False, error_msg)
                 return
 
             if not answer_weights:
                 error_msg = "Не заданы веса ответов в конфигурации"
                 self.error.emit(error_msg)
-                self.finished.emit(None, False, error_msg)
+                self.finished.emit(None, None, None, False, error_msg)
                 return
 
             # Вызов процессора
-            result_df = process_data(
+            table_df, charts_data, summary_data = process_data(
                 self.df,
                 scales_config,
                 level_order,
@@ -91,27 +91,27 @@ class ProcessWorker(QThread):
             self.progress.emit(3, 4)  # Обработка завершена
 
             # Проверка результата
-            if result_df is None or result_df.empty:
+            if table_df is None or table_df.empty:
                 self.error.emit("Процессор вернул пустой результат")
-                self.finished.emit(None, False, "Пустой результат")
+                self.finished.emit(None, None, None, False, "Пустой результат")
                 return
 
             self.progress.emit(4, 4)  # Всё готово
 
             # Успешное завершение
-            self.finished.emit(result_df, True, "Обработка завершена успешно")
+            self.finished.emit(table_df, charts_data, summary_data, True, "Обработка завершена успешно")
 
         except KeyError as e:
             error_msg = f"Отсутствует необходимая колонка: {str(e)}"
             self.error.emit(error_msg)
-            self.finished.emit(None, False, error_msg)
+            self.finished.emit(None, None, None, False, error_msg)
 
         except ValueError as e:
             error_msg = f"Ошибка в данных: {str(e)}"
             self.error.emit(error_msg)
-            self.finished.emit(None, False, error_msg)
+            self.finished.emit(None, None, None, False, error_msg)
 
         except Exception as e:
             error_msg = f"Неизвестная ошибка: {str(e)}"
             self.error.emit(error_msg)
-            self.finished.emit(None, False, error_msg)
+            self.finished.emit(None, None, None, False, error_msg)

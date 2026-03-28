@@ -2,6 +2,10 @@
 # ui/components/results_widget.py
 import pandas as pd
 from pathlib import Path
+from typing import Dict, Any
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, Color
+from openpyxl.utils import get_column_letter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QStackedWidget, QComboBox, QTableWidget,
@@ -14,13 +18,35 @@ from utils.fonts import get_font, FontWeights
 from ui.components.results_nav_button import ResultsNavButton
 
 
+# Цвета для шкал
+SCALE_COLORS = [
+    "E3F2FD",  # Голубой
+    "E8F5E9",  # Зелёный
+    "FFF3E0",  # Оранжевый
+    "F3E5F5",  # Фиолетовый
+    "FFEBEE",  # Красный
+    "E0F7FA",  # Бирюзовый
+    "FFF8E1",  # Янтарный
+    "F1F8E9",  # Лайм
+    "FCE4EC",  # Розовый
+    "F9FBE7",  # Лайм светлый
+]
+
+
 class ResultsWidget(QWidget):
     sheet_changed = pyqtSignal(str)
+    table_type_changed = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
         self.current_sheet = "Все листы"
-        self.current_df = None
+        self.current_table_type = "Все респонденты"
+        self.table_df = None
+        self.charts_data = {}
+        self.summary_data = {}
+        self.scales_config = {}
+        self.level_order = []
+        self.level_ru = {}
         self.processed_file_path = Path("processed_data.xlsx")
         self.setup_ui()
         self._load_processed_data()
@@ -40,7 +66,7 @@ class ResultsWidget(QWidget):
         # ===== ЛЕВАЯ ВЕРТИКАЛЬНАЯ ПАНЕЛЬ =====
         self.sidebar = QWidget()
         self.sidebar.setObjectName("results_sidebar")
-        self.sidebar.setFixedSize(140, 450)  # Фиксированный размер как было изначально
+        self.sidebar.setFixedSize(140, 550)  # Увеличили высоту для новой кнопки
 
         # Тень для sidebar
         sidebar_shadow = QGraphicsDropShadowEffect()
@@ -117,9 +143,9 @@ class ResultsWidget(QWidget):
         content_layout.setContentsMargins(24, 24, 24, 24)
         content_layout.setSpacing(16)
 
-        # Выбор листа Excel
-        self.sheet_selector_widget = self._create_sheet_selector()
-        content_layout.addWidget(self.sheet_selector_widget)
+        # Выбор типа таблицы / графика
+        self.selector_widget = self._create_selector()
+        content_layout.addWidget(self.selector_widget)
 
         # Стек видов (растягивается на всю доступную высоту)
         self.views_stack = QStackedWidget()
@@ -131,28 +157,16 @@ class ResultsWidget(QWidget):
         self.table_view = self._create_table_view()
         self.views_stack.addWidget(self.table_view)
 
-        # Круговая диаграмма (заглушка)
-        self.pie_view = self._create_chart_placeholder(
-            "🥧",
-            "Круговая диаграмма",
-            ["Распределение уровней", "По шкалам"]
-        )
+        # Круговая диаграмма
+        self.pie_view = self._create_pie_chart_view()
         self.views_stack.addWidget(self.pie_view)
 
-        # Столбчатая диаграмма (заглушка)
-        self.bar_view = self._create_chart_placeholder(
-            "📊",
-            "Столбчатая диаграмма",
-            ["Сравнение показателей", "По респондентам"]
-        )
+        # Столбчатая диаграмма
+        self.bar_view = self._create_bar_chart_view()
         self.views_stack.addWidget(self.bar_view)
 
-        # Линейный график (заглушка)
-        self.line_view = self._create_chart_placeholder(
-            "📈",
-            "Линейный график",
-            ["Динамика показателей"]
-        )
+        # Линейный график
+        self.line_view = self._create_line_chart_view()
         self.views_stack.addWidget(self.line_view)
 
         content_layout.addWidget(self.views_stack)
@@ -183,7 +197,6 @@ class ResultsWidget(QWidget):
         main_layout.addWidget(export_btn)
 
         # ===== СТИЛИ ДЛЯ КНОПОК НАВИГАЦИИ =====
-        # Задаём глобальные стили для кастомных кнопок
         self._nav_font_size = 12
         self._nav_icon_size = 32
         self.setStyleSheet(f"""
@@ -212,24 +225,24 @@ class ResultsWidget(QWidget):
             }}
         """)
 
-    def _create_sheet_selector(self) -> QWidget:
-        """Создаёт выпадающий список выбора листа"""
+    def _create_selector(self) -> QWidget:
+        """Создаёт выпадающий список выбора типа таблицы/графика"""
         widget = QWidget()
         widget.setStyleSheet("background-color: transparent;")
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        sheet_label = QLabel("📊 Лист Excel:")
-        sheet_label.setFont(get_font("form_label"))
-        sheet_label.setStyleSheet("color: #707579; background-color: transparent;")
+        self.selector_label = QLabel("📊 Тип таблицы:")
+        self.selector_label.setFont(get_font("form_label"))
+        self.selector_label.setStyleSheet("color: #707579; background-color: transparent;")
 
-        self.sheet_combo = QComboBox()
-        self.sheet_combo.setObjectName("sheet_selector")
-        self.sheet_combo.setFont(get_font("form_input"))
-        self.sheet_combo.addItems(["Все листы", "По курсу", "Предварительный", "Итоговый"])
-        self.sheet_combo.currentTextChanged.connect(self._on_sheet_changed)
-        self.sheet_combo.setStyleSheet("""
+        self.selector_combo = QComboBox()
+        self.selector_combo.setObjectName("selector_combo")
+        self.selector_combo.setFont(get_font("form_input"))
+        # Элементы будут добавлены динамически в set_data
+        self.selector_combo.currentTextChanged.connect(self._on_table_type_changed)
+        self.selector_combo.setStyleSheet("""
             QComboBox {
                 padding: 10px 14px;
                 border: 1px solid #DFE1E5;
@@ -251,25 +264,25 @@ class ResultsWidget(QWidget):
             }
         """)
 
-        layout.addWidget(sheet_label)
-        layout.addWidget(self.sheet_combo)
+        layout.addWidget(self.selector_label)
+        layout.addWidget(self.selector_combo)
         layout.addStretch()
 
         return widget
 
-    def _on_sheet_changed(self, sheet_name: str):
-        """Обработчик смены листа"""
-        self.current_sheet = sheet_name
-        self.sheet_changed.emit(sheet_name)
+    def _on_table_type_changed(self, table_type: str):
+        """Обработчик смены типа таблицы"""
+        self.current_table_type = table_type
+        self.table_type_changed.emit(table_type)
+        self._update_table_view()
 
     def _create_table_view(self) -> QTableWidget:
         """Создаёт таблицу результатов"""
         table = QTableWidget()
         table.setObjectName("results_table")
+        table.setRowCount(0)
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(["ID", "Респондент", "Дата", "Уровень", "Баллы"])
-
-        table.setRowCount(0)
 
         table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -278,7 +291,7 @@ class ResultsWidget(QWidget):
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         table.setDragEnabled(False)
-        
+
         # Плавная прокрутка (как в Excel)
         table.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
@@ -355,124 +368,25 @@ class ResultsWidget(QWidget):
 
         return table
 
-    def _create_badge(self, text: str, level: str) -> QWidget:
-        """Создаёт бейдж уровня (Низкий/Средний/Высокий)"""
-        widget = QWidget()
-        widget.setStyleSheet("background-color: transparent;")
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(8, 4, 8, 4)
-
-        label = QLabel(text)
-        label.setWordWrap(False)
-        label.setStyleSheet("background-color: transparent;")
-
-        if level == "success":
-            label.setStyleSheet("""
-                QLabel {
-                    background-color: #E8F5E9;
-                    color: #2E7D32;
-                    padding: 4px 12px;
-                    border-radius: 12px;
-                    font-weight: 600;
-                }
-            """)
-        elif level == "warning":
-            label.setStyleSheet("""
-                QLabel {
-                    background-color: #FFF3E0;
-                    color: #EF6C00;
-                    padding: 4px 12px;
-                    border-radius: 12px;
-                    font-weight: 600;
-                }
-            """)
-        elif level == "danger":
-            label.setStyleSheet("""
-                QLabel {
-                    background-color: #FFEBEE;
-                    color: #C62828;
-                    padding: 4px 12px;
-                    border-radius: 12px;
-                    font-weight: 600;
-                }
-            """)
-
-        layout.addWidget(label)
-        layout.addStretch()
-
+    def _create_pie_chart_view(self) -> QWidget:
+        """Создаёт виджет для круговой диаграммы"""
+        from ui.components.pie_chart import PieChartWidget
+        widget = PieChartWidget()
+        widget.setObjectName("pie_chart_widget")
         return widget
 
-    def _create_chart_placeholder(self, icon: str, title: str, subtitles: list) -> QWidget:
-        """Создаёт заглушку для графика"""
-        widget = QWidget()
-        widget.setObjectName("chart_placeholder")
+    def _create_bar_chart_view(self) -> QWidget:
+        """Создаёт виджет для столбчатой диаграммы"""
+        from ui.components.bar_chart import BarChartWidget
+        widget = BarChartWidget()
+        widget.setObjectName("bar_chart_widget")
+        return widget
 
-        if len(subtitles) == 1:
-            # Один блок на всю ширину
-            layout = QVBoxLayout(widget)
-            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.setSpacing(12)
-
-            icon_label = QLabel(icon)
-            icon_label.setStyleSheet("font-size: 64px;")
-            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            title_label = QLabel(title)
-            title_label.setFont(get_font("section_title"))
-            title_label.setStyleSheet("color: #000000; background-color: transparent;")
-            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            subtitle_label = QLabel(subtitles[0])
-            subtitle_label.setFont(get_font("caption"))
-            subtitle_label.setStyleSheet("color: #707579; background-color: transparent;")
-            subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            layout.addWidget(icon_label)
-            layout.addWidget(title_label)
-            layout.addWidget(subtitle_label)
-        else:
-            # Сетка 1fr 1fr
-            layout = QVBoxLayout(widget)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(20)
-
-            grid_widget = QWidget()
-            grid_layout = QHBoxLayout(grid_widget)
-            grid_layout.setContentsMargins(0, 0, 0, 0)
-            grid_layout.setSpacing(20)
-
-            for subtitle in subtitles:
-                placeholder = QWidget()
-                placeholder.setObjectName("chart_placeholder_item")
-                placeholder.setStyleSheet("""
-                    QWidget#chart_placeholder_item {
-                        background-color: #F8F9FA;
-                        border: 1px solid #DFE1E5;
-                        border-radius: 8px;
-                    }
-                """)
-                placeholder.setMinimumHeight(250)
-
-                ph_layout = QVBoxLayout(placeholder)
-                ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                ph_layout.setSpacing(12)
-
-                ph_icon = QLabel(icon)
-                ph_icon.setStyleSheet("font-size: 48px;")
-                ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-                ph_title = QLabel(subtitle)
-                ph_title.setFont(get_font("caption"))
-                ph_title.setStyleSheet("color: #707579; background-color: transparent;")
-                ph_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-                ph_layout.addWidget(ph_icon)
-                ph_layout.addWidget(ph_title)
-
-                grid_layout.addWidget(placeholder)
-
-            layout.addWidget(grid_widget)
-
+    def _create_line_chart_view(self) -> QWidget:
+        """Создаёт виджет для линейного графика"""
+        from ui.components.line_chart import LineChartWidget
+        widget = LineChartWidget()
+        widget.setObjectName("line_chart_widget")
         return widget
 
     def _switch_view(self, index: int):
@@ -481,29 +395,72 @@ class ResultsWidget(QWidget):
             btn.setChecked(i == index)
         self.views_stack.setCurrentIndex(index)
 
-    def set_data(self, df):
-        """Устанавливает данные из pandas DataFrame (результаты процессора)"""
-        if df is None or df.empty:
+        # Обновляем label селектора и видимость
+        if index == 0:
+            # Таблица - показываем selector только если есть группы/курсы
+            self.selector_label.setText("📊 Тип таблицы:")
+            self.selector_widget.setVisible(self.has_group or self.has_course)
+        else:
+            # Графики - всегда показываем selector для выбора шкалы
+            self.selector_label.setText("📊 Выберите шкалу:")
+            self.selector_widget.setVisible(True)
+
+        # Обновляем данные в графиках
+        if index == 1:
+            self.pie_view.set_data(self.charts_data, self.level_order, self.level_ru)
+        elif index == 2:
+            self.bar_view.set_data(self.charts_data, self.level_order, self.level_ru)
+        elif index == 3:
+            self.line_view.set_data(self.charts_data, self.level_order, self.level_ru)
+
+    def set_data(self, table_df, charts_data, summary_data):
+        """Устанавливает данные из процессора"""
+        if table_df is None or table_df.empty:
             return
 
-        self.current_df = df
+        self.table_df = table_df
+        self.charts_data = charts_data
+        self.summary_data = summary_data
+        self.scales_config = summary_data.get("scales_config", {})
+        self.level_order = summary_data.get("level_order", [])
+        self.level_ru = summary_data.get("level_ru", {})
+        self.has_group = summary_data.get("has_group", False)
+        self.has_course = summary_data.get("has_course", False)
 
-        # Очистка таблицы
+        # Динамически заполняем selector в зависимости от наличия данных
+        self.selector_combo.clear()
+        self.selector_combo.addItem("Все респонденты")
+        if self.has_course:
+            self.selector_combo.addItem("Курс")
+        if self.has_group:
+            self.selector_combo.addItem("Группа")
+        
+        # Если нет ни групп ни курсов, скрываем selector
+        self.selector_widget.setVisible(self.has_group or self.has_course)
+
+        # Обновляем таблицу
+        self._update_table_view()
+
+    def _update_table_view(self):
+        """Обновляет таблицу в зависимости от выбранного типа"""
+        if self.table_df is None or self.table_df.empty:
+            return
+
         self.table_view.setRowCount(0)
-        self.table_view.setColumnCount(len(df.columns))
-        self.table_view.setHorizontalHeaderLabels([str(col) for col in df.columns])
+        
+        # Пока просто отображаем все данные
+        # В будущем можно фильтровать по типу (Все респонденты / Курс / Группа)
+        self.table_view.setColumnCount(len(self.table_df.columns))
+        self.table_view.setHorizontalHeaderLabels([str(col) for col in self.table_df.columns])
 
-        # Заполнение из DataFrame
-        for row_idx, (_, row) in enumerate(df.iterrows()):
+        for row_idx, (_, row) in enumerate(self.table_df.iterrows()):
             self.table_view.insertRow(row_idx)
             for col_idx, value in enumerate(row):
                 item = QTableWidgetItem(str(value) if pd.notna(value) else "")
                 self.table_view.setItem(row_idx, col_idx, item)
 
-        # Автоподбор ширины колонок по содержимому
+        # Автоподбор ширины колонок
         self.table_view.resizeColumnsToContents()
-        
-        # Устанавливаем минимальную ширину для колонок
         for col in range(self.table_view.columnCount()):
             current_width = self.table_view.columnWidth(col)
             if current_width < 100:
@@ -511,72 +468,20 @@ class ResultsWidget(QWidget):
 
     def clear_data(self):
         """Очищает данные из таблицы результатов."""
-        self.current_df = None
+        self.table_df = None
+        self.charts_data = {}
+        self.summary_data = {}
         self.table_view.setRowCount(0)
         self.table_view.setColumnCount(5)
         self.table_view.setHorizontalHeaderLabels(["ID", "Респондент", "Дата", "Уровень", "Баллы"])
-
-    def _get_level_type(self, level: str) -> str:
-        """Определяет тип уровня для бейджа"""
-        level_lower = level.lower()
-        if 'низк' in level_lower:
-            return 'success'
-        elif 'средн' in level_lower:
-            return 'warning'
-        elif 'высок' in level_lower:
-            return 'danger'
-        return 'warning'
 
     def _load_processed_data(self):
         """Загружает данные из processed_data.xlsx"""
         if self.processed_file_path.exists():
             try:
                 self.current_df = pd.read_excel(self.processed_file_path)
-                self._populate_table_from_df()
             except Exception as e:
                 print(f"Ошибка загрузки данных: {e}")
-
-    def _populate_table_from_df(self):
-        """Заполняет таблицу данными из DataFrame"""
-        if self.current_df is None or self.current_df.empty:
-            return
-
-        self.table_view.setRowCount(0)
-
-        for row_idx, row in self.current_df.iterrows():
-            self.table_view.insertRow(row_idx)
-
-            # ID (индекс + 1)
-            item = QTableWidgetItem(f'#{row_idx + 1}')
-            self.table_view.setItem(row_idx, 0, item)
-
-            # ФИО
-            fio = row.get('ФИО', 'Unknown')
-            item = QTableWidgetItem(str(fio))
-            self.table_view.setItem(row_idx, 1, item)
-
-            # Дата
-            date = row.get('Дата', '')
-            if pd.notna(date):
-                item = QTableWidgetItem(str(date))
-            else:
-                item = QTableWidgetItem('')
-            self.table_view.setItem(row_idx, 2, item)
-
-            # Уровень риска (Risk Level)
-            risk_level = row.get('Risk Level', 'Не определено')
-            level_type = self._get_level_type(str(risk_level))
-            badge_widget = self._create_badge(str(risk_level), level_type)
-            self.table_view.setCellWidget(row_idx, 3, badge_widget)
-
-            # % риска (баллы)
-            risk_percent = row.get('% риска', '0')
-            item = QTableWidgetItem(str(risk_percent))
-            self.table_view.setItem(row_idx, 4, item)
-
-    def refresh_data(self):
-        """Обновляет данные из processed_data.xlsx"""
-        self._load_processed_data()
 
     def set_filename(self, filename: str):
         """Обновляет название файла (для отображения)"""
@@ -624,8 +529,8 @@ class ResultsWidget(QWidget):
             btn.icon_label.setFixedSize(size, size)
 
     def export_to_excel(self):
-        """Экспортирует результаты в Excel файл."""
-        if self.current_df is None or self.current_df.empty:
+        """Экспортирует результаты в Excel файл с группировкой и сводными таблицами."""
+        if self.table_df is None or self.table_df.empty:
             QMessageBox.warning(self, "Ошибка", "Нет данных для экспорта")
             return
 
@@ -641,38 +546,251 @@ class ResultsWidget(QWidget):
             return
 
         try:
-            # Создаём Excel writer с несколькими листами
-            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                # Лист 1: Индивидуальные результаты
-                self.current_df.to_excel(writer, sheet_name='Результаты', index=False)
-
-                # Лист 2: Сводки (если есть в атрибутах)
-                if hasattr(self.current_df, 'attrs') and 'сводки' in self.current_df.attrs:
-                    summaries = self.current_df.attrs['сводки']
-                    
-                    if 'длинная_таблица' in summaries:
-                        summaries['длинная_таблица'].to_excel(
-                            writer, 
-                            sheet_name='Сводка по группам', 
-                            index=False
-                        )
-                    
-                    if 'широкая_таблица' in summaries:
-                        summaries['широкая_таблица'].to_excel(
-                            writer, 
-                            sheet_name='Сводка для отчёта', 
-                            index=False
-                        )
+            export_to_excel_with_summary(
+                table_df=self.table_df,
+                summary_data=self.summary_data,
+                charts_data=self.charts_data,
+                output_path=file_path
+            )
 
             QMessageBox.information(
-                self, 
-                "Успех", 
+                self,
+                "Успех",
                 f"Результаты успешно сохранены в:\n{file_path}"
             )
 
         except Exception as e:
             QMessageBox.critical(
-                self, 
-                "Ошибка экспорта", 
+                self,
+                "Ошибка экспорта",
                 f"Не удалось сохранить файл:\n{str(e)}"
             )
+
+
+def export_to_excel_with_summary(
+    table_df: pd.DataFrame,
+    summary_data: Dict,
+    charts_data: Dict,
+    output_path: str
+):
+    """
+    Создаёт Excel с динамическим количеством листов:
+    1. Все респонденты + общая сводная таблица (всегда)
+    2. Курс (сгруппировано) + сводные таблицы - если есть колонка "Курс"
+    3. Группа (сгруппировано) + сводные таблицы - если есть колонка "Группа"
+    """
+    wb = Workbook()
+
+    # Удаляем стандартный лист
+    if wb.active:
+        wb.remove(wb.active)
+
+    level_order = summary_data.get("level_order", [])
+    level_ru = summary_data.get("level_ru", {})
+    scales_config = summary_data.get("scales_config", {})
+    has_group = summary_data.get("has_group", False)
+    has_course = summary_data.get("has_course", False)
+
+    # === ЛИСТ 1: Все респонденты (всегда) ===
+    ws_all = wb.create_sheet("Все респонденты")
+    _write_all_respondents_sheet(ws_all, table_df, summary_data, level_order, level_ru, scales_config)
+
+    # === ЛИСТ 2: Курс (если есть колонка "Курс") ===
+    if has_course and summary_data.get("course_summary"):
+        ws_course = wb.create_sheet("Курс")
+        _write_grouped_sheet(
+            ws_course,
+            table_df,
+            summary_data.get("course_summary", {}),
+            group_by="Курс",
+            level_order=level_order,
+            level_ru=level_ru,
+            scales_config=scales_config
+        )
+
+    # === ЛИСТ 3: Группа (если есть колонка "Группа") ===
+    if has_group and summary_data.get("group_summary"):
+        ws_group = wb.create_sheet("Группа")
+        _write_grouped_sheet(
+            ws_group,
+            table_df,
+            summary_data.get("group_summary", {}),
+            group_by="Группа",
+            level_order=level_order,
+            level_ru=level_ru,
+            scales_config=scales_config
+        )
+
+    wb.save(output_path)
+
+
+def _write_all_respondents_sheet(ws, table_df, summary_data, level_order, level_ru, scales_config):
+    """Записывает лист 'Все респонденты' с общей сводной таблицей"""
+    
+    # Определяем колонки
+    base_cols = ["Дата", "ФИО", "Группа", "Курс"]
+    question_cols = [col for col in table_df.columns if col not in base_cols and not col.startswith("Шкала_")]
+    scale_cols = [col for col in table_df.columns if col.startswith("Шкала_")]
+    
+    all_cols = base_cols + question_cols + scale_cols
+    existing_cols = [col for col in all_cols if col in table_df.columns]
+    
+    # Заголовки
+    for col_idx, col_name in enumerate(existing_cols, 1):
+        cell = ws.cell(row=1, column=col_idx, value=col_name)
+        cell.font = Font(bold=True, size=11)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
+    
+    # Данные
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin")
+    )
+    
+    for row_idx, (_, row) in enumerate(table_df.iterrows(), 2):
+        for col_idx, col_name in enumerate(existing_cols, 1):
+            value = row.get(col_name, "")
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="left", vertical="center")
+    
+    # Сводная таблица справа вверху
+    summary_table = _build_overall_summary(table_df, level_order, level_ru, scales_config)
+    _write_summary_table(ws, summary_table, start_row=1, start_column=len(existing_cols) + 2)
+
+
+def _write_grouped_sheet(ws, table_df, summary_dict, group_by, level_order, level_ru, scales_config):
+    """Записывает сгруппированный лист (Курс или Группа)"""
+    
+    current_row = 1
+    
+    # Определяем колонки
+    base_cols = ["Дата", "ФИО", group_by, "Курс" if group_by == "Группа" else "Группа"]
+    scale_cols = [col for col in table_df.columns if col.startswith("Шкала_")]
+    
+    all_cols = base_cols + scale_cols
+    existing_cols = [col for col in all_cols if col in table_df.columns]
+    
+    # Общая сводная таблица для всех групп/курсов
+    overall_summary = _build_overall_summary(table_df, level_order, level_ru, scales_config)
+    _write_summary_table(ws, overall_summary, start_row=1, start_column=len(existing_cols) + 2)
+    
+    # Заголовки
+    for col_idx, col_name in enumerate(existing_cols, 1):
+        cell = ws.cell(row=3, column=col_idx, value=col_name)
+        cell.font = Font(bold=True, size=11)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
+    
+    current_row = 4
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin")
+    )
+    
+    # Группируем данные
+    grouped = table_df.groupby(group_by, dropna=False)
+    
+    for group_idx, (group_name, group_df) in enumerate(grouped):
+        # Объединённая ячейка с названием группы/курса
+        merge_start = current_row
+        merge_end = current_row + len(group_df)
+        
+        # Записываем объединённую ячейку
+        ws.merge_cells(start_row=merge_start, start_column=1, end_row=merge_start, end_column=len(existing_cols))
+        group_cell = ws.cell(row=merge_start, column=1, value=str(group_name) if pd.notna(group_name) else "Без группы")
+        group_cell.font = Font(bold=True, size=12)
+        group_cell.alignment = Alignment(horizontal="center", vertical="center")
+        group_cell.fill = PatternFill(start_color="BBDEFB", end_color="BBDEFB", fill_type="solid")
+        group_cell.border = thin_border
+        
+        current_row += 1
+        
+        # Данные респондентов
+        for _, row in group_df.iterrows():
+            for col_idx, col_name in enumerate(existing_cols, 1):
+                value = row.get(col_name, "")
+                cell = ws.cell(row=current_row, column=col_idx, value=value)
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            current_row += 1
+        
+        # Отступ 4 строки перед следующей группой
+        current_row += 4
+
+
+def _build_overall_summary(table_df, level_order, level_ru, scales_config):
+    """Строит общую сводную таблицу распределения"""
+    rows = []
+    total_respondents = len(table_df)
+    
+    for scale_name, scale_config in scales_config.items():
+        scale_title = scale_config.get("title_ru", scale_name)
+        
+        # Находим колонку уровня для этой шкалы
+        level_col = f"Шкала_{scale_title}"
+        if level_col not in table_df.columns:
+            continue
+        
+        level_counts = table_df[level_col].value_counts(dropna=False).to_dict()
+        
+        row = {"Шкала": scale_title}
+        for level_key in level_order:
+            count = int(level_counts.get(level_key, 0))
+            percent = 0 if total_respondents == 0 else int(round(count / total_respondents * 100))
+            row[level_ru.get(level_key, level_key)] = f"{count} чел./{percent}%"
+        
+        rows.append(row)
+    
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def _write_summary_table(ws, summary_df, start_row, start_column):
+    """Записывает сводную таблицу распределения"""
+    if summary_df.empty:
+        return
+    
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin")
+    )
+    
+    # Заголовки уровней
+    level_cols = [col for col in summary_df.columns if col != "Шкала"]
+    
+    # Заголовок "Шкала"
+    cell = ws.cell(row=start_row, column=start_column, value="Шкала")
+    cell.font = Font(bold=True, size=11)
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+    cell.fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+    cell.border = thin_border
+    
+    # Заголовки уровней
+    for col_idx, level_name in enumerate(level_cols, 1):
+        cell = ws.cell(row=start_row, column=start_column + col_idx, value=level_name)
+        cell.font = Font(bold=True, size=11)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+        cell.border = thin_border
+    
+    # Данные
+    for row_idx, (_, row) in enumerate(summary_df.iterrows(), 1):
+        # Шкала
+        cell = ws.cell(row=start_row + row_idx, column=start_column, value=row["Шкала"])
+        cell.font = Font(bold=True, size=10)
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+        cell.border = thin_border
+        
+        # Уровни
+        for col_idx, level_name in enumerate(level_cols, 1):
+            cell = ws.cell(row=start_row + row_idx, column=start_column + col_idx, value=row[level_name])
+            cell.font = Font(size=10)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = thin_border

@@ -135,13 +135,13 @@ class MainWindow(QMainWindow):
         """Обработчик загрузки файла."""
         pass
 
-    def on_processing_finished(self, result_df, success, message):
+    def on_processing_finished(self, table_df, charts_data, summary_data, success, message):
         """Обработчик завершения обработки данных."""
         if success:
             # Переключаемся на вкладку результатов
             self.switch_to_tab(self.nav_buttons[1], "Результаты")
             # Передаём данные в results_tab
-            self.results_tab.set_data(result_df)
+            self.results_tab.set_data(table_df, charts_data, summary_data)
 
     def on_data_cleared(self):
         """Обработчик очистки данных (при нажатии 'Отмена')."""

@@ -13,9 +13,10 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect, QFileDialog, QMessageBox, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QBrush
 from utils.fonts import get_font, FontWeights
 from ui.components.results_nav_button import ResultsNavButton
+from utils.excel_export import ExcelExporter
 
 
 # Цвета для шкал
@@ -47,7 +48,10 @@ class ResultsWidget(QWidget):
         self.scales_config = {}
         self.level_order = []
         self.level_ru = {}
+        self.has_group = False
+        self.has_course = False
         self.processed_file_path = Path("processed_data.xlsx")
+        self.excel_exporter = ExcelExporter()  # Экспортёр Excel
         self.setup_ui()
         self._load_processed_data()
 
@@ -174,7 +178,34 @@ class ResultsWidget(QWidget):
 
         main_layout.addWidget(results_container)
 
-        # ===== КНОПКА ЭКСПОРТА =====
+        # ===== КНОПКИ ЭКСПОРТА =====
+        button_row = QHBoxLayout()
+        button_row.setSpacing(10)
+        button_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Кнопка "Открыть в Excel"
+        open_excel_btn = QPushButton("📊 Открыть в Excel")
+        open_excel_btn.setFixedHeight(44)
+        open_excel_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
+        open_excel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 14px 48px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+            }
+        """)
+        open_excel_btn.clicked.connect(self.open_in_excel)
+        button_row.addWidget(open_excel_btn)
+        
+        # Кнопка "Экспорт в Excel"
         export_btn = QPushButton("💾 Экспорт в Excel")
         export_btn.setFixedHeight(44)
         export_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
@@ -194,7 +225,9 @@ class ResultsWidget(QWidget):
             }
         """)
         export_btn.clicked.connect(self.export_to_excel)
-        main_layout.addWidget(export_btn)
+        button_row.addWidget(export_btn)
+        
+        main_layout.addLayout(button_row)
 
         # ===== СТИЛИ ДЛЯ КНОПОК НАВИГАЦИИ =====
         self._nav_font_size = 12
@@ -277,7 +310,7 @@ class ResultsWidget(QWidget):
         self._update_table_view()
 
     def _create_table_view(self) -> QTableWidget:
-        """Создаёт таблицу результатов"""
+        """Создаёт таблицу результатов с улучшенными стилями"""
         table = QTableWidget()
         table.setObjectName("results_table")
         table.setRowCount(0)
@@ -291,78 +324,93 @@ class ResultsWidget(QWidget):
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         table.setDragEnabled(False)
+        table.setAlternatingRowColors(True)  # Чередование цветов строк
 
         # Плавная прокрутка (как в Excel)
         table.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+        
+        # Улучшенные стили
         table.setStyleSheet("""
             QTableWidget {
-                background-color: transparent;
+                background-color: #FFFFFF;
                 border: none;
-                gridline-color: #DFE1E5;
+                gridline-color: #E0E0E0;
+                gridline-width: 1px;
                 show-decoration-selected: 0;
+                font-size: 13px;
+                font-family: 'Segoe UI', Arial;
+                alternate-background-color: #FAFAFA;
             }
+            
             QTableWidget::item {
-                padding: 12px;
-                border-bottom: 1px solid #DFE1E5;
+                padding: 10px 12px;
+                border: none;
                 background-color: transparent;
             }
+            
             QTableWidget::item:hover {
-                background-color: #F4F4F5;
+                background-color: #E3F2FD;
             }
+            
             QTableWidget::item:focus {
                 background-color: #E3F2FD;
             }
+            
             QTableWidget::item:selected {
                 background-color: #B3D9F5;
                 color: #000000;
             }
+            
             QHeaderView::section {
-                background-color: transparent;
-                color: #707579;
+                background-color: #E3F2FD;
+                color: #1976D2;
                 font-size: 13px;
                 font-weight: 600;
-                padding: 12px;
+                padding: 12px 8px;
                 border: none;
-                border-bottom: 1px solid #DFE1E5;
+                border-bottom: 2px solid #BBDEFB;
+                text-transform: uppercase;
             }
+            
             QScrollBar:vertical {
-                background-color: #F0F0F0;
-                width: 10px;
-                border-radius: 5px;
+                background-color: #F5F5F5;
+                width: 12px;
+                border-radius: 6px;
             }
+            
             QScrollBar::handle:vertical {
-                background-color: #C4C9CC;
-                border-radius: 5px;
+                background-color: #BDBDBD;
+                border-radius: 6px;
                 min-height: 40px;
             }
+            
             QScrollBar::handle:vertical:hover {
-                background-color: #A0A5A9;
+                background-color: #9E9E9E;
             }
+            
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
             }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
+            
             QScrollBar:horizontal {
-                background-color: #F0F0F0;
-                height: 10px;
-                border-radius: 5px;
+                background-color: #F5F5F5;
+                height: 12px;
+                border-radius: 6px;
             }
+            
             QScrollBar::handle:horizontal {
-                background-color: #C4C9CC;
-                border-radius: 5px;
+                background-color: #BDBDBD;
+                border-radius: 6px;
                 min-width: 40px;
             }
+            
             QScrollBar::handle:horizontal:hover {
-                background-color: #A0A5A9;
+                background-color: #9E9E9E;
             }
+            
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 width: 0px;
-            }
-            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-                background: none;
             }
         """)
 
@@ -441,22 +489,61 @@ class ResultsWidget(QWidget):
         # Обновляем таблицу
         self._update_table_view()
 
+    def open_in_excel(self):
+        """Открывает данные в Microsoft Excel"""
+        if self.table_df is None or self.table_df.empty:
+            QMessageBox.warning(self, "Ошибка", "Нет данных для открытия")
+            return
+        
+        # Экспортируем и открываем в Excel
+        if self.excel_exporter.export_and_open(self.table_df):
+            QMessageBox.information(
+                self,
+                "Успех",
+                "Данные открыты в Excel.\n\n"
+                "Примечание: Файл сохранён во временной папке.\n"
+                "Не забудьте сохранить его в нужном месте!"
+            )
+        else:
+            QMessageBox.critical(
+                self,
+                "Ошибка",
+                "Не удалось открыть данные в Excel.\n\n"
+                "Убедитесь, что Microsoft Excel установлен."
+            )
+
     def _update_table_view(self):
-        """Обновляет таблицу в зависимости от выбранного типа"""
+        """Обновляет таблицу с условным форматированием"""
         if self.table_df is None or self.table_df.empty:
             return
 
         self.table_view.setRowCount(0)
-        
-        # Пока просто отображаем все данные
-        # В будущем можно фильтровать по типу (Все респонденты / Курс / Группа)
         self.table_view.setColumnCount(len(self.table_df.columns))
         self.table_view.setHorizontalHeaderLabels([str(col) for col in self.table_df.columns])
 
         for row_idx, (_, row) in enumerate(self.table_df.iterrows()):
             self.table_view.insertRow(row_idx)
-            for col_idx, value in enumerate(row):
+            for col_idx, (col_name, value) in enumerate(row.items()):
                 item = QTableWidgetItem(str(value) if pd.notna(value) else "")
+                
+                # Условное форматирование для шкал
+                if col_name.startswith('Шкала_'):
+                    value_str = str(value) if pd.notna(value) else ""
+                    
+                    # Выравнивание по центру
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                    # Цвет фона в зависимости от уровня
+                    if 'Низкий' in value_str:
+                        item.setBackground(QBrush(QColor('#E8F5E9')))
+                        item.setForeground(QBrush(QColor('#2E7D32')))
+                    elif 'Средний' in value_str:
+                        item.setBackground(QBrush(QColor('#FFF3E0')))
+                        item.setForeground(QBrush(QColor('#EF6C00')))
+                    elif 'Высокий' in value_str:
+                        item.setBackground(QBrush(QColor('#FFEBEE')))
+                        item.setForeground(QBrush(QColor('#C62828')))
+                
                 self.table_view.setItem(row_idx, col_idx, item)
 
         # Автоподбор ширины колонок

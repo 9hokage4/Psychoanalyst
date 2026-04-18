@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedWidget, QLabel, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
+import pandas as pd
 
 from ui.components.nav_button import NavButton
 from ui.components.upload_widget import UploadWidget
@@ -96,6 +97,7 @@ class MainWindow(QMainWindow):
         self.upload_tab = UploadWidget()
         self.results_tab = ResultsWidget()
         self.history_tab = HistoryWidget()
+        self.history_tab.load_to_current_requested.connect(self.on_load_history_to_current)
 
         # Настройка размера шрифта и иконок кнопок навигации
         self.results_tab.set_nav_font_size(14)
@@ -117,6 +119,7 @@ class MainWindow(QMainWindow):
         print("First button visible:", self.nav_buttons[0].isVisible())
 
         self.current_config = None
+        self.current_profile_name = "" 
 
     def switch_to_tab(self, button: NavButton, tab_name: str):
         """Переключает вкладку по нажатию на кнопку навигации."""
@@ -130,18 +133,42 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentWidget(self.results_tab)
         elif tab_name == "История":
             self.stacked_widget.setCurrentWidget(self.history_tab)
+            
+    def on_load_history_to_current(self, summary_data, charts_data):
+        """Загружает исторические данные в текущую сессию."""
+        # Переключаемся на вкладку результатов
+        self.switch_to_tab(self.nav_buttons[1], "Результаты")
+        # Передаём данные в results_tab (table_df не нужен, но для set_data требуется DataFrame)
+        empty_df = pd.DataFrame()
+        self.results_tab.set_data(empty_df, charts_data, summary_data)
 
     def on_file_loaded(self, df):
         """Обработчик загрузки файла."""
         pass
 
     def on_processing_finished(self, table_df, charts_data, summary_data, success, message):
-        """Обработчик завершения обработки данных."""
         if success:
-            # Переключаемся на вкладку результатов
             self.switch_to_tab(self.nav_buttons[1], "Результаты")
-            # Передаём данные в results_tab
             self.results_tab.set_data(table_df, charts_data, summary_data)
+
+            from utils.history_manager import HistoryManager
+            hm = HistoryManager()
+            # Берём актуальное имя профиля
+            profile_name = getattr(self, 'current_profile_name', '')
+            if not profile_name:
+                profile_name = self.upload_tab.config_summary.profile_name
+            if profile_name == "Без профиля":
+                profile_name = ""
+            metadata = {
+                "original_filename": self.upload_tab.current_file_path.split("/")[-1] if self.upload_tab.current_file_path else "неизвестно",
+                "test_name": self.current_config.get("test_name", ""),
+                "profile_name": profile_name,
+                "respondents_count": len(table_df),
+                "groups_count": len(summary_data.get("group_summary", {})),
+                "courses_count": len(summary_data.get("course_summary", {}))
+            }
+            hm.add_record(metadata, summary_data, charts_data)
+            self.history_tab.load_history_list()
 
     def on_data_cleared(self):
         """Обработчик очистки данных (при нажатии 'Отмена')."""
@@ -157,6 +184,7 @@ class MainWindow(QMainWindow):
 
     def on_profile_loaded(self, profile_name, config):
         """Обработчик загрузки профиля с именем."""
+        self.current_profile_name = profile_name   # <-- добавить
         self.current_config = config
         self.upload_tab.set_config(config)
         self.upload_tab.config_summary.set_profile_name(profile_name)
@@ -169,4 +197,4 @@ class MainWindow(QMainWindow):
         # Передаём в upload_widget
         self.upload_tab.set_config(full_config)
         # Обновляем имя профиля
-        self.upload_tab.config_summary.set_profile_name(profile_name if profile_name else "Настройки")
+        self.upload_tab.config_summary.set_profile_name(profile_name if profile_name else "Без профиля")

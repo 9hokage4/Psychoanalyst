@@ -507,11 +507,9 @@ class ResultsWidget(QWidget):
             self.line_view.set_data(self.summary_data, self.charts_data, self.level_order, self.level_ru, self.scales_config, self.current_table_type)
 
     def set_data(self, table_df, charts_data, summary_data):
-        """Устанавливает данные из процессора"""
-        if table_df is None or table_df.empty:
-            return
-
-        self.table_df = table_df
+        """Устанавливает данные из процессора. Может принимать пустой table_df для истории."""
+        # Сохраняем данные даже если table_df пуст
+        self.table_df = table_df if table_df is not None and not table_df.empty else pd.DataFrame()
         self.charts_data = charts_data
         self.summary_data = summary_data
         self.scales_config = summary_data.get("scales_config", {})
@@ -520,9 +518,12 @@ class ResultsWidget(QWidget):
         self.has_group = summary_data.get("has_group", False)
         self.has_course = summary_data.get("has_course", False)
 
-        # Сохраняем полный Excel файл во временное хранилище
-        self.temp_excel_path = None
-        self._save_full_excel()
+        # Сохраняем полный Excel только если есть данные таблицы
+        if not self.table_df.empty:
+            self.temp_excel_path = None
+            self._save_full_excel()
+        else:
+            self.temp_excel_path = None
 
         # Динамически заполняем selector в зависимости от наличия данных
         self.selector_combo.blockSignals(True)
@@ -544,9 +545,16 @@ class ResultsWidget(QWidget):
 
         # Если нет ни групп ни курсов, скрываем selector
         self.selector_widget.setVisible(len(self.available_sheets) > 1)
-
-        # Загружаем первый лист
-        self._load_current_sheet()
+        
+        # Загружаем текущий лист или обновляем графики
+        if self.views_stack.currentIndex() == 0:
+            if self.temp_excel_path:
+                self._load_current_sheet()
+            else:
+                # Нет данных таблицы - просто показываем пустую
+                self.table_view.setRowCount(0)
+        else:
+            self._update_current_chart()
 
     def _save_full_excel(self):
         """Сохраняет полный Excel файл со всеми листами"""

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-29 00:48:11",
+  "timestamp": "2026-04-18 17:50:56",
   "scales_config": {
     "Цинизм": {
       "title_ru": "Цинизм",
@@ -19,13 +19,7 @@
         22
       ],
       "bounds": {
-        "low_max": 25,
-        "mid_low_min": 26,
-        "mid_low_max": 40,
-        "mid_high_min": 41,
-        "mid_high_max": 65,
-        "high_min": 66,
-        "high_max": 66
+        "low_max": 64
       }
     },
     "Агрессивность": {
@@ -42,13 +36,13 @@
         27
       ],
       "bounds": {
-        "low_max": 25,
-        "mid_low_min": 26,
+        "low_max": 15,
+        "mid_low_min": 16,
         "mid_low_max": 40,
         "mid_high_min": 41,
-        "mid_high_max": 65,
-        "high_min": 66,
-        "high_max": 66
+        "mid_high_max": 64,
+        "high_min": 65,
+        "high_max": 76
       }
     },
     "Враждебность": {
@@ -61,13 +55,7 @@
         25
       ],
       "bounds": {
-        "low_max": 25,
-        "mid_low_min": 26,
-        "mid_low_max": 40,
-        "mid_high_min": 41,
-        "mid_high_max": 65,
-        "high_min": 66,
-        "high_max": 66
+        "low_max": 76
       }
     }
   },
@@ -79,8 +67,8 @@
   ],
   "level_ru": {
     "low": "Низкий",
-    "mid_low": "Средний с тенденцией к низкому",
-    "mid_high": "Средний с тенденцией к высокому",
+    "mid_low": "Средний показатель с тенденцией к низкому",
+    "mid_high": "Средний показатель с тенденцией к высокому",
     "high": "Высокий"
   },
   "answer_weights": {

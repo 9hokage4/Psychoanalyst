@@ -391,9 +391,13 @@ def process_data(
     # 2. Сохраняем оригинальные ответы на вопросы (для таблицы)
     # ------------------------------------------------------------------
     original_answer_columns: Dict[int, str] = {}
+    question_full_names: Dict[int, str] = {}  # Сохраняем полные названия вопросов
+    
     for question_number, original_column in question_number_to_column.items():
-        df_result[f"Вопрос {question_number}"] = df_result[original_column]
-        original_answer_columns[question_number] = f"Вопрос {question_number}"
+        df_result[f"Вопрос_{question_number}"] = df_result[original_column]
+        original_answer_columns[question_number] = f"Вопрос_{question_number}"
+        # Сохраняем оригинальное название вопроса (с текстом)
+        question_full_names[question_number] = original_column
 
     # ------------------------------------------------------------------
     # 3. Создаем числовые колонки по вопросам, где значение = вес ответа
@@ -474,10 +478,15 @@ def process_data(
     table_df = df_result[existing_columns].copy()
     
     # Переименовываем колонки вопросов для красоты
+    # Используем полные названия вопросов (с текстом), если они есть
     rename_map = {}
     for q_num in sorted(original_answer_columns.keys()):
         old_name = original_answer_columns[q_num]
-        rename_map[old_name] = str(q_num)
+        # Если есть полное название вопроса (с текстом), используем его
+        if q_num in question_full_names:
+            rename_map[old_name] = question_full_names[q_num]
+        else:
+            rename_map[old_name] = str(q_num)
 
     table_df = table_df.rename(columns=rename_map)
 

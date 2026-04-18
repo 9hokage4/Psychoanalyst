@@ -16,6 +16,8 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 from PyQt6.QtWidgets import QAbstractButton, QLayout
 from PyQt6.QtSvg import QSvgRenderer
 from utils.fonts import get_font, FontWeights
+from utils.resources import get_icon_path
+from utils.folder_manager import FolderManager
 
 
 class QFlowLayout(QLayout):
@@ -307,8 +309,8 @@ class AnimatedCheckBox(QAbstractButton):
 
 
 class LevelBadge(QWidget):
-    edited = pyqtSignal()
-    deleted = pyqtSignal()
+    edited = pyqtSignal(object)
+    deleted = pyqtSignal(object)
 
     BADGE_HEIGHT = 28  # Фиксированная высота badge
 
@@ -373,7 +375,7 @@ class LevelBadge(QWidget):
             }
         """)
         if not hide_delete:
-            self.delete_btn.clicked.connect(self.deleted.emit)
+            self.delete_btn.clicked.connect(lambda: self.deleted.emit(self.level_data))
         layout.addWidget(self.delete_btn)
         if hide_delete:
             self.delete_btn.setVisible(False)
@@ -405,7 +407,7 @@ class LevelBadge(QWidget):
 
     def eventFilter(self, obj, event):
         if event.type() == event.Type.MouseButtonDblClick and obj is self:
-            self.edited.emit()
+            self.edited.emit(self.level_data)
             return True
         return super().eventFilter(obj, event)
 
@@ -768,9 +770,97 @@ class ScaleItem(QWidget):
         self._update_levels_display()
         self._update_questions_display()
 
+# Добавьте эти два класса ПЕРЕД классом AddScaleDialog
 
+class ScaleLevelWidget(QWidget):
+    """Виджет одного уровня внутри шкалы (для AddScaleDialog)."""
+    edit_requested = pyqtSignal(object)   # level_data
+    delete_requested = pyqtSignal(object) # level_data
+
+    def __init__(self, level_data, parent=None):
+        super().__init__(parent)
+        self.level_data = level_data
+        self.setFixedHeight(32)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(8)
+
+        start = level_data.get('range_start', 0)
+        end = level_data.get('range_end', level_data['boundary'])
+        text = f"{level_data['name']} ({start}-{end} баллов)"
+        self.label = QLabel(text)
+        self.label.setStyleSheet("color: #000000; font-size: 17px;")
+        layout.addWidget(self.label, 1)
+
+        edit_btn = QPushButton()
+        edit_btn.setIcon(QIcon("resources/icons/edit.svg"))
+        edit_btn.setIconSize(QSize(16, 16))
+        edit_btn.setFixedSize(24, 24)
+        edit_btn.setStyleSheet("border: none; background: transparent;")
+        edit_btn.clicked.connect(lambda: self.edit_requested.emit(self.level_data))
+        layout.addWidget(edit_btn)
+
+        del_btn = QPushButton()
+        del_btn.setIcon(QIcon("resources/icons/close.svg"))
+        del_btn.setIconSize(QSize(16, 16))
+        del_btn.setFixedSize(24, 24)
+        del_btn.setStyleSheet("border: none; background: transparent;")
+        del_btn.clicked.connect(lambda: self.delete_requested.emit(self.level_data))
+        layout.addWidget(del_btn)
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() == event.Type.MouseButtonDblClick and obj is self:
+            self.edit_requested.emit(self.level_data)
+            return True
+        return super().eventFilter(obj, event)
+
+    def update_display(self):
+        start = self.level_data.get('range_start', 0)
+        end = self.level_data.get('range_end', self.level_data['boundary'])
+        text = f"{self.level_data['name']} ({start}-{end} баллов)"
+        self.label.setText(text)
+
+
+class AddLevelToScaleDialog(QDialog):
+    """Диалог добавления нового уровня (имя + граница) для шкалы."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Добавить уровень")
+        self.setModal(True)
+        self.setMinimumWidth(350)
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel("Название уровня:"))
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("например, Очень высокий")
+        layout.addWidget(self.name_edit)
+
+        layout.addWidget(QLabel("Верхняя граница (баллов):"))
+        self.boundary_spin = QSpinBox()
+        self.boundary_spin.setRange(1, 10000)
+        self.boundary_spin.setValue(50)
+        layout.addWidget(self.boundary_spin)
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("Добавить")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("Отмена")
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def get_data(self):
+        return self.name_edit.text().strip(), self.boundary_spin.value()
+
+
+# Замените существующий класс AddScaleDialog на этот:
 class AddScaleDialog(QDialog):
-    """Диалог добавления/редактирования шкалы."""
+    """Диалог добавления/редактирования шкалы с редактируемыми уровнями."""
     def __init__(self, parent=None, scale_data=None):
         super().__init__(parent)
         self.parent_dialog = parent
@@ -880,7 +970,7 @@ class AddScaleDialog(QDialog):
                 background-color: #2B80D9;
             }
         """)
-        add_level_btn.clicked.connect(self._on_add_level)
+        add_level_btn.clicked.connect(self._add_new_level)
         layout.addWidget(add_level_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
         btn_layout = QHBoxLayout()
@@ -903,7 +993,6 @@ class AddScaleDialog(QDialog):
                 background-color: #2B80D9;
             }
         """)
-        # Изменено: вызываем валидацию перед закрытием диалога
         self.save_btn.clicked.connect(self._validate_and_accept)
 
         self.cancel_btn = QPushButton("Отмена")
@@ -932,12 +1021,12 @@ class AddScaleDialog(QDialog):
         self._init_levels()
 
     def _init_levels(self):
-        parent = self.parent()
-        if hasattr(parent, 'levels_data'):
-            global_levels = parent.levels_data
-            if self.scale_data and "levels" in self.scale_data:
-                self.selected_levels = self.scale_data["levels"].copy()
-            else:
+        if self.scale_data and "levels" in self.scale_data:
+            self.selected_levels = [lvl.copy() for lvl in self.scale_data["levels"]]
+        else:
+            parent = self.parent_dialog
+            if hasattr(parent, 'levels_data'):
+                global_levels = parent.levels_data
                 prev_boundary = 0
                 self.selected_levels = []
                 for lvl in global_levels:
@@ -959,166 +1048,82 @@ class AddScaleDialog(QDialog):
             if item.widget():
                 item.widget().deleteLater()
 
-        for idx, lvl in enumerate(self.selected_levels):
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(8)
+        self.selected_levels.sort(key=lambda x: x['boundary'])
 
-            label = QLabel(f"{lvl['name']} ({lvl['range_start']}-{lvl['range_end']} баллов)")
-            label.setStyleSheet("color: #000000; font-size: 17px;")
-            row_layout.addWidget(label, 1)
+        prev = 0
+        for lvl in self.selected_levels:
+            lvl['range_start'] = prev + 1
+            lvl['range_end'] = lvl['boundary']
+            prev = lvl['boundary']
 
-            del_btn = QPushButton()
-            del_btn.setIcon(QIcon("resources/icons/close.svg"))
-            del_btn.setIconSize(QSize(16, 16))
-            del_btn.setFixedSize(24, 24)
-            del_btn.setStyleSheet("""
-                QPushButton {
-                    background: transparent;
-                    border: none;
+        for lvl in self.selected_levels:
+            widget = ScaleLevelWidget(lvl)
+            widget.edit_requested.connect(self._edit_level)
+            widget.delete_requested.connect(self._delete_level)
+            self.levels_layout.addWidget(widget)
+
+        self.levels_layout.addStretch()
+
+    def _add_new_level(self):
+        dialog = AddLevelToScaleDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            name, boundary = dialog.get_data()
+            if name and boundary > 0:
+                new_level = {
+                    'name': name,
+                    'boundary': boundary,
+                    'range_start': 0,
+                    'range_end': 0
                 }
-                QPushButton:hover {
-                    background: rgba(0,0,0,0.05);
-                    border-radius: 12px;
-                }
-            """)
-            del_btn.clicked.connect(lambda checked, i=idx: self._remove_level(i))
-            row_layout.addWidget(del_btn)
+                self.selected_levels.append(new_level)
+                self._refresh_levels_display()
 
-            self.levels_layout.addWidget(row)
+    def _edit_level(self, level_data):
+        dialog = EditLevelDialog(level_data['name'], level_data['boundary'], self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_name, new_boundary = dialog.get_data()
+            if new_name and new_boundary > 0:
+                level_data['name'] = new_name
+                level_data['boundary'] = new_boundary
+                self._refresh_levels_display()
 
-    def _remove_level(self, index):
-        self.selected_levels.pop(index)
+    def _delete_level(self, level_data):
+        self.selected_levels.remove(level_data)
         self._refresh_levels_display()
 
     def _validate_and_accept(self):
-        """Валидация данных перед закрытием диалога.
-        Если есть ошибка - показываем сообщение, но НЕ закрываем диалог.
-        """
         data = self.get_data()
         if data is not None:
-            # Валидация прошла успешно - закрываем диалог
             self.accept()
-        # Если data is None - ошибка уже показана, диалог остается открытым
-
-    def _on_add_level(self):
-        parent = self.parent()
-        if not hasattr(parent, 'levels_data'):
-            return
-
-        available = []
-        for lvl in parent.levels_data:
-            if not any(sl['name'] == lvl['name'] and sl['boundary'] == lvl['boundary'] for sl in self.selected_levels):
-                available.append(lvl)
-
-        if not available:
-            QMessageBox.information(self, "Нет доступных уровней", "Все уровни уже добавлены.")
-            return
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Выберите уровни")
-        dialog.setModal(True)
-        layout = QVBoxLayout(dialog)
-
-        checkboxes = []
-        for lvl in available:
-            cb = QCheckBox(f"{lvl['name']} (до {lvl['boundary']} баллов)")
-            cb.setStyleSheet("margin: 4px;")
-            layout.addWidget(cb)
-            checkboxes.append((cb, lvl))
-
-        btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("Добавить")
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px 16px;
-            }
-        """)
-        cancel_btn = QPushButton("Отмена")
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                color: #3390EC;
-                border: 1px solid #3390EC;
-                border-radius: 8px;
-                padding: 8px 16px;
-            }
-        """)
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-
-        def add_selected():
-            for cb, lvl in checkboxes:
-                if cb.isChecked():
-                    prev = 0
-                    for gl in parent.levels_data:
-                        if gl['boundary'] == lvl['boundary']:
-                            break
-                        prev = gl['boundary']
-                    start = prev + 1
-                    new_lvl = lvl.copy()
-                    new_lvl['range_start'] = start
-                    new_lvl['range_end'] = lvl['boundary']
-                    self.selected_levels.append(new_lvl)
-            self.selected_levels.sort(key=lambda x: x['boundary'])
-            self._refresh_levels_display()
-            dialog.accept()
-
-        ok_btn.clicked.connect(add_selected)
-        cancel_btn.clicked.connect(dialog.reject)
-        dialog.exec()
 
     def get_data(self):
-        """Возвращает данные шкалы. Показывает ошибку и возвращает None при проблемах.
-        Диалог НЕ закрывается при ошибке.
-        """
         name = self.name_edit.text().strip()
         questions_text = self.questions_edit.text().strip()
 
-        # Проверяем название
         if not name:
-            self.parent_dialog._show_error_message(
-                "Ошибка валидации",
-                "Название шкалы обязательно.")
+            self.parent_dialog._show_error_message("Ошибка валидации", "Название шкалы обязательно.")
             return None
 
-        # Парсим вопросы (ошибка показывается внутри метода)
         questions = self._parse_questions(questions_text)
-
-        # Если вопросы пустые после парсинга - ошибка уже показана
         if questions is None:
             return None
 
-        # Проверяем, что вопросы есть
         if not questions:
-            self.parent_dialog._show_error_message(
-                "Ошибка валидации",
-                "Укажите хотя бы один вопрос для шкалы.")
+            self.parent_dialog._show_error_message("Ошибка валидации", "Укажите хотя бы один вопрос.")
             return None
 
-        # Проверяем лимит вопросов
         max_question = max(questions)
         max_allowed = self.parent_dialog.questions_spin.value()
         if max_question > max_allowed:
             self.parent_dialog._show_error_message(
                 "Ошибка валидации",
-                f"Обнаружен номер вопроса, превышающий лимит: {max_question}.\n"
-                f"Во вкладке 'Основные' установлено максимальное количество вопросов: {max_allowed}.\n"
-                f"Измените лимит или укажите корректные номера вопросов.")
+                f"Номер вопроса {max_question} превышает лимит ({max_allowed})."
+            )
             return None
 
-        # Проверяем на дубликаты вопросов с другими шкалами
         if not self.parent_dialog.shared_checkbox.isChecked():
             all_questions = {}
-            # Получаем существующие шкалы из родительского диалога
             scales = self.parent_dialog.scales
-            # Если редактируем существующую шкалу, исключаем её из проверки
             if self.scale_data and "name" in self.scale_data:
                 scales = [s for s in scales if s.get("name") != self.scale_data["name"]]
 
@@ -1130,28 +1135,25 @@ class AddScaleDialog(QDialog):
 
             duplicate = [q for q in questions if q in all_questions]
             if duplicate:
-                # Формируем подробное сообщение с названиями шкал
-                error = f"Вопросы {', '.join(map(str, duplicate))} уже используются в других шкалах:\n\n"
+                error = f"Вопросы {', '.join(map(str, duplicate))} уже используются:\n"
                 for q in sorted(duplicate):
-                    scales_with_q = all_questions.get(q, [])
-                    if scales_with_q:
-                        error += f"  Вопрос {q}: {', '.join(scales_with_q)}\n"
-                error += "\nОтметьте 'Вопросы для различных шкал одинаковы' на вкладке 'Основные', чтобы разрешить повтор."
+                    error += f"  Вопрос {q}: {', '.join(all_questions[q])}\n"
+                error += "\nРазрешите повтор вопросов в настройках."
                 self.parent_dialog._show_error_message("Ошибка валидации", error)
                 return None
 
-        levels = self.selected_levels
-        return {"name": name, "questions": questions, "levels": levels}
+        if not self.selected_levels:
+            self.parent_dialog._show_error_message("Ошибка валидации", "Добавьте хотя бы один уровень.")
+            return None
+
+        return {"name": name, "questions": questions, "levels": self.selected_levels.copy()}
 
     def _parse_questions(self, text):
-        """Парсит текст вопросов. Возвращает список вопросов или None при ошибке.
-        При ошибке показывает сообщение, но НЕ закрывает диалог.
-        """
         if not text:
             return []
         parts = text.split(',')
         questions = set()
-        invalid_parts = []
+        invalid = []
         max_allowed = self.parent_dialog.questions_spin.value()
 
         for part in parts:
@@ -1160,35 +1162,30 @@ class AddScaleDialog(QDialog):
                 continue
             if '-' in part:
                 try:
-                    range_parts = part.split('-')
-                    if len(range_parts) != 2:
-                        invalid_parts.append(part)
-                        continue
-                    start, end = map(int, range_parts)
+                    start, end = map(int, part.split('-'))
                     if start > end or start < 1 or end > max_allowed:
-                        invalid_parts.append(part)
+                        invalid.append(part)
                         continue
                     questions.update(range(start, end + 1))
                 except ValueError:
-                    invalid_parts.append(part)
+                    invalid.append(part)
             else:
                 try:
-                    q_num = int(part)
-                    if q_num < 1 or q_num > max_allowed:
-                        invalid_parts.append(part)
+                    q = int(part)
+                    if q < 1 or q > max_allowed:
+                        invalid.append(part)
                         continue
-                    questions.add(q_num)
+                    questions.add(q)
                 except ValueError:
-                    invalid_parts.append(part)
+                    invalid.append(part)
 
-        if invalid_parts:
-            # Показываем ошибку, но НЕ закрываем диалог!
+        if invalid:
             self.parent_dialog._show_error_message(
                 "Ошибка валидации",
-                f"Некорректные номера вопросов: {', '.join(invalid_parts)}\n"
-                f"Номер вопроса должен быть числом от 1 до {max_allowed}.\n"
-                f"Диапазоны указываются в формате '1-10'.")
-            return None  # Возвращаем None вместо []
+                f"Некорректные номера: {', '.join(invalid)}.\n"
+                f"Допустимы числа 1-{max_allowed} или диапазоны вида 1-10."
+            )
+            return None
 
         return sorted(questions)
 
@@ -1234,7 +1231,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, initial_config=None):
         super().__init__(parent)
         self.setWindowTitle("Настройки теста")
-        self.setWindowIcon(QIcon("resources/icons/cog.svg"))
+        self.setWindowIcon(QIcon(get_icon_path("cog.svg")))
         self.setModal(True)
         self.scales = []
         self.levels = []
@@ -1243,12 +1240,18 @@ class SettingsDialog(QDialog):
         self.profile_manager = ProfileManager()
         self.current_config = initial_config  # Сохраняем конфигурацию между открытиями
         self.current_profile_name = None  # Имя текущего загруженного профиля
-        self.init_ui()
+        self.output_folder_path = ""  # Путь к папке вывода
+        self.folder_manager = FolderManager()  # Менеджер папок
         
+        # Загружаем сохранённый путь
+        self._load_folder_settings()
+        
+        self.init_ui()
+
         # Загружаем конфигурацию при открытии
         if initial_config:
             self._load_config(initial_config)
-        
+
         self._center_and_resize()  # Центрируем и устанавливаем размер при открытии
 
     def init_ui(self):
@@ -1494,9 +1497,42 @@ class SettingsDialog(QDialog):
     def _create_basic_tab(self):
         tab = QWidget()
         main_layout = QVBoxLayout(tab)
-        main_layout.setContentsMargins(24, 24, 24, 24)
-        main_layout.setSpacing(24)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Создаём ScrollArea
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background-color: #F5F5F5;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #BDBDBD;
+                border-radius: 6px;
+                min-height: 40px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #9E9E9E;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
         
+        # Контейнер для содержимого
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(24, 24, 24, 24)
+        content_layout.setSpacing(24)
+
         name_group = QVBoxLayout()
         name_group.setSpacing(6)
         name_label = QLabel("Название теста")
@@ -1522,6 +1558,7 @@ class SettingsDialog(QDialog):
                 border-color: #3390EC;
             }
         """)
+        self.test_name_edit.textChanged.connect(self._update_folder_display)
         name_group.addWidget(self.test_name_edit)
 
         questions_group = QVBoxLayout()
@@ -1571,13 +1608,13 @@ class SettingsDialog(QDialog):
         """)
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
         questions_group.addWidget(self.questions_spin)
-        
+
         row1_layout = QHBoxLayout()
         row1_layout.setSpacing(16)
         row1_layout.addLayout(name_group)
         row1_layout.addLayout(questions_group)
-        main_layout.addLayout(row1_layout)
-        
+        content_layout.addLayout(row1_layout)
+
         answers_group = QVBoxLayout()
         answers_group.setSpacing(6)
         answers_label = QLabel("Количество вариантов ответов")
@@ -1625,7 +1662,7 @@ class SettingsDialog(QDialog):
         """)
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
         answers_group.addWidget(self.answers_spin)
-        main_layout.addLayout(answers_group)
+        content_layout.addLayout(answers_group)
         
         desc_group = QVBoxLayout()
         desc_group.setSpacing(6)
@@ -1652,7 +1689,7 @@ class SettingsDialog(QDialog):
             }
         """)
         desc_group.addWidget(self.test_description_edit)
-        main_layout.addLayout(desc_group)
+        content_layout.addLayout(desc_group)
 
         checkbox_group = QVBoxLayout()
         checkbox_group.setSpacing(4)
@@ -1666,9 +1703,46 @@ class SettingsDialog(QDialog):
         hint_label.setContentsMargins(32, 0, 0, 0)
         checkbox_group.addWidget(hint_label)
 
-        main_layout.addLayout(checkbox_group)
-        main_layout.addStretch()
+        content_layout.addLayout(checkbox_group)
+
+        # Кнопка "Выбор папки"
+        folder_layout = QHBoxLayout()
+        folder_layout.setContentsMargins(0, 10, 0, 0)
+        folder_layout.setSpacing(8)
+
+        self.folder_btn = QPushButton("Выбор папки")
+        self.folder_btn.setFixedHeight(40)
+        self.folder_btn.setFont(get_font("button_small"))
+        self.folder_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #3390EC;
+                border: 1px solid #3390EC;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #F4F4F5;
+            }
+        """)
+        self.folder_btn.clicked.connect(self.select_folder)
+        self.folder_btn.setMaximumWidth(200)
+        folder_layout.addWidget(self.folder_btn)
+        folder_layout.addStretch()
+        content_layout.addLayout(folder_layout)
+
+        self.folder_path_label = QLabel("")
+        self.folder_path_label.setFont(get_font("hint"))
+        self.folder_path_label.setStyleSheet("color: #707579;")
+        self.folder_path_label.setWordWrap(True)
+        content_layout.addWidget(self.folder_path_label)
+
+        content_layout.addStretch()
         
+        # Устанавливаем content_widget в scroll
+        scroll.setWidget(content_widget)
+        main_layout.addWidget(scroll)
+
         return tab
 
     def _create_levels_tab(self):
@@ -2546,7 +2620,12 @@ class SettingsDialog(QDialog):
             "weights_unified": hasattr(self, '_weights_unified') and self._weights_unified,  # Сохраняем режим весов
         }
         self.current_config = full_config
-        
+
+        # Создаём структуру папок
+        test_name = self.test_name_edit.text().strip()
+        if self.output_folder_path and test_name:
+            self.folder_manager.ensure_folder_exists(test_name, self.output_folder_path)
+
         # Отправляем полную конфигурацию и имя профиля
         self.config_saved.emit(full_config, self.current_profile_name or "")
         self.accept()
@@ -2647,6 +2726,9 @@ class SettingsDialog(QDialog):
             self.test_name_edit.setText(config["test_name"])
         if "test_description" in config:
             self.test_description_edit.setPlainText(config["test_description"])
+        
+        # Обновляем отображение пути к папке
+        self._update_folder_display()
 
         self.levels_data = []
         if "levels" in config:
@@ -2760,6 +2842,9 @@ class SettingsDialog(QDialog):
             self.test_name_edit.setText(config["test_name"])
         if "test_description" in config:
             self.test_description_edit.setPlainText(config["test_description"])
+        
+        # Обновляем отображение пути к папке
+        self._update_folder_display()
 
         self.levels_data = []
         if "levels" in config:
@@ -2929,11 +3014,60 @@ class SettingsDialog(QDialog):
                 Qt.TransformationMode.SmoothTransformation))
         else:
             icon_label.setPixmap(self.style().standardIcon(
-                QMessageBox.Style.Warning).pixmap(48, 48))
+                QMessageBox.Icon.Warning).pixmap(48, 48))
         layout = msg_box.layout()
         layout.addWidget(icon_label, 0, 0, 1, 1,
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         msg_box.exec()
+
+    def select_folder(self):
+        """Выбирает папку для сохранения результатов"""
+        from PyQt6.QtWidgets import QFileDialog
+        
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            "Выберите место для сохранения",
+            self.output_folder_path if self.output_folder_path else ""
+        )
+        
+        if folder_path:
+            self.output_folder_path = folder_path
+            self.folder_manager.set_base_folder(folder_path)
+            self._save_folder_settings()
+            self._update_folder_display()
+
+    def _load_folder_settings(self):
+        """Загружает сохранённый путь к папке"""
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("Psychoanalyst", "Settings")
+        self.output_folder_path = settings.value("output_folder_path", "", type=str)
+
+    def _save_folder_settings(self):
+        """Сохраняет путь к папке"""
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("Psychoanalyst", "Settings")
+        settings.setValue("output_folder_path", self.output_folder_path)
+
+    def _update_folder_display(self):
+        """Обновляет отображение пути к папке"""
+        if not hasattr(self, 'folder_path_label'):
+            return
+            
+        if not self.output_folder_path:
+            self.folder_path_label.setText("")
+            return
+        
+        # Получаем название теста
+        test_name = self.test_name_edit.text().strip()
+        if not test_name:
+            from datetime import datetime
+            test_name = f"Психологический тест {datetime.now().strftime('%d-%m-%Y')}"
+        
+        # Обновляем папку в folder_manager
+        self.folder_manager.ensure_folder_exists(test_name, self.output_folder_path)
+        
+        full_path = Path(self.output_folder_path) / test_name
+        self.folder_path_label.setText(f"📁 {full_path}")
 
     def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
         import json

@@ -21,24 +21,26 @@ class ExcelTable(QTableView):
         self.horizontalHeader().setStretchLastSection(False)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.verticalHeader().setVisible(False)
-        
+
         # Плавная прокрутка (как в Excel)
         self.setVerticalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
 
-        # Стиль
+        # Стиль - только синие заголовки, без дополнительного оформления
         self.setStyleSheet("""
         QTableView {
-            background-color: transparent;
+            background-color: #FFFFFF;
             border: none;
-            gridline-color: #DEE2E6;
+            gridline-color: #E0E0E0;
             outline: none;
             show-decoration-selected: 0;
+            font-size: 13px;
+            font-family: 'Segoe UI', Arial;
+            alternate-background-color: #FAFAFA;
         }
         QTableView::item {
-            padding: 4px 8px;
-            border-right: 1px solid #F0F0F0;
-            border-bottom: 1px solid #F0F0F0;
+            padding: 10px 12px;
+            border: none;
             outline: none;
             background-color: transparent;
         }
@@ -51,22 +53,13 @@ class ExcelTable(QTableView):
             color: #000000;
         }
         QHeaderView::section {
-            background-color: #E9ECEF;
-            color: #212529;
-            font: bold 13px "Vollkorn";
-            padding: 8px 12px;
+            background-color: #E3F2FD;
+            color: #1976D2;
+            font: bold 13px "Segoe UI", Arial;
+            padding: 12px 8px;
             border: none;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
+            border-bottom: 2px solid #BBDEFB;
             outline: none;
-        }
-        QHeaderView::section:first {
-            border-top-left-radius: 8px;
-            padding-left: 12px;
-        }
-        QHeaderView::section:last {
-            border-top-right-radius: 8px;
-            padding-right: 12px;
         }
         QHeaderView {
             background-color: transparent;
@@ -74,17 +67,17 @@ class ExcelTable(QTableView):
             outline: none;
         }
         QScrollBar:vertical {
-            background-color: #F0F0F0;
-            width: 10px;
-            border-radius: 5px;
+            background-color: #F5F5F5;
+            width: 12px;
+            border-radius: 6px;
         }
         QScrollBar::handle:vertical {
-            background-color: #C4C9CC;
-            border-radius: 5px;
+            background-color: #BDBDBD;
+            border-radius: 6px;
             min-height: 40px;
         }
         QScrollBar::handle:vertical:hover {
-            background-color: #A0A5A9;
+            background-color: #9E9E9E;
         }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
             height: 0px;
@@ -93,17 +86,17 @@ class ExcelTable(QTableView):
             background: none;
         }
         QScrollBar:horizontal {
-            background-color: #F0F0F0;
-            height: 10px;
-            border-radius: 5px;
+            background-color: #F5F5F5;
+            height: 12px;
+            border-radius: 6px;
         }
         QScrollBar::handle:horizontal {
-            background-color: #C4C9CC;
-            border-radius: 5px;
+            background-color: #BDBDBD;
+            border-radius: 6px;
             min-width: 40px;
         }
         QScrollBar::handle:horizontal:hover {
-            background-color: #A0A5A9;
+            background-color: #9E9E9E;
         }
         QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
             width: 0px;

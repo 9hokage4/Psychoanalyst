@@ -1,5 +1,6 @@
 # ui/components/pie_chart.py
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QComboBox, QLabel
+# -*- coding: utf-8 -*-
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel
 from PyQt6.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -10,129 +11,307 @@ class PieChartWidget(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
-        # Выпадающий список для выбора шкалы
+        # Верхний layout с QComboBox
+        top_layout = QHBoxLayout()
+
+        self.scale_label = QLabel("Шкала:")
         self.scale_combo = QComboBox()
-        self.scale_combo.setFixedHeight(40)
-        self.scale_combo.setStyleSheet("""
+        self.scale_combo.setMinimumWidth(150)
+        self.scale_combo.currentTextChanged.connect(self._on_selection_changed)
+        top_layout.addWidget(self.scale_label)
+        top_layout.addWidget(self.scale_combo)
+
+        self.group_label = QLabel("Группа/Курс:")
+        self.group_label.setVisible(False)
+        self.group_combo = QComboBox()
+        self.group_combo.setMinimumWidth(150)
+        self.group_combo.currentTextChanged.connect(self._on_selection_changed)
+        self.group_combo.setVisible(False)
+        top_layout.addWidget(self.group_label)
+        top_layout.addWidget(self.group_combo)
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
+
+        # Заголовок
+        self.title_label = QLabel("")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 15px; padding: 5px;")
+        self.title_label.setVisible(False)
+        layout.addWidget(self.title_label)
+
+        # График
+        self.figure = Figure(figsize=(8, 6))
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        layout.addWidget(self.canvas)
+
+        self.empty_label = QLabel("Выберите шкалу для отображения")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setStyleSheet("color: #707579; font-size: 15px; padding: 50px;")
+        layout.addWidget(self.empty_label)
+
+        self.setLayout(layout)
+        self.summary_data = {}
+        self.charts_data = {}
+        self.level_order = []
+        self.level_ru = {}
+        self.scales_config = {}
+        self.scope_type = "Все респонденты"
+        self._block_signals = False
+
+        self.setStyleSheet("""
             QComboBox {
-                padding: 8px 12px;
                 border: 1px solid #DFE1E5;
                 border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 18px;
                 background-color: white;
-                font-size: 14px;
-                margin: 10px;
+                color: #000000;
             }
             QComboBox:focus {
                 border-color: #3390EC;
             }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 10px;
+            }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+            }
         """)
-        self.scale_combo.currentTextChanged.connect(self._on_scale_changed)
-        layout.addWidget(self.scale_combo)
 
-        # Label для пустого состояния
-        self.empty_label = QLabel("Выберите шкалу для отображения")
-        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet("color: #707579; font-size: 16px; padding: 50px;")
-        layout.addWidget(self.empty_label)
-
-        self.figure = Figure(figsize=(8, 6))
-        self.canvas = FigureCanvasQTAgg(self.figure)
-        self.canvas.setVisible(False)
-        layout.addWidget(self.canvas)
-
-        self.setLayout(layout)
-        self.charts_data = {}
-        self.level_order = []
-        self.level_ru = {}
-        self.available_scales = []
-
-    def set_data(self, charts_data: dict, level_order: list, level_ru: dict):
-        """Устанавливает данные для графика"""
+    def set_data(self, summary_data, charts_data, level_order, level_ru, scales_config, scope_type="Результат по всем респондентам"):
+        self.summary_data = summary_data
         self.charts_data = charts_data
         self.level_order = level_order
         self.level_ru = level_ru
-        
-        # Извлекаем доступные шкалы из данных
-        if "by_scale_level" in charts_data and not charts_data["by_scale_level"].empty:
-            self.available_scales = charts_data["by_scale_level"]["Название шкалы"].unique().tolist()
-        else:
-            self.available_scales = []
-        
-        # Обновляем выпадающий список
-        self.scale_combo.clear()
-        if self.available_scales:
-            self.scale_combo.addItems(["Выберите шкалу"] + self.available_scales)
-            self.scale_combo.setCurrentIndex(0)
-        else:
-            self.scale_combo.addItem("Нет данных")
-            self.scale_combo.setEnabled(False)
-        
-        # Скрываем график, показываем empty label
-        self.empty_label.setVisible(True)
-        self.canvas.setVisible(False)
+        self.scales_config = scales_config
+        self.scope_type = scope_type
 
-    def _on_scale_changed(self, scale_name: str):
-        """Обработчик выбора шкалы"""
-        if scale_name == "Выберите шкалу" or scale_name == "Нет данных":
+        # Заполняем шкалы
+        self._block_signals = True
+        self.scale_combo.clear()
+        for scale_name in scales_config.keys():
+            self.scale_combo.addItem(scale_name)
+        self._block_signals = False
+
+        # Группа/Курс
+        if scope_type == "Результат по группам":
+            self.group_label.setVisible(True)
+            self.group_combo.setVisible(True)
+            self._update_group_combo("group_summary")
+        elif scope_type == "Результат по курсам":
+            self.group_label.setVisible(True)
+            self.group_combo.setVisible(True)
+            self._update_group_combo("course_summary")
+        else:  # "Результат по всем респондентам"
+            self.group_label.setVisible(False)
+            self.group_combo.setVisible(False)
+
+        if self.scale_combo.count() > 0:
+            self.empty_label.setVisible(False)
+            self.canvas.setVisible(True)
+            self._on_selection_changed()
+        else:
             self.empty_label.setVisible(True)
             self.canvas.setVisible(False)
+            self.title_label.setVisible(False)
+
+    def _update_group_combo(self, summary_key):
+        self.group_combo.blockSignals(True)
+        self.group_combo.clear()
+        summary = self.summary_data.get(summary_key, {})
+        if summary:
+            # Убираем "По всем" – это дублирует общий лист
+            self.group_combo.addItems(list(summary.keys()))
+        self.group_combo.blockSignals(False)
+
+    def _on_selection_changed(self):
+        if self._block_signals:
             return
-        
+
+        scale_name = self.scale_combo.currentText()
+        group_name = self.group_combo.currentText() if self.group_combo.isVisible() else "Все"
+
+        if not scale_name:
+            return
+
         self.empty_label.setVisible(False)
         self.canvas.setVisible(True)
-        self._plot_pie(scale_name)
 
-    def _plot_pie(self, scale_name: str):
-        """Строит круговую диаграмму распределения уровней для выбранной шкалы"""
-        if self.charts_data is None or "by_scale_level" not in self.charts_data:
-            return
-        
-        df = self.charts_data["by_scale_level"]
-        if df.empty:
-            return
-        
-        # Фильтруем по выбранной шкале
-        scale_df = df[df["Название шкалы"] == scale_name]
-        if scale_df.empty:
-            return
-        
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        
-        # Данные для диаграммы
-        labels = scale_df["Название уровня"].tolist()
-        sizes = scale_df["Количество по уровню"].tolist()
-        colors = ["#66BB6A", "#FFA726", "#42A5F5", "#EF5350"][:len(sizes)]
-        
-        # Фильтруем нулевые значения
-        non_zero_indices = [i for i, s in enumerate(sizes) if s > 0]
-        if not non_zero_indices:
-            ax.text(0.5, 0.5, "Нет данных для отображения", ha='center', va='center', fontsize=14)
+        if self.scope_type == "Результат по группам":
+            self.title_label.setText(f"По группе: {group_name}")
+            self.title_label.setVisible(True)
+        elif self.scope_type == "Результат по курсам":
+            self.title_label.setText(f"По курсу: {group_name}")
+            self.title_label.setVisible(True)
+        else:
+            self.title_label.setVisible(False)
+
+        self._plot_pie(scale_name, group_name)
+
+    def _get_parsed_data(self, group_name):
+        if self.scope_type == "Результат по группам":
+            summary_key = "group_summary"
+        elif self.scope_type == "Результат по курсам":
+            summary_key = "course_summary"
+        else:
+            summary_key = "group_summary"
+
+        summary = self.summary_data.get(summary_key, {})
+
+        if not summary:
+            if self.summary_data.get("group_summary"):
+                summary = self.summary_data["group_summary"]
+            elif self.summary_data.get("course_summary"):
+                summary = self.summary_data["course_summary"]
+            else:
+                return self._get_from_charts_data()
+
+        if group_name == "Все" or group_name == "По всем":
+            first_key = list(summary.keys())[0] if summary else None
+            if not first_key:
+                return self._get_from_charts_data()
+            group_info = summary.get(first_key, {})
+        else:
+            # Ищем ключ с учётом возможных пробелов
+            found_key = None
+            for key in summary.keys():
+                if str(key).strip() == str(group_name).strip():
+                    found_key = key
+                    break
+            group_info = summary.get(found_key, {}) if found_key else {}
+
+        table_df = group_info.get("table", None)
+
+        if table_df is None or table_df.empty:
+            return self._get_from_charts_data()
+
+        result = {}
+        for _, row in table_df.iterrows():
+            scale_name = str(row.get("Шкала", "")).strip()
+            if not scale_name:
+                continue
+
+            result[scale_name] = {}
+            for level_key in self.level_order:
+                level_name = self.level_ru.get(level_key, level_key)
+                value_str = str(row.get(level_name, "0 чел./0%"))
+
+                count = 0
+                percent = 0.0
+                try:
+                    parts = value_str.replace(" ", "").split("/")
+                    if len(parts) == 2:
+                        count = int(parts[0].replace("чел.", ""))
+                        percent = float(parts[1].replace("%", ""))
+                except:
+                    pass
+
+                result[scale_name][level_key] = {"count": count, "percent": percent}
+
+        return result if result else self._get_from_charts_data()
+
+    def _get_from_charts_data(self):
+        """Резервный метод: берет данные напрямую из charts_data"""
+        if not self.charts_data:
+            return {}
+
+        df = self.charts_data.get("by_scale_level", None)
+        if df is None or df.empty:
+            return {}
+
+        result = {}
+        for _, row in df.iterrows():
+            scale = row["Название шкалы"]
+            level_code = row["Код уровня"]
+            count = row["Количество по уровню"]
+            percent = row["Процент по уровню"]
+
+            if scale not in result:
+                result[scale] = {}
+            result[scale][level_code] = {"count": count, "percent": percent}
+
+        return result
+
+    def _plot_pie(self, scale_name, group_name="Все"):
+        parsed = self._get_parsed_data(group_name)
+        scale_data = parsed.get(scale_name, {})
+
+        if not scale_data:
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            ax.text(0.5, 0.5, "Нет данных", ha='center', va='center')
             self.canvas.draw()
             return
-        
-        labels = [labels[i] for i in non_zero_indices]
-        sizes = [sizes[i] for i in non_zero_indices]
-        colors = [colors[i % len(colors)] for i in non_zero_indices]
-        
-        # Круговая диаграмма
+
+        labels = []
+        sizes = []
+        percents = []
+        counts = []
+        colors_map = {"low": "#66BB6A", "mid_low": "#FFA726", "mid_high": "#42A5F5", "high": "#EF5350"}
+        colors = []
+
+        for level_key in self.level_order:
+            data = scale_data.get(level_key, {})
+            count = data.get("count", 0)
+            percent = data.get("percent", 0)
+
+            if count > 0:
+                labels.append(self.level_ru.get(level_key, level_key))
+                sizes.append(count)
+                percents.append(percent)
+                counts.append(count)
+                colors.append(colors_map.get(level_key, "#999999"))
+
+        if not sizes:
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            ax.text(0.5, 0.5, "Нет данных", ha='center', va='center')
+            self.canvas.draw()
+            return
+
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
         wedges, texts, autotexts = ax.pie(
-            sizes, 
-            labels=labels, 
-            autopct='%1.1f%%',
+            sizes,
+            labels=None,
             colors=colors,
             startangle=90,
-            pctdistance=0.75,
-            textprops={'fontsize': 11}
+            autopct='%1.1f%%',
+            pctdistance=0.85
         )
-        
-        # Стилизация
+
         for autotext in autotexts:
-            autotext.set_color('white')
+            autotext.set_color('black')
             autotext.set_fontweight('bold')
-        
-        ax.set_title(f'Распределение уровней: {scale_name}', fontsize=14, fontweight='bold', pad=20)
-        
+            autotext.set_fontsize(10)
+
+        # Формируем заголовок легенды с контекстом
+        if self.scope_type == "Результат по группам":
+            context_title = f"по группе {group_name}"
+        elif self.scope_type == "Результат по курсам":
+            context_title = f"по курсу {group_name}"
+        else:
+            context_title = "Все респонденты"
+
+        legend_labels = [f"{lbl} ({p:.1f}% = {int(c)} чел.)" for lbl, p, c in zip(labels, percents, counts)]
+
+        ax.legend(wedges, legend_labels,
+                title=f"Уровни {context_title}",
+                loc="center left",
+                bbox_to_anchor=(1, 0.5),
+                fontsize=10)
+
+        self.figure.subplots_adjust(left=0.05, right=0.65)
         self.canvas.draw()
+
+    def save_to_png(self, file_path):
+        if self.figure and len(self.figure.axes) > 0:
+            self.figure.savefig(file_path, dpi=150, bbox_inches='tight')
+            return True
+        return False

@@ -1,20 +1,46 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, Iterable, List, Tuple
 
+import numpy as np
 import pandas as pd
+
+
+# --- Дефолтный конфиг (если пользователь не сохранил свой) ---
+DEFAULT_SCALES: Dict[str, Dict[str, Any]] = {
+    "cyn": {
+        "title_ru": "цинизма/у",
+        "qnums": [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 19, 20, 22],
+        "bounds": {"low_max": 25, "mid_high_min": 40, "high_min": 65},
+    },
+    "agr": {
+        "title_ru": "агрессивности",
+        "qnums": [5, 14, 15, 16, 21, 23, 24, 26, 27],
+        "bounds": {"low_max": 15, "mid_high_min": 30, "high_min": 45},
+    },
+    "hos": {
+        "title_ru": "враждебности",
+        "qnums": [8, 13, 17, 18, 25],
+        "bounds": {"low_max": 10, "mid_high_min": 18, "high_min": 25},
+    },
+}
+
+DEFAULT_LEVEL_ORDER = ["low", "mid_low", "mid_high", "high"]
+DEFAULT_LEVEL_RU = {
+    "low": "низкий показатель",
+    "mid_low": "средний показатель с тенденцией к низкому",
+    "mid_high": "средний показатель с тенденцией к высокому",
+    "high": "высокий показатель",
+}
+DEFAULT_ANSWER_WEIGHTS = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
 
 
 _QCOL_RE = re.compile(r"^\s*(\d{1,3})\s*[\.\)]\s*")
 
 
 def _extract_qnum(col: str) -> int | None:
-    """
-    Извлекает номер вопроса из названия колонки:
-    '1) ...' -> 1
-    '1. ...' -> 1
-    """
+    """Извлекает номер вопроса из названия колонки вида '1. ...' / '1) ...'."""
     if not isinstance(col, str):
         return None
 
@@ -28,258 +54,300 @@ def _extract_qnum(col: str) -> int | None:
         return None
 
 
-def _extract_answer_number(value: Any) -> int:
+def _answer_to_int(x: Any) -> int:
     """
-    Преобразует значение ответа вида:
-    '1 - никогда' -> 1
-    '2' -> 2
-    3 -> 3
-    NaN -> 0
+    Преобразует ответ в номер варианта.
+    Поддерживает:
+    - '1 - никогда'
+    - '2'
+    - int / float
+    - NaN -> 0
     """
-    if pd.isna(value):
+    if pd.isna(x):
         return 0
 
-    if isinstance(value, int):
-        return value
+    if isinstance(x, (int, np.integer)):
+        return int(x)
 
-    if isinstance(value, float):
-        return int(value)
+    if isinstance(x, (float, np.floating)):
+        return int(x)
 
-    text = str(value).strip()
-    match = re.match(r"^\s*(\d+)", text)
+    s = str(x).strip()
+    match = re.match(r"^\s*(\d+)", s)
     if match:
         return int(match.group(1))
 
     return 0
 
 
-def _replace_answer_with_weight(value: Any, answer_weights: Dict[int, int]) -> int:
-    """
-    Берет номер ответа и заменяет его на вес из answer_weights.
-    Если ответ пустой/не распознан -> 0.
-    """
-    answer_number = _extract_answer_number(value)
+def _mk_year(series: pd.Series) -> pd.Series:
+    """Пытается извлечь год из даты/строки."""
+    dt = pd.to_datetime(series, errors="coerce")
+    year = dt.dt.year.astype("Int64")
 
-    if answer_number == 0:
-        return 0
+    out = year.astype(str)
+    mask_bad = dt.isna()
 
-    if answer_number not in answer_weights:
-        raise KeyError(
-            f"Для варианта ответа '{answer_number}' не найден вес в answer_weights."
-        )
+    if mask_bad.any():
+        out.loc[mask_bad] = series.astype(str).str.split("-", n=1).str[0].loc[mask_bad]
 
-    return int(answer_weights[answer_number])
+    return out
 
 
-def _format_count_percent(count: int, total: int) -> str:
-    percent = 0 if total == 0 else int(round(count / total * 100))
-    return f"{count} ({percent}%)"
+def _format_count_pct(count: int, n: int) -> str:
+    pct = 0 if n == 0 else int(round(count / n * 100))
+    return f"{count} ({pct}%)"
 
 
-def _interpret_sum(
-    total: float,
-    bounds: Dict[str, int],
-    level_order: List[str],
-    level_ru: Dict[str, str],
-    scale_title: str,
-) -> Tuple[str, str]:
-    """
-    Определяет уровень по сумме баллов, используя динамические границы из scales_config.
-
-    bounds приходит в формате, например:
-    {
-        "low_max": 25,
-        "mid_low_min": 26,
-        "mid_low_max": 40,
-        "mid_high_min": 41,
-        "mid_high_max": 65,
-        "high_min": 66,
-        "high_max": 200
-    }
-
-    Возвращает:
-    (
-        технический_ключ_уровня,
-        текстовая_интерпретация
-    )
-    """
-    if pd.isna(total):
-        return "", ""
-
-    total = float(total)
-
-    for level_key in level_order:
-        min_key = f"{level_key}_min"
-        max_key = f"{level_key}_max"
-
-        level_min = bounds.get(min_key, float("-inf"))
-        level_max = bounds.get(max_key, float("inf"))
-
-        if level_min <= total <= level_max:
-            level_name_ru = level_ru.get(level_key, level_key)
-            interpretation = f'{level_name_ru} по шкале "{scale_title}"'
-            return level_key, interpretation
-
-    return "", ""
-
-
-def _build_distribution_long(
+def _distribution_long(
     df: pd.DataFrame,
-    scope_type: str,
-    scope_value_column: str,
     scale_name: str,
-    level_code_column: str,
-    level_order: List[str],
-    level_ru: Dict[str, str],
+    level_code_col: str,
+    scope_type: str,
+    scope_value_col: str,
+    level_order: list[str],
 ) -> pd.DataFrame:
-    """
-    Формирует tidy-таблицу для графиков:
-    одна строка = одна комбинация (область, шкала, уровень)
-    """
-    rows: List[Dict[str, Any]] = []
+    """Tidy/long распределение уровней по области группировки."""
+    rows: list[dict[str, Any]] = []
 
-    for scope_value, sub_df in df.groupby(scope_value_column, dropna=False):
-        total = len(sub_df)
-        counts = sub_df[level_code_column].value_counts(dropna=False).to_dict()
+    for scope_value, sub in df.groupby(scope_value_col, dropna=False):
+        n = len(sub)
+        vc = sub[level_code_col].value_counts(dropna=False).to_dict()
 
-        for level_key in level_order:
-            count = int(counts.get(level_key, 0))
-            percent = 0.0 if total == 0 else (count / total * 100)
+        for code in level_order:
+            count = int(vc.get(code, 0))
+            pct = 0.0 if n == 0 else (count / n * 100.0)
 
             rows.append(
                 {
-                    "Тип области": scope_type,
-                    "Название области": str(scope_value),
-                    "Название шкалы": scale_name,
-                    "Код уровня": level_key,
-                    "Название уровня": level_ru.get(level_key, level_key),
-                    "Количество обучающихся": total,
-                    "Количество по уровню": count,
-                    "Процент по уровню": percent,
+                    "scope_type": scope_type,
+                    "scope_value": str(scope_value),
+                    "scale": scale_name,
+                    "level_code": code,
+                    "count": count,
+                    "percent": pct,
+                    "n": n,
                 }
             )
 
     return pd.DataFrame(rows)
 
 
-def _build_distribution_wide(
-    df_long: pd.DataFrame,
-    level_order: List[str],
-    level_ru: Dict[str, str],
-) -> pd.DataFrame:
-    """
-    Формирует широкую таблицу:
-    колонки уровней содержат значения вида '3 (13%)'
-    """
+def _distribution_wide(df_long: pd.DataFrame, level_order: list[str]) -> pd.DataFrame:
+    """Pivot в широкую таблицу по уровням."""
     if df_long.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(
+            columns=["scope_type", "scope_value", "scale", "n", *level_order]
+        )
 
     tmp = df_long.copy()
-    tmp["Ячейка"] = tmp.apply(
-        lambda row: _format_count_percent(
-            int(row["Количество по уровню"]),
-            int(row["Количество обучающихся"]),
-        ),
+    tmp["cell"] = tmp.apply(
+        lambda r: _format_count_pct(int(r["count"]), int(r["n"])),
         axis=1,
     )
 
     wide = (
         tmp.pivot_table(
-            index=["Тип области", "Название области", "Название шкалы", "Количество обучающихся"],
-            columns="Название уровня",
-            values="Ячейка",
+            index=["scope_type", "scope_value", "scale", "n"],
+            columns="level_code",
+            values="cell",
             aggfunc="first",
             fill_value="0 (0%)",
         )
         .reset_index()
     )
 
-    ordered_level_columns = [level_ru.get(level_key, level_key) for level_key in level_order]
-    for col in ordered_level_columns:
-        if col not in wide.columns:
-            wide[col] = "0 (0%)"
+    for code in level_order:
+        if code not in wide.columns:
+            wide[code] = "0 (0%)"
 
-    wide = wide[
-        ["Тип области", "Название области", "Название шкалы", "Количество обучающихся"]
-        + ordered_level_columns
-    ]
-
-    return wide
+    return wide[["scope_type", "scope_value", "scale", "n", *level_order]]
 
 
-def process_data(
-    df: pd.DataFrame,
-    scales_config: Dict[str, Dict],
-    level_order: List[str],
-    level_ru: Dict[str, str],
-    answer_weights: Dict[int, int],
-) -> pd.DataFrame:
+def _normalize_config(config: dict[str, Any] | None) -> tuple[dict, list[str], dict, dict[int, int]]:
     """
-    Основная функция обработки результатов теста.
+    Приводит конфиг к единому виду.
 
-    Параметры:
-    - df: исходный DataFrame с ответами
-    - scales_config: конфиг шкал из SettingsDialog
-    - level_order: порядок уровней
-    - level_ru: русские названия уровней
-    - answer_weights: веса ответов
+    На входе может быть:
+    - None -> используем дефолт
+    - config из MainWindow / SettingsWidget
+    """
+    if not config:
+        return (
+            DEFAULT_SCALES,
+            DEFAULT_LEVEL_ORDER,
+            DEFAULT_LEVEL_RU,
+            DEFAULT_ANSWER_WEIGHTS,
+        )
 
-    Возвращает:
-    - DataFrame с индивидуальными результатами
-    - сводки лежат в df.attrs["сводки"]
+    scales = config.get("scales") or DEFAULT_SCALES
+    level_order = config.get("level_order") or DEFAULT_LEVEL_ORDER
+    levels = config.get("levels") or DEFAULT_LEVEL_RU
+    answer_weights_raw = config.get("answer_weights") or DEFAULT_ANSWER_WEIGHTS
+
+    answer_weights: dict[int, int] = {}
+    for key, value in answer_weights_raw.items():
+        try:
+            answer_weights[int(key)] = int(value)
+        except (TypeError, ValueError):
+            continue
+
+    if not answer_weights:
+        answer_weights = DEFAULT_ANSWER_WEIGHTS.copy()
+
+    return scales, list(level_order), levels, answer_weights
+
+
+def _answer_to_weight(x: Any, answer_weights: dict[int, int]) -> float:
+    """Преобразует сырой ответ в вес согласно пользовательской таблице весов."""
+    answer_number = _answer_to_int(x)
+    if answer_number == 0:
+        return np.nan
+    return float(answer_weights.get(answer_number, answer_number))
+
+
+def _sorted_bounds(bounds: dict[str, Any], level_order: Iterable[str]) -> list[tuple[str, float | None, float | None]]:
+    """
+    Собирает границы уровня в список:
+    [(level_code, min_value|None, max_value|None), ...]
+    """
+    result: list[tuple[str, float | None, float | None]] = []
+
+    for level_code in level_order:
+        min_key = f"{level_code}_min"
+        max_key = f"{level_code}_max"
+
+        min_value = bounds.get(min_key)
+        max_value = bounds.get(max_key)
+
+        try:
+            min_value = float(min_value) if min_value is not None else None
+        except (TypeError, ValueError):
+            min_value = None
+
+        try:
+            max_value = float(max_value) if max_value is not None else None
+        except (TypeError, ValueError):
+            max_value = None
+
+        result.append((level_code, min_value, max_value))
+
+    return result
+
+
+def _interpret_sum(
+    total: float,
+    bounds: dict[str, Any],
+    level_order: list[str],
+    level_ru: dict[str, str],
+    scale_title: str,
+) -> Tuple[str, str]:
+    """
+    Универсальная интерпретация суммы по пользовательским границам.
+
+    Поддерживает:
+    - диапазон min/max
+    - только max
+    - только min
+    """
+    if pd.isna(total):
+        return "", ""
+
+    total = float(total)
+    normalized_bounds = _sorted_bounds(bounds, level_order)
+
+    matched_code: str | None = None
+
+    for level_code, min_value, max_value in normalized_bounds:
+        min_ok = True if min_value is None else total >= min_value
+        max_ok = True if max_value is None else total <= max_value
+
+        if min_ok and max_ok:
+            matched_code = level_code
+            break
+
+    # Фолбэк на случай кривой конфигурации:
+    if matched_code is None and normalized_bounds:
+        # Берём последний уровень, для которого пройдена нижняя граница.
+        for level_code, min_value, _ in reversed(normalized_bounds):
+            if min_value is not None and total >= min_value:
+                matched_code = level_code
+                break
+
+        # Если и это не сработало, берём первый уровень.
+        if matched_code is None:
+            matched_code = normalized_bounds[0][0]
+
+    if matched_code is None:
+        return "", ""
+
+    level_name = level_ru.get(matched_code, matched_code)
+    return matched_code, f"{level_name} {scale_title}"
+
+
+def process_data(df: pd.DataFrame, config: dict[str, Any] | None = None) -> pd.DataFrame:
+    """
+    Обрабатывает Excel-таблицу по пользовательскому конфигу.
+
+    Ожидает:
+    - колонку 'Группа'
+    - колонку 'Время создания'
+    - вопросы вида '1. ...' или '1) ...'
     """
     if df is None or not isinstance(df, pd.DataFrame):
-        raise ValueError("process_data ожидает pandas.DataFrame.")
+        raise ValueError("process_data ожидает pandas DataFrame (df).")
 
-    if "Группа" not in df.columns:
-        raise KeyError("В исходном DataFrame отсутствует обязательная колонка 'Группа'.")
+    scales, level_order, level_ru, answer_weights = _normalize_config(config)
+    df0 = df.copy()
 
-    df_result = df.copy()
+    qnum_to_col: Dict[int, str] = {}
+    for col in df0.columns:
+        qn = _extract_qnum(col)
+        if qn is not None:
+            qnum_to_col[qn] = col
 
-    # ------------------------------------------------------------------
-    # 1. Находим колонки вопросов и строим отображение: номер вопроса -> имя колонки
-    # ------------------------------------------------------------------
-    question_number_to_column: Dict[int, str] = {}
-    for column in df_result.columns:
-        qnum = _extract_qnum(str(column))
-        if qnum is not None:
-            question_number_to_column[qnum] = column
+    if "Группа" not in df0.columns:
+        raise KeyError("В df нет обязательной колонки 'Группа'.")
 
-    # ------------------------------------------------------------------
-    # 2. Создаем числовые колонки по вопросам, где значение = вес ответа
-    # ------------------------------------------------------------------
-    weighted_question_columns: Dict[int, str] = {}
+    if "Время создания" not in df0.columns:
+        raise KeyError("В df нет обязательной колонки 'Время создания'.")
 
-    for question_number, original_column in question_number_to_column.items():
-        weighted_column_name = f"Вес ответа на вопрос {question_number}"
-        df_result[weighted_column_name] = df_result[original_column].map(
-            lambda x: _replace_answer_with_weight(x, answer_weights)
-        )
-        weighted_question_columns[question_number] = weighted_column_name
+    df0["year"] = _mk_year(df0["Время создания"])
 
-    # ------------------------------------------------------------------
-    # 3. Считаем суммы и интерпретации по всем пользовательским шкалам
-    # ------------------------------------------------------------------
-    for scale_name, scale_config in scales_config.items():
-        scale_title = scale_config.get("title_ru", scale_name)
-        qnums = scale_config.get("qnums", [])
-        bounds = scale_config.get("bounds", {})
+    # Сырые ответы -> веса
+    for qn, col in qnum_to_col.items():
+        df0[f"q{qn:03d}_weight"] = df0[col].map(
+            lambda value: _answer_to_weight(value, answer_weights)
+        ).astype("Float64")
 
-        missing_questions = [q for q in qnums if q not in weighted_question_columns]
-        if missing_questions:
+    summary_parts: list[pd.DataFrame] = []
+
+    for index, (scale_key, scale_cfg) in enumerate(scales.items(), start=1):
+        scale_title = scale_cfg.get("title_ru") or str(scale_key)
+        qnums = scale_cfg.get("qnums") or []
+        bounds = scale_cfg.get("bounds") or {}
+
+        if not qnums:
+            raise ValueError(f"У шкалы '{scale_title}' не указаны номера вопросов.")
+
+        qcols = [f"q{int(qn):03d}_weight" for qn in qnums if f"q{int(qn):03d}_weight" in df0.columns]
+
+        if len(qcols) != len(qnums):
+            missing = sorted(set(int(q) for q in qnums) - {int(col[1:4]) for col in qcols})
             raise KeyError(
-                f'Для шкалы "{scale_title}" не найдены колонки вопросов: {missing_questions}.'
+                f"Не найдены колонки для вопросов шкалы '{scale_title}': {missing}. "
+                f"Проверьте названия вопросов в Excel."
             )
 
-        scale_question_columns = [weighted_question_columns[q] for q in qnums]
+        # Используем технические имена колонок, чтобы не было проблем с русским текстом
+        # в последующей логике, но рядом сохраняем и человекочитаемые названия.
+        sum_col = f"scale_{index}_sum"
+        level_code_col = f"scale_{index}_level_code"
+        level_text_col = f"scale_{index}_level"
 
-        sum_column_name = f'Сумма баллов по шкале "{scale_title}"'
-        level_code_column_name = f'Технический уровень по шкале "{scale_title}"'
-        interpretation_column_name = f'Интерпретация по шкале "{scale_title}"'
+        df0[sum_col] = df0[qcols].sum(axis=1, min_count=len(qcols))
 
-        df_result[sum_column_name] = df_result[scale_question_columns].sum(axis=1)
-
-        interpreted = df_result[sum_column_name].map(
+        interpreted = df0[sum_col].map(
             lambda total: _interpret_sum(
                 total=total,
                 bounds=bounds,
@@ -289,80 +357,67 @@ def process_data(
             )
         )
 
-        df_result[level_code_column_name] = interpreted.map(lambda x: x[0])
-        df_result[interpretation_column_name] = interpreted.map(lambda x: x[1])
+        df0[level_code_col] = interpreted.map(lambda pair: pair[0])
+        df0[level_text_col] = interpreted.map(lambda pair: pair[1])
 
-    # ------------------------------------------------------------------
-    # 4. Добавляем средние по группе и по колледжу
-    #    (средние по годам удалены)
-    # ------------------------------------------------------------------
-    for scale_name, scale_config in scales_config.items():
-        scale_title = scale_config.get("title_ru", scale_name)
-        sum_column_name = f'Сумма баллов по шкале "{scale_title}"'
+        # Дублируем в человекочитаемые колонки результата.
+        readable_sum_col = f"{scale_title} — сумма"
+        readable_level_col = f"{scale_title} — уровень"
+        readable_group_mean_col = f"{scale_title} — среднее по группе"
+        readable_year_mean_col = f"{scale_title} — среднее по году"
+        readable_college_mean_col = f"{scale_title} — среднее по колледжу"
 
-        mean_group_column_name = f'Средний балл по группе по шкале "{scale_title}"'
-        mean_college_column_name = f'Средний балл по колледжу по шкале "{scale_title}"'
+        df0[readable_sum_col] = df0[sum_col]
+        df0[readable_level_col] = df0[level_text_col]
+        df0[readable_group_mean_col] = df0.groupby("Группа")[sum_col].transform("mean")
+        df0[readable_year_mean_col] = df0.groupby("year")[sum_col].transform("mean")
+        df0[readable_college_mean_col] = df0[sum_col].mean()
 
-        df_result[mean_group_column_name] = (
-            df_result.groupby("Группа")[sum_column_name].transform("mean")
-        )
-        df_result[mean_college_column_name] = df_result[sum_column_name].mean()
-
-    # ------------------------------------------------------------------
-    # 5. Формируем сводки по группам и по колледжу
-    # ------------------------------------------------------------------
-    long_parts: List[pd.DataFrame] = []
-
-    for scale_name, scale_config in scales_config.items():
-        scale_title = scale_config.get("title_ru", scale_name)
-        level_code_column_name = f'Технический уровень по шкале "{scale_title}"'
-
-        # Сводка по группам
-        long_parts.append(
-            _build_distribution_long(
-                df=df_result,
-                scope_type="Группа",
-                scope_value_column="Группа",
+        summary_parts.append(
+            _distribution_long(
+                df=df0,
                 scale_name=scale_title,
-                level_code_column=level_code_column_name,
+                level_code_col=level_code_col,
+                scope_type="group",
+                scope_value_col="Группа",
                 level_order=level_order,
-                level_ru=level_ru,
             )
         )
 
-        # Сводка по колледжу
-        temp_df = df_result.copy()
-        temp_df["Колледж"] = "Весь колледж"
-
-        long_parts.append(
-            _build_distribution_long(
-                df=temp_df,
-                scope_type="Колледж",
-                scope_value_column="Колледж",
+        summary_parts.append(
+            _distribution_long(
+                df=df0,
                 scale_name=scale_title,
-                level_code_column=level_code_column_name,
+                level_code_col=level_code_col,
+                scope_type="year",
+                scope_value_col="year",
                 level_order=level_order,
-                level_ru=level_ru,
             )
         )
 
-    summary_long = pd.concat(long_parts, ignore_index=True) if long_parts else pd.DataFrame()
-    summary_wide = _build_distribution_wide(
-        df_long=summary_long,
-        level_order=level_order,
-        level_ru=level_ru,
-    )
+        tmp = df0.copy()
+        tmp["_college"] = "college"
+        summary_parts.append(
+            _distribution_long(
+                df=tmp,
+                scale_name=scale_title,
+                level_code_col=level_code_col,
+                scope_type="college",
+                scope_value_col="_college",
+                level_order=level_order,
+            )
+        )
 
-    # ------------------------------------------------------------------
-    # 6. Складываем сводки в attrs
-    # ------------------------------------------------------------------
-    df_result.attrs["сводки"] = {
-        "длинная_таблица": summary_long,
-        "широкая_таблица": summary_wide,
-        "порядок_уровней": level_order,
-        "русские_названия_уровней": level_ru,
-        "конфигурация_шкал": scales_config,
-        "веса_ответов": answer_weights,
+    df_long = pd.concat(summary_parts, ignore_index=True) if summary_parts else pd.DataFrame()
+    df_wide = _distribution_wide(df_long, level_order)
+
+    df0.attrs["summaries"] = {
+        "long": df_long,
+        "wide": df_wide,
+        "level_order": level_order,
+        "level_ru": level_ru,
+        "scales": scales,
+        "answer_weights": answer_weights,
     }
 
-    return df_result
+    return df0

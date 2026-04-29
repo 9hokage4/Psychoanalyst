@@ -1898,7 +1898,10 @@ class SettingsWidget(QWidget):
         self.current_config = full_config
         test_name = self.test_name_edit.text().strip()
         if self.output_folder_path and test_name:
-            self.folder_manager.ensure_folder_exists(test_name, self.output_folder_path)
+            base_path = Path(self.output_folder_path)
+            # Если конечная папка уже совпадает с выбранной – не дублируем
+            if base_path.name != test_name:
+                self.folder_manager.ensure_folder_exists(test_name, self.output_folder_path)
         self.config_saved.emit(full_config, self.current_profile_name or "")
 
     def open_profile_dialog(self):
@@ -2227,10 +2230,27 @@ class SettingsWidget(QWidget):
         if not self.output_folder_path:
             self.folder_path_label.setText("")
             return
-        test_name = self.test_name_edit.text().strip() or f"Психологический тест {__import__('datetime').datetime.now().strftime('%d-%m-%Y')}"
-        self.folder_manager.ensure_folder_exists(test_name, self.output_folder_path)
-        full_path = Path(self.output_folder_path) / test_name
-        self.folder_path_label.setText(f"📁 {full_path}")
+
+        test_name = self.test_name_edit.text().strip() or "Новый тест"
+        base_path = Path(self.output_folder_path)
+        # Определяем папку теста (как это сделает get_test_folder)
+        if base_path.name == test_name:
+            test_folder = base_path
+        else:
+            test_folder = base_path / test_name
+
+        # Если папка существует и в ней уже есть подпапки или файлы, показываем датированную подпапку
+        if test_folder.exists():
+            subfolders = [f for f in test_folder.iterdir() if f.is_dir() and f.name.startswith("Тестирование")]
+            files = [f for f in test_folder.iterdir() if f.is_file()]
+            if subfolders or files:
+                from datetime import datetime
+                date_str = datetime.now().strftime("%d-%m-%Y")
+                expected = test_folder / f"Тестирование {date_str}"
+                self.folder_path_label.setText(f"📁 {expected}")
+                return
+
+        self.folder_path_label.setText(f"📁 {test_folder}")
 
     def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
         import json

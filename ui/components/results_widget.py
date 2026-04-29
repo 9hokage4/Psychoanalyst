@@ -949,7 +949,7 @@ class ResultsWidget(QWidget):
         else:
             # Сохраняем в папку теста
             test_name = self.folder_manager.get_test_name() or "Результаты"
-            output_path = Path(test_folder) / f"{test_name}.xlsx"
+            output_path = Path(test_folder) / f"{test_name}.xlsx" if Path(test_folder).name != test_name else Path(test_folder) / f"{test_name}.xlsx"
 
         try:
             export_to_excel_with_summary(

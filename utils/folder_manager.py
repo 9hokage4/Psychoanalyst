@@ -45,17 +45,11 @@ class FolderManager:
         """Устанавливает название теста"""
         self.settings.setValue("current_test_name", name)
     
-    def get_test_folder(self) -> str:
+    
+    def get_expected_test_folder(self) -> str:
         """
-        Получает путь к папке теста для сохранения.
-        
-        Логика:
-        1. Первая обработка: файлы в `Базовая папка/Название теста/`
-        2. Вторая обработка: 
-           - Старые файлы → `Базовая папка/Название теста/Тестирование ДАТА_СТАРОЙ/`
-           - Новые файлы → `Базовая папка/Название теста/Тестирование ДАТА_НОВОЙ/`
-        3. Третья и далее:
-           - Новые файлы → `Базовая папка/Название теста/Тестирование ДАТА_НОВОЙ/`
+        Возвращает ожидаемый путь сохранения (для отображения в UI),
+        не создавая папок и не перемещая файлы.
         """
         base_folder = self.get_base_folder()
         test_name = self.get_test_name()
@@ -64,8 +58,35 @@ class FolderManager:
             return ""
         
         base_path = Path(base_folder)
-        test_folder = base_path / test_name
+        test_folder = base_path if base_path.name == test_name else base_path / test_name
         
+        # Если папка теста существует и в ней уже есть подпапки «Тестирование» или файлы,
+        # то следующий экспорт создаст новую датированную подпапку.
+        if test_folder.exists():
+            subfolders = [f for f in test_folder.iterdir() if f.is_dir() and f.name.startswith("Тестирование")]
+            files = [f for f in test_folder.iterdir() if f.is_file()]
+            if subfolders or files:
+                date_str = datetime.now().strftime("%d-%m-%Y")
+                new_subfolder = test_folder / f"Тестирование {date_str}"
+                return str(new_subfolder)
+        
+        return str(test_folder)
+    
+    def get_test_folder(self) -> str:
+        base_folder = self.get_base_folder()
+        test_name = self.get_test_name()
+        
+        if not base_folder or not test_name:
+            return ""
+        
+        base_path = Path(base_folder)
+        
+        # Если выбранная папка уже называется как тест, используем её как папку теста
+        if base_path.name == test_name:
+            test_folder = base_path
+        else:
+            test_folder = base_path / test_name
+
         # Если папка не существует - создаём
         if not test_folder.exists():
             test_folder.mkdir(parents=True, exist_ok=True)
@@ -77,7 +98,6 @@ class FolderManager:
         
         if subfolders or files:
             # Уже есть папки или файлы - это повторная обработка
-            # Определяем дату старых файлов
             if files:
                 old_date_str = datetime.fromtimestamp(
                     min(f.stat().st_mtime for f in files)
@@ -86,7 +106,6 @@ class FolderManager:
                 old_subfolder = test_folder / old_subfolder_name
                 old_subfolder.mkdir(parents=True, exist_ok=True)
                 
-                # Перемещаем файлы в старую подпапку
                 for item in files:
                     shutil.move(str(item), str(old_subfolder / item.name))
             
@@ -101,22 +120,18 @@ class FolderManager:
         return str(test_folder)
     
     def ensure_folder_exists(self, test_name: str, base_folder: str) -> str:
-        """
-        Гарантирует существование папки с правильным именем.
-        НЕ переименовывает старую папку - создаёт новую если название изменилось.
-        """
         if not base_folder or not test_name:
             return ""
-        
         base_path = Path(base_folder)
-        
-        # Обновляем название теста
         self.set_test_name(test_name)
-        
-        # Создаём папку если не существует
-        test_folder = base_path / test_name
+
+        # Если выбранная папка уже называется как тест, не создаём вложенную
+        if base_path.name == test_name:
+            test_folder = base_path
+        else:
+            test_folder = base_path / test_name
+
         test_folder.mkdir(parents=True, exist_ok=True)
-        
         return str(test_folder)
     
     def save_file(self, source_path: str, filename: str) -> str:

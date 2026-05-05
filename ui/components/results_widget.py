@@ -22,6 +22,8 @@ from utils.folder_manager import FolderManager
 import tempfile
 import os
 
+from utils.message_box import MessageHelper
+
 
 # Цвета для шкал
 SCALE_COLORS = [
@@ -673,7 +675,7 @@ class ResultsWidget(QWidget):
     def open_in_excel(self):
         """Открывает данные в Microsoft Excel (полный файл как при экспорте)"""
         if self.table_df is None or self.table_df.empty:
-            self._show_error_message("Ошибка", "Нет данных для открытия")
+            MessageHelper.show_error(self, "Ошибка", "Нет данных для открытия")
             return
         
         try:
@@ -696,11 +698,11 @@ class ResultsWidget(QWidget):
             
             # Открываем в Excel
             if open_excel_file(temp_path):
-                self._show_success_message("Успех", "Данные открыты в Excel.\n\nФайл сохранён во временной папке.\nНе забудьте сохранить его в нужном месте!")
+                MessageHelper.show_success(self, "Успех", "Данные открыты в Excel.\n\nФайл сохранён во временной папке.\nНе забудьте сохранить его в нужном месте!")
             else:
-                self._show_error_message("Ошибка", "Не удалось открыть данные в Excel.\n\nУбедитесь, что Microsoft Excel установлен.")
+                MessageHelper.show_error(self, "Ошибка", "Не удалось открыть данные в Excel.\n\nУбедитесь, что Microsoft Excel установлен.")
         except Exception as e:
-            self._show_error_message("Ошибка", f"Не удалось открыть данные в Excel:\n{str(e)}")
+            MessageHelper.show_error(self, "Ошибка", f"Не удалось открыть данные в Excel:\n{str(e)}")
 
     def download_chart(self):
         """Скачивает текущий график в PNG"""
@@ -739,75 +741,12 @@ class ResultsWidget(QWidget):
         
         try:
             if chart_widget.save_to_png(str(output_path)):
-                self._show_success_message("Успех", f"График сохранён в:\n{output_path}")
+                MessageHelper.show_success(self, "Успех", f"График сохранён в:\n{output_path}")
             else:
-                self._show_error_message("Ошибка", "Нет данных для сохранения.\nВыберите шкалу для отображения.")
+                MessageHelper.show_error(self, "Ошибка", "Нет данных для сохранения.\nВыберите шкалу для отображения.")
         except Exception as e:
-            self._show_error_message("Ошибка", f"Не удалось сохранить график:\n{str(e)}")
+            MessageHelper.show_error(self, "Ошибка", f"Не удалось сохранить график:\n{str(e)}")
 
-    def _show_success_message(self, title, message):
-        """Показывает сообщение об успехе"""
-        self._show_message_box(title, message, "success")
-
-    def _show_error_message(self, title, message):
-        """Показывает сообщение об ошибке"""
-        # Проверяем на дубликат
-        if message == self._last_error_message:
-            return  # Не показываем одинаковые ошибки подряд
-        self._last_error_message = message
-        self._show_message_box(title, message, "error")
-
-    def _show_message_box(self, title, message, msg_type):
-        """Показывает шаблонное сообщение"""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(message)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background-color: #FFFFFF;
-                border-radius: 12px;
-            }
-            QMessageBox QLabel {
-                color: #000000;
-                font-size: 14px;
-            }
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
-            QPushButton:pressed {
-                background-color: #1E6BC5;
-            }
-        """)
-
-        icon_label = QLabel()
-        icon_label.setStyleSheet("background-color: transparent;")
-        if msg_type == "success":
-            icon_pixmap = QPixmap("resources/icons/attention-circle.svg")
-        else:
-            icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
-
-        if not icon_pixmap.isNull():
-            icon_label.setPixmap(icon_pixmap.scaled(48, 48,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation))
-        else:
-            icon_label.setPixmap(self.style().standardIcon(
-                QMessageBox.Icon.Warning).pixmap(48, 48))
-        layout = msg_box.layout()
-        layout.addWidget(icon_label, 0, 0, 1, 1,
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        msg_box.exec()
 
     def _update_table_view(self):
         """Обновляет таблицу с условным форматированием"""
@@ -929,7 +868,7 @@ class ResultsWidget(QWidget):
     def export_to_excel(self):
         """Экспортирует результаты в Excel файл с группировкой и сводными таблицами."""
         if self.table_df is None or self.table_df.empty:
-            self._show_error_message("Ошибка", "Нет данных для экспорта")
+            MessageHelper.show_error(self, "Ошибка", "Нет данных для экспорта")
             return
 
         # Получаем папку для сохранения
@@ -959,10 +898,10 @@ class ResultsWidget(QWidget):
                 output_path=str(output_path)
             )
 
-            self._show_success_message("Успех", f"Файл сохранён в:\n{output_path}")
+            MessageHelper.show_success(self, "Успех", f"Файл сохранён в:\n{output_path}")
 
         except Exception as e:
-            self._show_error_message("Ошибка экспорта", f"Не удалось сохранить файл:\n{str(e)}")
+            MessageHelper.show_error(self, "Ошибка экспорта", f"Не удалось сохранить файл:\n{str(e)}")
 
 
 # ============================================================================

@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         self.nav_buttons = []
         btn_data = [
             ("resources/icons/upload.svg", "Загрузка"),
-            ("resources/icons/cog.svg", "Настройки"),  # иконка настроек (замените при необходимости)
+            ("resources/icons/settings.svg", "Настройки"),  # иконка настроек (замените при необходимости)
             ("resources/icons/chart-line.svg", "Результаты")
         ]
         for icon, text in btn_data:

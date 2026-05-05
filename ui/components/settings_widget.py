@@ -14,6 +14,7 @@ from ui.components.profile_dialog import ProfileDialog
 from utils.fonts import get_font, FontWeights
 from utils.resources import get_icon_path
 from utils.folder_manager import FolderManager
+from utils.message_box import MessageHelper
 
 class QFlowLayout(QLayout):
     """Flow layout для badge с переносом строк"""
@@ -1184,7 +1185,7 @@ class AddScaleDialog(QDialog):
         questions_text = self.questions_edit.text().strip()
 
         if not name:
-            self.parent_dialog._show_error_message("Ошибка валидации", "Название шкалы обязательно.")
+            MessageHelper.show_error(self, "Ошибка валидации", "Название шкалы обязательно.")
             return None
 
         questions = self._parse_questions(questions_text)
@@ -1192,13 +1193,13 @@ class AddScaleDialog(QDialog):
             return None
 
         if not questions:
-            self.parent_dialog._show_error_message("Ошибка валидации", "Укажите хотя бы один вопрос.")
+            MessageHelper.show_error(self, "Ошибка валидации", "Укажите хотя бы один вопрос.")
             return None
 
         max_question = max(questions)
         max_allowed = self.parent_dialog.questions_spin.value()
         if max_question > max_allowed:
-            self.parent_dialog._show_error_message(
+            MessageHelper.show_error(self, 
                 "Ошибка валидации",
                 f"Номер вопроса {max_question} превышает лимит ({max_allowed})."
             )
@@ -1222,11 +1223,11 @@ class AddScaleDialog(QDialog):
                 for q in sorted(duplicate):
                     error += f"  Вопрос {q}: {', '.join(all_questions[q])}\n"
                 error += "\nРазрешите повтор вопросов в настройках."
-                self.parent_dialog._show_error_message("Ошибка валидации", error)
+                MessageHelper.show_error(self, "Ошибка валидации", error)
                 return None
 
         if not self.selected_levels:
-            self.parent_dialog._show_error_message("Ошибка валидации", "Добавьте хотя бы один уровень.")
+            MessageHelper.show_error(self, "Ошибка валидации", "Добавьте хотя бы один уровень.")
             return None
 
         return {"name": name, "questions": questions, "levels": self.selected_levels.copy()}
@@ -1263,7 +1264,7 @@ class AddScaleDialog(QDialog):
                     invalid.append(part)
 
         if invalid:
-            self.parent_dialog._show_error_message(
+            MessageHelper.show_error(self, 
                 "Ошибка валидации",
                 f"Некорректные номера: {', '.join(invalid)}.\n"
                 f"Допустимы числа 1-{max_allowed} или диапазоны вида 1-10."
@@ -1306,7 +1307,7 @@ class SettingsWidget(QWidget):
         # === ЛЕВАЯ ВЕРТИКАЛЬНАЯ ПАНЕЛЬ (точно как в ResultsWidget) ===
         self.sidebar = QWidget()
         self.sidebar.setObjectName("settings_sidebar")
-        self.sidebar.setFixedSize(140, 550)
+        self.sidebar.setFixedSize(140, 430)
         sidebar_shadow = QGraphicsDropShadowEffect()
         sidebar_shadow.setBlurRadius(20)
         sidebar_shadow.setOffset(0, 4)
@@ -2046,22 +2047,22 @@ class SettingsWidget(QWidget):
     # ========== Сохранение и загрузка ==========
     def save_config(self):
         if self.questions_spin.value() < 1:
-            self._show_error_message("Ошибка", "Количество вопросов должно быть больше 0")
+            MessageHelper.show_error(self, "Ошибка", "Количество вопросов должно быть больше 0")
             return
         if self.answers_spin.value() < 2:
-            self._show_error_message("Ошибка", "Количество ответов должно быть минимум 2")
+            MessageHelper.show_error(self, "Ошибка", "Количество ответов должно быть минимум 2")
             return
         if len(self.levels_data) < 1:
-            self._show_error_message("Ошибка", "Добавьте хотя бы один уровень показателей")
+            MessageHelper.show_error(self, "Ошибка", "Добавьте хотя бы один уровень показателей")
             self.switch_settings_tab(1)
             return
         for i, lvl in enumerate(self.levels_data):
             if not lvl['name'].strip():
-                self._show_error_message("Ошибка", f"Уровень {i+1} не имеет названия")
+                MessageHelper.show_error(self, "Ошибка", f"Уровень {i+1} не имеет названия")
                 self.switch_settings_tab(1)
                 return
         if len(self.scales) < 1:
-            self._show_error_message("Ошибка", "Добавьте хотя бы одну шкалу")
+            MessageHelper.show_error(self, "Ошибка", "Добавьте хотя бы одну шкалу")
             self.switch_settings_tab(2)
             return
 
@@ -2119,7 +2120,7 @@ class SettingsWidget(QWidget):
                 msg = "Вопросы не должны повторяться между шкалами!\nПовторяющиеся вопросы:\n"
                 for q, names in sorted(dup.items()):
                     msg += f"Вопрос {q}: {', '.join(names)}\n"
-                self._show_error_message("Ошибка валидации", msg)
+                MessageHelper.show_error(self, "Ошибка валидации", msg)
                 self.switch_settings_tab(2)
                 return
 
@@ -2260,7 +2261,7 @@ class SettingsWidget(QWidget):
         self.current_config = config
         if self.current_profile_name:
             self.profile_loaded_with_name.emit(self.current_profile_name, config)
-        self._show_success_message("Успех", "Профиль загружен!")
+        MessageHelper.show_success(self, "Успех", "Профиль загружен!")
 
     def _load_config(self, config):
         if "questions_count" in config: self.questions_spin.setValue(config["questions_count"])
@@ -2377,7 +2378,7 @@ class SettingsWidget(QWidget):
         name = self.level_name_edit.text().strip()
         boundary = self.level_boundary_spin.value()
         if not name:
-            self._show_error_message("Ошибка", "Введите название уровня.")
+            MessageHelper.show_error(self, "Ошибка", "Введите название уровня.")
             return
 
         if self.editing_level_name is not None:
@@ -2392,7 +2393,7 @@ class SettingsWidget(QWidget):
             # Проверка, нет ли уже такого же имени (на случай, если состояние сбилось)
             duplicate = any(lvl['name'] == name for lvl in self.levels_data)
             if duplicate:
-                self._show_error_message("Ошибка", "Уровень с таким названием уже существует. Измените название или нажмите «Редактировать уровень».")
+                MessageHelper.show_error(self, "Ошибка", "Уровень с таким названием уже существует. Измените название или нажмите «Редактировать уровень».")
                 return
             self.levels_data.append({'name': name, 'boundary': boundary})
 
@@ -2417,7 +2418,7 @@ class SettingsWidget(QWidget):
         name = self.level_name_edit.text().strip()
         boundary = self.level_boundary_spin.value()
         if not name:
-            self._show_error_message("Ошибка", "Введите название уровня.")
+            MessageHelper.show_error(self, "Ошибка", "Введите название уровня.")
             return
         for i, lvl in enumerate(self.levels_data):
             if lvl['boundary'] == boundary:
@@ -2442,7 +2443,7 @@ class SettingsWidget(QWidget):
     def _delete_level(self, level):
         """Удаление уровня."""
         if len(self.levels_data) <= 1:
-            self._show_error_message("Ошибка", "Должен быть хотя бы один уровень")
+            MessageHelper.show_error(self, "Ошибка", "Должен быть хотя бы один уровень")
             return
         self.levels_data.remove(level)
         self._refresh_levels_display()
@@ -2485,35 +2486,6 @@ class SettingsWidget(QWidget):
             self._refresh_scales_list()
 
     # ========== Вспомогательные ==========
-    def _show_error_message(self, title, message):
-        self._show_message_box(title, message, "error")
-
-    def _show_success_message(self, title, message):
-        self._show_message_box(title, message, "success")
-
-    def _show_message_box(self, title, message, msg_type="error"):
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(message)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg_box.setStyleSheet("""
-    QMessageBox { background-color: #FFFFFF; border-radius: 12px; }
-    QMessageBox QLabel { color: #000000; font-size: 14px; background-color: #FFFFFF; }
-    QPushButton { background-color: #3390EC; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 500; }
-    QPushButton:hover { background-color: #2B80D9; }
-""")
-        icon_label = QLabel()
-        if msg_type == "success":
-            pixmap = QPixmap("resources/icons/attention-circle.svg")
-        else:
-            pixmap = QPixmap("resources/icons/alert-triangle.svg")
-        if not pixmap.isNull():
-            icon_label.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-        else:
-            icon_label.setPixmap(self.style().standardIcon(QMessageBox.Icon.Warning).pixmap(48, 48))
-        layout = msg_box.layout()
-        layout.addWidget(icon_label, 0, 0, 1, 1, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        msg_box.exec()
 
     def select_folder(self):
         from PyQt6.QtWidgets import QFileDialog

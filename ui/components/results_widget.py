@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # ui/components/results_widget.py
+import openpyxl
 import pandas as pd
 import tempfile
 from pathlib import Path
@@ -616,9 +617,12 @@ class ResultsWidget(QWidget):
 
         # Автоподбор ширины
         self.table_view.resizeColumnsToContents()
+        # Минимальная ширина колонок (можно подобрать)
         for col in range(self.table_view.columnCount()):
-            if self.table_view.columnWidth(col) < 100:
-                self.table_view.setColumnWidth(col, 100)
+            self.table_view.setColumnWidth(col, max(150, self.table_view.columnWidth(col)))
+
+        # Дать последней колонке растянуться до конца
+        self.table_view.horizontalHeader().setStretchLastSection(True)
 
     def _update_selector_width(self):
         """Обновляет ширину selector под самый длинный текст"""
@@ -633,15 +637,19 @@ class ResultsWidget(QWidget):
         # Минимальная ширина 250px, максимальная 500px
         final_width = max(250, min(max_width, 500))
         self.selector_combo.setFixedWidth(final_width)
+        
 
     def _update_table_view(self):
-        """Обновляет таблицу с полными данными (как в Excel)"""
+        """Обновляет таблицу с условным форматированием"""
         if self.table_df is None or self.table_df.empty:
             return
 
         self.table_view.setRowCount(0)
         self.table_view.setColumnCount(len(self.table_df.columns))
         self.table_view.setHorizontalHeaderLabels([str(col) for col in self.table_df.columns])
+
+        # Включаем автоматический подбор ширины столбцов по содержимому
+        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         for row_idx, (_, row) in enumerate(self.table_df.iterrows()):
             self.table_view.insertRow(row_idx)
@@ -666,11 +674,8 @@ class ResultsWidget(QWidget):
                 
                 self.table_view.setItem(row_idx, col_idx, item)
 
-        # Автоподбор ширины
-        self.table_view.resizeColumnsToContents()
-        for col in range(self.table_view.columnCount()):
-            if self.table_view.columnWidth(col) < 100:
-                self.table_view.setColumnWidth(col, 100)
+        # Даём последней колонке растянуться на свободное место
+        self.table_view.horizontalHeader().setStretchLastSection(True)
 
     def open_in_excel(self):
         """Открывает данные в Microsoft Excel (полный файл как при экспорте)"""
@@ -747,47 +752,6 @@ class ResultsWidget(QWidget):
         except Exception as e:
             MessageHelper.show_error(self, "Ошибка", f"Не удалось сохранить график:\n{str(e)}")
 
-
-    def _update_table_view(self):
-        """Обновляет таблицу с условным форматированием"""
-        if self.table_df is None or self.table_df.empty:
-            return
-
-        self.table_view.setRowCount(0)
-        self.table_view.setColumnCount(len(self.table_df.columns))
-        self.table_view.setHorizontalHeaderLabels([str(col) for col in self.table_df.columns])
-
-        for row_idx, (_, row) in enumerate(self.table_df.iterrows()):
-            self.table_view.insertRow(row_idx)
-            for col_idx, (col_name, value) in enumerate(row.items()):
-                item = QTableWidgetItem(str(value) if pd.notna(value) else "")
-                
-                # Условное форматирование для шкал
-                if col_name.startswith('Шкала_'):
-                    value_str = str(value) if pd.notna(value) else ""
-                    
-                    # Выравнивание по центру
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                    
-                    # Цвет фона в зависимости от уровня
-                    if 'Низкий' in value_str:
-                        item.setBackground(QBrush(QColor('#E8F5E9')))
-                        item.setForeground(QBrush(QColor('#2E7D32')))
-                    elif 'Средний' in value_str:
-                        item.setBackground(QBrush(QColor('#FFF3E0')))
-                        item.setForeground(QBrush(QColor('#EF6C00')))
-                    elif 'Высокий' in value_str:
-                        item.setBackground(QBrush(QColor('#FFEBEE')))
-                        item.setForeground(QBrush(QColor('#C62828')))
-                
-                self.table_view.setItem(row_idx, col_idx, item)
-
-        # Автоподбор ширины колонок
-        self.table_view.resizeColumnsToContents()
-        for col in range(self.table_view.columnCount()):
-            current_width = self.table_view.columnWidth(col)
-            if current_width < 100:
-                self.table_view.setColumnWidth(col, 100)
 
     def clear_data(self):
         """Очищает данные из таблицы результатов."""
@@ -956,6 +920,28 @@ def _create_diagonal_header(ws, row, col, level_order, level_ru, scales_config):
     ws.row_dimensions[row].height = 37.50
     
     return cell
+
+def _auto_fit_columns(ws):
+    """Автоматически подгоняет ширину всех столбцов под содержимое."""
+    for col_cells in ws.columns:
+        max_length = 0
+        col_letter = None
+        for cell in col_cells:
+            if cell.value and not isinstance(cell, openpyxl.cell.cell.MergedCell):
+                # Вычисляем длину строки (кириллица может быть шире, добавляем запас)
+                try:
+                    length = len(str(cell.value))
+                    # Для кириллических символов коэффициент ~1.2
+                    adjusted = length * 1.2
+                    if adjusted > max_length:
+                        max_length = adjusted
+                except:
+                    pass
+                if col_letter is None:
+                    col_letter = get_column_letter(cell.column)
+        if col_letter:
+            # Устанавливаем ширину с небольшим запасом (минимум 8)
+            ws.column_dimensions[col_letter].width = max(max_length + 2, 8)
 
 
 def _write_analysis_table(ws, start_row, start_col, summary_data, total_respondents, 
@@ -1242,6 +1228,10 @@ def _write_all_respondents_sheet(ws, table_df, summary_data, level_order, level_
         scales_config=scales_config,
         group_name=None  # По всем респондентам - без названия группы
     )
+    
+    _auto_fit_columns(ws)
+    # Фиксированная ширина для колонки "Шкала/Уровень"
+    ws.column_dimensions[get_column_letter(summary_start_col)].width = 20.00   # ≈150px
 
 
 def _write_grouped_sheet(ws, table_df, summary_dict, group_by, level_order, level_ru, scales_config):
@@ -1345,6 +1335,10 @@ def _write_grouped_sheet(ws, table_df, summary_dict, group_by, level_order, leve
         
         # Отступ 4 строки перед следующей таблицей-анализ
         current_summary_row = end_row + 4
+        
+        _auto_fit_columns(ws)
+        # Фиксированная ширина для колонки "Шкала/Уровень"
+        ws.column_dimensions[get_column_letter(summary_start_col)].width = 20.00   # ≈150px
 
 
 def _build_overall_summary(table_df, level_order, level_ru, scales_config):

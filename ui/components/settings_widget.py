@@ -2333,7 +2333,7 @@ class SettingsWidget(QWidget):
             end = boundary
             display_data = {'name': level['name'], 'boundary': boundary, 'range_start': start, 'range_end': end}
             badge = LevelBadge(display_data, i, len(self.levels_data))
-            badge.edited.connect(lambda lvl=level, idx=i: self._edit_level(lvl, idx))
+            badge.edited.connect(lambda lvl=level: self._edit_level(lvl))
             badge.deleted.connect(lambda lvl=level: self._delete_level(lvl))
             self.levels_layout.addWidget(badge)
             prev_boundary = boundary
@@ -2403,16 +2403,19 @@ class SettingsWidget(QWidget):
         self._refresh_levels_display()
         self._update_levels_ui_state()
         
-    def _edit_level(self, level, index):
+    def _edit_level(self, level_data):
         """Редактирование уровня через диалог (по двойному клику)."""
-        dlg = EditLevelDialog(level['name'], level['boundary'], self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            new_name, new_boundary = dlg.get_data()
-            if new_name and new_boundary > 0:
-                level['name'] = new_name
-                level['boundary'] = new_boundary
-                self.levels_data.sort(key=lambda x: x['boundary'])
-                self._refresh_levels_display()
+        for lvl in self.levels_data:
+            if lvl['name'] == level_data['name'] and lvl['boundary'] == level_data['boundary']:
+                dlg = EditLevelDialog(lvl['name'], lvl['boundary'], self)
+                if dlg.exec() == QDialog.DialogCode.Accepted:
+                    new_name, new_boundary = dlg.get_data()
+                    if new_name and new_boundary > 0:
+                        lvl['name'] = new_name
+                        lvl['boundary'] = new_boundary
+                        self.levels_data.sort(key=lambda x: x['boundary'])
+                        self._refresh_levels_display()
+                break
 
     def _add_level_from_form(self):
         name = self.level_name_edit.text().strip()

@@ -1,49 +1,26 @@
 # utils/resources.py
-"""
-Модуль для получения абсолютных путей к ресурсам.
-Решает проблему с относительными путями при смене рабочей директории.
-"""
+import sys
+import os
 from pathlib import Path
 
-
-# Базовый путь - корень проекта (где находится main.py)
-BASE_DIR = Path(__file__).parent.parent
-
-
-def get_resource_path(*args):
-    """
-    Получить абсолютный путь к ресурсу.
-    
-    Args:
-        *args: Части пути относительно папки resources
-        
-    Returns:
-        Path: Абсолютный путь к файлу ресурса
-    """
-    return BASE_DIR / "resources" / str(Path(*args))
-
+def get_resource_path(relative_path):
+    """Абсолютный путь к ресурсу (работает и в EXE, и при обычном запуске)."""
+    if getattr(sys, 'frozen', False):
+        # Запущено как EXE – временная папка PyInstaller
+        base_path = Path(sys._MEIPASS)
+    else:
+        # Обычный запуск – корень проекта
+        base_path = Path(__file__).parent.parent
+    return base_path / relative_path
 
 def get_icon_path(icon_name):
-    """
-    Получить путь к иконке.
-    
-    Args:
-        icon_name: Имя файла иконки (например, "upload.svg")
-        
-    Returns:
-        str: Абсолютный путь к иконке
-    """
-    return str(get_resource_path("icons", icon_name))
+    """Возвращает абсолютный путь к иконке."""
+    return str(get_resource_path(f"resources/icons/{icon_name}"))
 
+def get_icon_url(icon_name):
+    """Возвращает путь к иконке для использования в QSS: url('...')."""
+    return f'url("{get_icon_path(icon_name)}")'
 
 def get_font_path(font_name):
-    """
-    Получить путь к шрифту.
-    
-    Args:
-        font_name: Имя файла шрифта (например, "Vollkorn.ttf")
-        
-    Returns:
-        str: Абсолютный путь к шрифту
-    """
-    return str(get_resource_path("fonts", font_name))
+    """Возвращает абсолютный путь к шрифту."""
+    return str(get_resource_path(f"resources/fonts/{font_name}"))

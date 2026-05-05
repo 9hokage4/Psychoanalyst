@@ -4,13 +4,14 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedWidget, QLabel, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QIcon
 import pandas as pd
 
 from ui.components.nav_button import NavButton
 from ui.components.upload_widget import UploadWidget
 from ui.components.results_widget import ResultsWidget
 from ui.components.settings_widget import SettingsWidget  # исправлен импорт
+from utils.resources import get_icon_path
 
 # Параметры навигационной панели
 NAV_PANEL_PARAMS = {
@@ -26,6 +27,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Psychoanalyst")
         self.setMinimumSize(1200, 800)
+        self.setWindowIcon(QIcon(get_icon_path("app_icon")))
 
         # Центральный виджет
         central_widget = QWidget()
@@ -65,10 +67,10 @@ class MainWindow(QMainWindow):
         # Кнопки
         self.nav_buttons = []
         btn_data = [
-            ("resources/icons/upload.svg", "Загрузка"),
-            ("resources/icons/settings.svg", "Настройки"),  # иконка настроек (замените при необходимости)
-            ("resources/icons/chart-line.svg", "Результаты")
-        ]
+    (get_icon_path("upload.svg"), "Загрузка"),
+    (get_icon_path("settings.svg"), "Настройки"),
+    (get_icon_path("result.svg"), "Результаты")
+]
         for icon, text in btn_data:
             btn = NavButton(icon, text)
             btn.setStyleSheet("background-color: transparent")

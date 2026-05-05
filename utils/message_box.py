@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import QMessageBox, QLabel
 from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6.QtCore import Qt
-
+from utils.resources import get_icon_path
 class MessageHelper:
     @staticmethod
     def show_error(parent, title, message):
@@ -25,9 +25,9 @@ class MessageHelper:
 
         # Устанавливаем иконку в заголовке окна
         if msg_type == "success":
-            msg_box.setWindowIcon(QIcon("resources/icons/success.svg"))
+            msg_box.setWindowIcon(QIcon(get_icon_path("success.svg")))
         elif msg_type == "error":
-            msg_box.setWindowIcon(QIcon("resources/icons/error.svg"))
+            msg_box.setWindowIcon(QIcon(get_icon_path("error.svg")))
         else:
             # можно использовать любую дефолтную иконку
             msg_box.setWindowIcon(QIcon())
@@ -42,9 +42,9 @@ class MessageHelper:
         # Иконка рядом с текстом (оставляем как было)
         icon_label = QLabel()
         if msg_type == "success":
-            pixmap = QPixmap("resources/icons/attention-circle.svg")
+            pixmap = QPixmap(get_icon_path("attention-circle.svg"))
         else:
-            pixmap = QPixmap("resources/icons/alert-triangle.svg")
+            pixmap = QPixmap(get_icon_path("alert-triangle.svg"))
         if not pixmap.isNull():
             icon_label.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:

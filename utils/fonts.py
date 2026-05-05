@@ -127,12 +127,10 @@ def load_fonts() -> bool:
     for font_file in fonts_dir.glob("*.ttf"):
         font_id = QFontDatabase.addApplicationFont(str(font_file.absolute()))
         if font_id == -1:
-            print(f"❌ Не удалось загрузить шрифт: {font_file.name}")
             success = False
         else:
             families = QFontDatabase.applicationFontFamilies(font_id)
-            if families:
-                print(f"✅ Загружен шрифт: {font_file.name} ({families[0]})")
+            
     
     return success
 

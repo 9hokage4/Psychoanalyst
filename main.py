@@ -4,6 +4,13 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFont
 from ui.main_window import MainWindow
 from utils.fonts import load_fonts, get_font, get_font_family
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QGuiApplication
+
+# Для PyQt6 достаточно только этой строки (автоматически включает High DPI)
+QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+    Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+)
 
 
 def main():

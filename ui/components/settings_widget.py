@@ -93,9 +93,15 @@ class EditLevelDialog(QDialog):
     """Диалог редактирования уровня."""
     def __init__(self, name="", boundary=0, parent=None):
         super().__init__(parent)
+        self.setWindowIcon(QIcon(get_icon_path("settings-for-dialog.svg")))
         self.setWindowTitle("Редактирование уровня")
         self.setModal(True)
         self.setMinimumWidth(400)
+        
+        self.setStyleSheet("""
+                           QWidget { background-color: #FFFFFF; }
+            QDialog { background-color: #FFFFFF; border-radius: 12px; }
+        """)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -500,7 +506,7 @@ class ScaleItem(QWidget):
 
         levels_title = QLabel("Уровни:")
         levels_title.setFont(get_font("caption"))
-        levels_title.setStyleSheet("color: #000000; font-weight: 500; margin-bottom: 4px; border: none;")
+        levels_title.setStyleSheet("color: #000000; font-weight: 600; font-size: 28px; margin-bottom: 4px; border: none;")
         layout.addWidget(levels_title)
 
         self.levels_scroll = QScrollArea()
@@ -570,7 +576,7 @@ class ScaleItem(QWidget):
 
         questions_title = QLabel("Вопросы для шкалы:")
         questions_title.setFont(get_font("caption"))
-        questions_title.setStyleSheet("color: #000000; font-weight: 500; margin: 8px 0 4px 0; border: none;")
+        questions_title.setStyleSheet("color: #000000; font-weight: 600; font-size: 28; margin: 8px 0 4px 0; border: none;")
         layout.addWidget(questions_title)
 
         self.questions_container = QWidget()
@@ -764,56 +770,264 @@ class ScaleLevelWidget(QWidget):
         self.label.setText(text)
 
 
-class AddLevelToScaleDialog(QDialog):
-    """Диалог добавления нового уровня (имя + граница) для шкалы."""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Добавить уровень")
+class AddLevelsToScaleDialog(QDialog):
+    """Диалог добавления уровней к шкале: существующие и создание нового."""
+    def __init__(self, parent_scale_dialog=None):
+        super().__init__(parent_scale_dialog)
+        self.setWindowIcon(QIcon(get_icon_path("settings-for-dialog.svg")))
+        self.parent_scale_dialog = parent_scale_dialog
+        self.setWindowTitle("Добавить уровни")
         self.setModal(True)
-        self.setMinimumWidth(350)
+        self.setMinimumWidth(550)
+        self.setStyleSheet("""
+            QWidget { background-color: #FFFFFF; }
+            QDialog {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+            }
+            QLabel#section_title {
+                font-size: 24px;
+                font-weight: 600;
+                color: #000000;
+            }
+            QLabel#label {
+                font-size: 14px;
+                color: #707579;
+                margin: 0;
+                padding: 0;
+            }
+            QLineEdit, QSpinBox {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 16px;
+                background-color: white;
+            }
+            QLineEdit:focus, QSpinBox:focus {
+                border-color: #3390EC;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 20px;
+                border: none;
+                background: transparent;
+            }
+            QPushButton {
+                font-size: 16px;
+                font-weight: 500;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }
+        """)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
 
-        layout.addWidget(QLabel("Название уровня:"))
-        self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("например, Очень высокий")
-        layout.addWidget(self.name_edit)
+        # --- Доступные существующие уровни (не добавленные) ---
+        available_title = QLabel("Доступные уровни")
+        available_title.setObjectName("section_title")
+        layout.addWidget(available_title)
 
-        layout.addWidget(QLabel("Верхняя граница (баллов):"))
-        self.boundary_spin = QSpinBox()
-        self.boundary_spin.setRange(1, 10000)
-        self.boundary_spin.setValue(50)
-        layout.addWidget(self.boundary_spin)
+        self.available_list = QWidget()
+        self.available_layout = QVBoxLayout(self.available_list)
+        self.available_layout.setContentsMargins(0, 0, 0, 0)
+        self.available_layout.setSpacing(6)
 
+        scroll_avail = QScrollArea()
+        scroll_avail.setWidgetResizable(True)
+        scroll_avail.setWidget(self.available_list)
+        scroll_avail.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_avail.setMaximumHeight(150)
+        scroll_avail.setStyleSheet("QScrollArea { border: none; }")
+        layout.addWidget(scroll_avail)
+
+        self.add_selected_btn = QPushButton("Добавить выбранные")
+        self.add_selected_btn.setStyleSheet("""
+            QPushButton { background-color: #3390EC; color: white; }
+            QPushButton:hover { background-color: #2B80D9; }
+        """)
+        self.add_selected_btn.clicked.connect(self._add_selected_levels)
+        layout.addWidget(self.add_selected_btn)
+
+        # --- Разделитель ---
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet("background-color: #DFE1E5; max-height: 1px;")
+        layout.addWidget(line)
+
+        # --- Создание нового уровня ---
+        new_title = QLabel("Создать новый уровень")
+        new_title.setObjectName("section_title")
+        layout.addWidget(new_title)
+
+        form_layout = QHBoxLayout()
+        form_layout.setSpacing(10)
+        self.new_name_edit = QLineEdit()
+        self.new_name_edit.setPlaceholderText("Название")
+        self.new_boundary_spin = QSpinBox()
+        self.new_boundary_spin.setRange(1, 10000)
+        self.new_boundary_spin.setValue(50)
+        form_layout.addWidget(self.new_name_edit, 1)
+        form_layout.addWidget(self.new_boundary_spin, 1)
+        layout.addLayout(form_layout)
+
+        create_btn = QPushButton("Создать и добавить")
+        create_btn.setStyleSheet("""
+            QPushButton { background-color: #3390EC; color: white; }
+            QPushButton:hover { background-color: #2B80D9; }
+        """)
+        create_btn.clicked.connect(self._create_and_add)
+        layout.addWidget(create_btn)
+
+        # Нижние кнопки диалога
         btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("Добавить")
+        btn_layout.addStretch()
+        ok_btn = QPushButton("Готово")
+        ok_btn.setStyleSheet("""
+            QPushButton { background-color: #3390EC; color: white; }
+            QPushButton:hover { background-color: #2B80D9; }
+        """)
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Отмена")
+        cancel_btn.setStyleSheet("""
+            QPushButton { background-color: #FFFFFF; color: #3390EC; border: 1px solid #3390EC; }
+            QPushButton:hover { background-color: #F5F5F5; }
+        """)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
 
-    def get_data(self):
-        return self.name_edit.text().strip(), self.boundary_spin.value()
+        # Заполняем список доступных уровней
+        self._populate_available_levels()
+
+    def _populate_available_levels(self):
+        """Заполняет список уровней, которые ещё не добавлены в текущую шкалу."""
+        # Очищаем
+        while self.available_layout.count():
+            item = self.available_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        parent = self.parent_scale_dialog
+        if not parent or not hasattr(parent.parent_dialog, 'levels_data'):
+            self.available_list.setVisible(False)
+            self.add_selected_btn.setVisible(False)
+            return
+
+        all_levels = parent.parent_dialog.levels_data
+        current_names = {lvl['name'] for lvl in parent.selected_levels}
+        self.checkboxes = []
+        any_available = False
+
+        for lvl in all_levels:
+            if lvl['name'] not in current_names:
+                any_available = True
+                chk = QCheckBox(f"{lvl['name']} (до {lvl['boundary']} баллов)")
+                chk.setStyleSheet("font-size: 14px; color: #000000;")
+                chk.level_data = lvl
+                self.available_layout.addWidget(chk)
+                self.checkboxes.append(chk)
+
+        self.available_list.setVisible(any_available)
+        self.add_selected_btn.setVisible(any_available)
+
+    def _add_selected_levels(self):
+        """Добавляет выбранные уровни к шкале."""
+        parent = self.parent_scale_dialog
+        if not parent:
+            return
+        for chk in self.checkboxes:
+            if chk.isChecked():
+                lvl = chk.level_data
+                # Создаём запись уровня для шкалы с range_start/range_end
+                # Уже имеющиеся уровни шкалы будут пересчитаны позже
+                parent.selected_levels.append({
+                    'name': lvl['name'],
+                    'boundary': lvl['boundary'],
+                    'range_start': 0,
+                    'range_end': lvl['boundary']
+                })
+        parent._refresh_levels_display()
+        self._populate_available_levels()
+
+    def _create_and_add(self):
+        """Создаёт новый глобальный уровень и добавляет его к шкале."""
+        name = self.new_name_edit.text().strip()
+        boundary = self.new_boundary_spin.value()
+        if not name:
+            QMessageBox.warning(self, "Ошибка", "Введите название уровня.")
+            return
+
+        parent = self.parent_scale_dialog
+        if parent and hasattr(parent.parent_dialog, 'levels_data'):
+            global_levels = parent.parent_dialog.levels_data
+            # Добавляем в глобальный список, если такого имени ещё нет
+            if not any(l['name'] == name for l in global_levels):
+                global_levels.append({'name': name, 'boundary': boundary})
+                parent.parent_dialog._refresh_levels_display()
+            else:
+                # Обновляем границу, если уровень с таким именем уже есть
+                for lvl in global_levels:
+                    if lvl['name'] == name:
+                        lvl['boundary'] = boundary
+                        break
+
+            # Добавляем в шкалу
+            parent.selected_levels.append({
+                'name': name,
+                'boundary': boundary,
+                'range_start': 0,
+                'range_end': boundary
+            })
+            parent._refresh_levels_display()
+
+        self.new_name_edit.clear()
+        self.new_boundary_spin.setValue(50)
+        self._populate_available_levels()
 
 
 class AddScaleDialog(QDialog):
     """Диалог добавления/редактирования шкалы с редактируемыми уровнями."""
     def __init__(self, parent=None, scale_data=None):
         super().__init__(parent)
+        self.setWindowIcon(QIcon(get_icon_path("settings-for-dialog.svg")))
         self.parent_dialog = parent
         self.scale_data = scale_data or {}
         self.setWindowTitle("Добавить шкалу" if not scale_data else "Редактировать шкалу")
         self.setModal(True)
         self.setMinimumWidth(500)
         self.setStyleSheet("""
+            QWidget { background-color: #FFFFFF; }
             QDialog {
                 background-color: #FFFFFF;
                 border-radius: 12px;
             }
-            QLabel {
+            QLabel#label {
+                font-size: 24px;
+                font-weight: 500;
                 color: #000000;
+            }
+            QLineEdit, QSpinBox {
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 16px;
+                background-color: white;
+            }
+            QLineEdit:focus, QSpinBox:focus {
+                border-color: #3390EC;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 20px;
+                border: none;
+                background: transparent;
+            }
+            QPushButton {
+                font-size: 16px;
+                font-weight: 500;
+                border-radius: 8px;
+                padding: 8px 16px;
             }
         """)
 
@@ -823,28 +1037,16 @@ class AddScaleDialog(QDialog):
 
         # Название шкалы
         name_label = QLabel("Название шкалы:")
-        name_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579;")
+        name_label.setObjectName("label")
         self.name_edit = QLineEdit(self.scale_data.get("name", ""))
         self.name_edit.setPlaceholderText("например, 'Тревожность'")
-        self.name_edit.setFixedHeight(40)
-        self.name_edit.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #DFE1E5;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 18px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #3390EC;
-            }
-        """)
+        self.name_edit.setFixedHeight(36)
         layout.addWidget(name_label)
         layout.addWidget(self.name_edit)
 
         # Вопросы
         questions_label = QLabel("Вопросы:")
-        questions_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579;")
+        questions_label.setObjectName("label")
         self.questions_edit = QLineEdit()
         if "questions" in self.scale_data:
             q_list = sorted(self.scale_data["questions"])
@@ -862,25 +1064,13 @@ class AddScaleDialog(QDialog):
                 ranges.append(f"{start}-{end}" if start != end else str(start))
                 self.questions_edit.setText(", ".join(ranges))
         self.questions_edit.setPlaceholderText("Пример: 1-20, 25, 30-40")
-        self.questions_edit.setFixedHeight(40)
-        self.questions_edit.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #DFE1E5;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 18px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #3390EC;
-            }
-        """)
+        self.questions_edit.setFixedHeight(36)
         layout.addWidget(questions_label)
         layout.addWidget(self.questions_edit)
 
         # Уровни
         levels_label = QLabel("Уровни:")
-        levels_label.setStyleSheet("font-size: 17px; font-weight: 500; color: #707579; margin-top: 8px;")
+        levels_label.setObjectName("label")
         layout.addWidget(levels_label)
 
         self.levels_container = QWidget()
@@ -891,23 +1081,9 @@ class AddScaleDialog(QDialog):
 
         add_level_btn = QPushButton("+ Добавить уровень")
         add_level_btn.setFixedHeight(32)
-        add_level_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        font_metrics = add_level_btn.fontMetrics()
-        text_width = font_metrics.horizontalAdvance(add_level_btn.text())
-        add_level_btn.setFixedWidth(text_width + 40)
         add_level_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 17px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
+            QPushButton { background-color: #3390EC; color: white; }
+            QPushButton:hover { background-color: #2B80D9; }
         """)
         add_level_btn.clicked.connect(self._add_new_level)
         layout.addWidget(add_level_btn, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -917,38 +1093,16 @@ class AddScaleDialog(QDialog):
         btn_layout.addStretch()
 
         self.save_btn = QPushButton("Сохранить")
-        self.save_btn.setFixedHeight(36)
         self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
+            QPushButton { background-color: #3390EC; color: white; }
+            QPushButton:hover { background-color: #2B80D9; }
         """)
         self.save_btn.clicked.connect(self._validate_and_accept)
 
         self.cancel_btn = QPushButton("Отмена")
-        self.cancel_btn.setFixedHeight(36)
         self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                color: #3390EC;
-                border: 1px solid #3390EC;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #F5F5F5;
-            }
+            QPushButton { background-color: #FFFFFF; color: #3390EC; border: 1px solid #3390EC; }
+            QPushButton:hover { background-color: #F5F5F5; }
         """)
         self.cancel_btn.clicked.connect(self.reject)
 
@@ -1004,18 +1158,8 @@ class AddScaleDialog(QDialog):
         self.levels_layout.addStretch()
 
     def _add_new_level(self):
-        dialog = AddLevelToScaleDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            name, boundary = dialog.get_data()
-            if name and boundary > 0:
-                new_level = {
-                    'name': name,
-                    'boundary': boundary,
-                    'range_start': 0,
-                    'range_end': 0
-                }
-                self.selected_levels.append(new_level)
-                self._refresh_levels_display()
+        dialog = AddLevelsToScaleDialog(self)
+        dialog.exec()
 
     def _edit_level(self, level_data):
         dialog = EditLevelDialog(level_data['name'], level_data['boundary'], self)
@@ -1748,17 +1892,19 @@ class SettingsWidget(QWidget):
         line_layout.addWidget(line)
         layout.addWidget(line_container)
 
+        # Scroll area с возможностью регулировки ширины
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("""
-            QScrollArea { background-color: #F5F5F5; border: none; border-radius: 12px; }
+            QScrollArea { background-color: transparent; border: none; }
             QScrollBar:vertical { background-color: transparent; width: 10px; border-radius: 5px; }
             QScrollBar::handle:vertical { background-color: #C4C9CC; border-radius: 5px; min-height: 40px; }
             QScrollBar::handle:vertical:hover { background-color: #A0A5A9; }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
         """)
+
         self.scales_container = QWidget()
         self.scales_container.setStyleSheet("background-color: transparent;")
         self.scales_layout = QVBoxLayout(self.scales_container)
@@ -1766,7 +1912,14 @@ class SettingsWidget(QWidget):
         self.scales_layout.setSpacing(12)
         self.scales_layout.addStretch()
         scroll.setWidget(self.scales_container)
-        layout.addWidget(scroll, 1)
+
+        # --- Управление шириной ---
+        # Для экспериментов меняйте число здесь (например, 600, 900, 1200)
+        scroll.setFixedWidth(900)
+
+        # Центрируем scroll внутри родительского layout'а
+        layout.addWidget(scroll, alignment=Qt.AlignmentFlag.AlignHCenter)
+
         self._refresh_scales_list()
         return tab
 
@@ -2344,11 +2497,11 @@ class SettingsWidget(QWidget):
         msg_box.setText(message)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.setStyleSheet("""
-            QMessageBox { background-color: #FFFFFF; border-radius: 12px; }
-            QMessageBox QLabel { color: #000000; font-size: 14px; }
-            QPushButton { background-color: #3390EC; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 500; }
-            QPushButton:hover { background-color: #2B80D9; }
-        """)
+    QMessageBox { background-color: #FFFFFF; border-radius: 12px; }
+    QMessageBox QLabel { color: #000000; font-size: 14px; background-color: #FFFFFF; }
+    QPushButton { background-color: #3390EC; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 500; }
+    QPushButton:hover { background-color: #2B80D9; }
+""")
         icon_label = QLabel()
         if msg_type == "success":
             pixmap = QPixmap("resources/icons/attention-circle.svg")

@@ -4,13 +4,14 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QStackedWidget, QLabel, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QIcon
 import pandas as pd
 
 from ui.components.nav_button import NavButton
 from ui.components.upload_widget import UploadWidget
 from ui.components.results_widget import ResultsWidget
 from ui.components.settings_widget import SettingsWidget  # исправлен импорт
+from utils.resources import get_icon_path
 
 # Параметры навигационной панели
 NAV_PANEL_PARAMS = {
@@ -26,6 +27,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Psychoanalyst")
         self.setMinimumSize(1200, 800)
+        self.setWindowIcon(QIcon(get_icon_path("app_icon")))
 
         # Центральный виджет
         central_widget = QWidget()

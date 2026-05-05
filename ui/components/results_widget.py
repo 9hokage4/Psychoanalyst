@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, Color
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -20,8 +20,6 @@ from utils.fonts import get_font, FontWeights
 from ui.components.results_nav_button import ResultsNavButton
 from utils.excel_export import ExcelExporter, open_excel_file
 from utils.folder_manager import FolderManager
-import tempfile
-import os
 
 from utils.message_box import MessageHelper
 
@@ -61,7 +59,6 @@ class ResultsWidget(QWidget):
         self.excel_exporter = ExcelExporter()  # Экспортёр Excel
         self.output_folder_path = ""  # Путь к папке вывода (из настроек)
         self.folder_manager = FolderManager()  # Менеджер папок
-        self._last_error_message = ""  # Для отслеживания дубликатов ошибок
         self.setup_ui()
         self._load_processed_data()
         self._load_output_folder()  # Загружаем путь к папке

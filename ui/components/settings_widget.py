@@ -2433,15 +2433,6 @@ class SettingsWidget(QWidget):
         self._refresh_levels_display()
         self.level_name_edit.clear()
 
-    def _edit_level(self, level, index):
-        dlg = EditLevelDialog(level['name'], level['boundary'], self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            new_name, new_boundary = dlg.get_data()
-            if new_name and new_boundary > 0:
-                level['name'] = new_name
-                level['boundary'] = new_boundary
-                self.levels_data.sort(key=lambda x: x['boundary'])
-                self._refresh_levels_display()
 
     def _delete_level(self, level):
         """Удаление уровня."""
@@ -2534,18 +2525,6 @@ class SettingsWidget(QWidget):
 
         self.folder_path_label.setText(f"📁 {test_folder}")
 
-    def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
-        import json
-        from datetime import datetime
-        debug = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "scales_config": scales_config,
-            "level_order": level_order,
-            "level_ru": level_ru,
-            "answer_weights": answer_weights
-        }
-        with open("debug_config.json", "w", encoding="utf-8") as f:
-            json.dump(debug, f, indent=2, ensure_ascii=False)
 
     def set_config(self, config):
         self.config = config

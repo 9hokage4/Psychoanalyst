@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPixmap
+from utils.message_box import MessageHelper
 from utils.profile_manager import ProfileManager
 from utils.fonts import get_font, FontWeights
 
@@ -123,65 +124,6 @@ class ProfileDialog(QDialog):
 
         self.setLayout(main_layout)
 
-    def _show_error_message(self, title, message):
-        """Показывает сообщение об ошибке в стиле SettingsDialog."""
-        self._show_message_box(title, message, "error")
-    
-    def _show_success_message(self, title, message):
-        """Показывает сообщение об успехе в стиле SettingsDialog."""
-        self._show_message_box(title, message, "success")
-    
-    def _show_message_box(self, title, message, msg_type="error"):
-        """Показывает сообщение в стиле SettingsDialog."""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(message)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        
-        # Стиль для кнопок QMessageBox
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background-color: #FFFFFF;
-                border-radius: 12px;
-            }
-            QMessageBox QLabel {
-                color: #000000;
-                font-size: 14px;
-            }
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
-            QPushButton:pressed {
-                background-color: #1E6BC5;
-            }
-        """)
-        
-        icon_label = QLabel()
-        if msg_type == "success":
-            icon_pixmap = QPixmap("resources/icons/attention-circle.svg")
-        else:
-            icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
-        
-        if not icon_pixmap.isNull():
-            icon_label.setPixmap(icon_pixmap.scaled(48, 48,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation))
-        else:
-            icon_label.setPixmap(self.style().standardIcon(
-                QMessageBox.Style.Warning).pixmap(48, 48))
-        layout = msg_box.layout()
-        layout.addWidget(icon_label, 0, 0, 1, 1,
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        msg_box.exec()
     
     def load_profiles_list(self):
         self.profiles_list.clear()
@@ -199,7 +141,7 @@ class ProfileDialog(QDialog):
         profile_name = self.profile_name_input.text().strip()
 
         if not profile_name:
-            self._show_error_message("Ошибка", "Введите имя профиля")
+            MessageHelper.show_error(self,"Ошибка", "Введите имя профиля")
             return
 
         if self.profile_manager.profile_exists(profile_name):
@@ -213,25 +155,25 @@ class ProfileDialog(QDialog):
                 return
 
         if self.current_config is None:
-            self._show_error_message("Ошибка", "Нет текущей конфигурации для сохранения")
+            MessageHelper.show_error(self,"Ошибка", "Нет текущей конфигурации для сохранения")
             return
 
         success = self.profile_manager.save_profile(profile_name, self.current_config)
 
         if success:
-            self._show_success_message("Успех", f"Профиль '{profile_name}' сохранён!")
+            MessageHelper.show_success(self, "Успех", f"Профиль '{profile_name}' сохранён!")
             self.profile_name_input.clear()
             self.load_profiles_list()
             # Отправляем сигнал с именем сохраненного профиля
             self.profile_saved_with_name.emit(profile_name)
         else:
-            self._show_error_message("Ошибка", "Не удалось сохранить профиль")
+            MessageHelper.show_error(self,"Ошибка", "Не удалось сохранить профиль")
 
     def on_load_profile(self):
         current_item = self.profiles_list.currentItem()
 
         if not current_item:
-            self._show_error_message("Ошибка", "Выберите профиль для загрузки")
+            MessageHelper.show_error(self,"Ошибка", "Выберите профиль для загрузки")
             return
 
         profile_name = current_item.data(Qt.ItemDataRole.UserRole)
@@ -241,13 +183,13 @@ class ProfileDialog(QDialog):
             self.profile_loaded.emit(config)
             self.accept()
         else:
-            self._show_error_message("Ошибка", f"Не удалось загрузить профиль '{profile_name}'")
+            MessageHelper.show_error(self,"Ошибка", f"Не удалось загрузить профиль '{profile_name}'")
 
     def on_delete_profile(self):
         current_item = self.profiles_list.currentItem()
 
         if not current_item:
-            self._show_error_message("Ошибка", "Выберите профиль для удаления")
+            MessageHelper.show_error(self,"Ошибка", "Выберите профиль для удаления")
             return
 
         profile_name = current_item.data(Qt.ItemDataRole.UserRole)
@@ -263,7 +205,7 @@ class ProfileDialog(QDialog):
             success = self.profile_manager.delete_profile(profile_name)
 
             if success:
-                self._show_success_message("Успех", f"Профиль '{profile_name}' удалён!")
+                MessageHelper.show_success(self, "Успех", f"Профиль '{profile_name}' удалён!")
                 self.load_profiles_list()
             else:
-                self._show_error_message("Ошибка", "Не удалось удалить профиль")
+                MessageHelper.show_error(self,"Ошибка", "Не удалось удалить профиль")

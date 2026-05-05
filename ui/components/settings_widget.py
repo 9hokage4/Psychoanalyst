@@ -1213,7 +1213,7 @@ class SettingsWidget(QWidget):
             }
         """)
         content_inner = QVBoxLayout(content_panel)
-        content_inner.setContentsMargins(24, 24, 24, 24)
+        content_inner.setContentsMargins(12, 12, 12, 12)
         content_inner.setSpacing(16)
 
         self.stacked = QStackedWidget()
@@ -1550,57 +1550,47 @@ class SettingsWidget(QWidget):
 
     def _create_levels_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(0)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(12, 0, 12, 0)
+        main_layout.setSpacing(0)
 
-        title_label = QLabel("Активные уровни")
-        title_label.setStyleSheet("color: #000000; font-size: 18px; font-weight: 600;")
-        layout.addWidget(title_label)
-        layout.addSpacing(8)
+        # ---- растяжка сверху (центрирование по вертикали) ----
+        main_layout.addStretch()
 
-        self.levels_container = QWidget()
-        self.levels_container.setMinimumHeight(36)
-        self.levels_container.setStyleSheet("background-color: transparent")
-        self.levels_layout = QFlowLayout(self.levels_container)
-        self.levels_layout.setContentsMargins(0, 0, 0, 0)
-        self.levels_layout.setSpacing(6)
+        # Контейнер с двумя колонками
+        cols_layout = QHBoxLayout()
+        cols_layout.setContentsMargins(0, 0, 0, 0)
+        cols_layout.setSpacing(16)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.levels_container)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMaximumHeight(150)
-        scroll.setMinimumWidth(400)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        scroll.setStyleSheet("""
-            QScrollArea { border: none; background: transparent; }
-            QScrollBar:vertical { background-color: #F0F0F0; width: 8px; border-radius: 4px; }
-            QScrollBar::handle:vertical { background-color: #C4C9CC; border-radius: 4px; min-height: 30px; }
-            QScrollBar::handle:vertical:hover { background-color: #A0A5A9; }
-            QScrollBar:horizontal { background-color: #F0F0F0; height: 8px; border-radius: 4px; }
-            QScrollBar::handle:horizontal { background-color: #C4C9CC; border-radius: 4px; min-width: 30px; }
-            QScrollBar::handle:horizontal:hover { background-color: #A0A5A9; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { height: 0px; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-        """)
-        layout.addWidget(scroll)
-        layout.addSpacing(16)
+        # ---------- Левая колонка (форма) ----------
+        left_col = QVBoxLayout()
+        left_col.setSpacing(2)   # небольшой отступ между заголовком и рамкой
 
-        form_frame = QFrame()
-        form_frame.setStyleSheet("""
-            QFrame { background-color: #F8F9FA; border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px; }
-        """)
-        form_layout = QVBoxLayout(form_frame)
-        form_layout.setSpacing(6)
-
+        # Заголовок
         form_title = QLabel("Настройка уровня")
-        form_title.setStyleSheet("color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 0px; border: none; background: transparent;")
-        form_title.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        form_layout.addWidget(form_title)
+        form_title.setFont(get_font("section_title"))
+        form_title.setStyleSheet("color: #000000; font-weight: 600; margin: 0; border: none;")
+        left_col.addWidget(form_title)
 
-        fields_layout = QHBoxLayout()
-        fields_layout.setSpacing(10)
+        # Рамка формы
+        form_frame = QFrame()
+        form_frame.setObjectName("level_form_frame")
+        form_frame.setStyleSheet("""
+            QFrame#level_form_frame {
+                background-color: #F8F9FA;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+            }
+        """)
+        form_frame.setFixedHeight(400)   # фиксированная высота
+        form_inner = QVBoxLayout(form_frame)
+        form_inner.setContentsMargins(16, 16, 16, 16)
+        form_inner.setSpacing(12)
+
+        # Название уровня
+        name_label = QLabel("Название уровня")
+        name_label.setFont(get_font("form_label"))
+        name_label.setStyleSheet("color: #707579;")
         self.level_name_edit = QLineEdit()
         self.level_name_edit.setPlaceholderText("Название уровня")
         self.level_name_edit.setFixedHeight(40)
@@ -1608,8 +1598,13 @@ class SettingsWidget(QWidget):
             QLineEdit { border: 1px solid #DFE1E5; border-radius: 8px; padding: 6px 12px; font-size: 18px; background-color: white; }
             QLineEdit:focus { border-color: #3390EC; }
         """)
-        fields_layout.addWidget(self.level_name_edit, 1)
+        form_inner.addWidget(name_label)
+        form_inner.addWidget(self.level_name_edit)
 
+        # Верхняя граница
+        bound_label = QLabel("Верхняя граница (баллов)")
+        bound_label.setFont(get_font("form_label"))
+        bound_label.setStyleSheet("color: #707579;")
         self.level_boundary_spin = QSpinBox()
         self.level_boundary_spin.setRange(1, 10000)
         self.level_boundary_spin.setValue(10)
@@ -1621,28 +1616,99 @@ class SettingsWidget(QWidget):
             QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
             QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
         """)
-        fields_layout.addWidget(self.level_boundary_spin, 1)
-        form_layout.addLayout(fields_layout)
+        form_inner.addWidget(bound_label)
+        form_inner.addWidget(self.level_boundary_spin)
 
-        add_btn = QPushButton("+ Добавить уровень")
-        add_btn.setFixedHeight(36)
-        add_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        fm = add_btn.fontMetrics()
-        add_btn.setFixedWidth(fm.horizontalAdvance(add_btn.text()) + 60)
-        add_btn.setStyleSheet("""
-            QPushButton { background-color: #3390EC; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 18px; font-weight: 500; }
+        # Кнопка (добавить / редактировать)
+        self.level_action_btn = QPushButton("Добавить уровень")
+        self.level_action_btn.setFixedHeight(40)
+        self.level_action_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        fm = self.level_action_btn.fontMetrics()
+        self.level_action_btn.setMinimumWidth(fm.horizontalAdvance("Редактировать уровень") + 60)
+        self.level_action_btn.setStyleSheet("""
+            QPushButton { background-color: #3390EC; color: white; border: none; border-radius: 8px; padding: 8px 20px; font-size: 16px; font-weight: 500; }
             QPushButton:hover { background-color: #2B80D9; }
         """)
-        add_btn.clicked.connect(self._add_level_from_form)
-        form_layout.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.level_action_btn.clicked.connect(self._submit_level_form)
+        form_inner.addWidget(self.level_action_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
-        layout.addWidget(form_frame)
+        form_inner.addStretch()
+        left_col.addWidget(form_frame)
+
+        # ---------- Правая колонка (список) ----------
+        right_col = QVBoxLayout()
+        right_col.setSpacing(2)   # небольшой отступ между заголовком и рамкой
+
+        # Заголовок
+        list_title = QLabel("Активные уровни")
+        list_title.setFont(get_font("section_title"))
+        list_title.setStyleSheet("color: #000000; font-weight: 600; margin: 0; border: none;")
+        right_col.addWidget(list_title)
+
+        # Рамка списка
+        list_frame = QFrame()
+        list_frame.setObjectName("level_list_frame")
+        list_frame.setStyleSheet("""
+            QFrame#level_list_frame {
+                background-color: #FFFFFF;
+                border: 1px solid #DFE1E5;
+                border-radius: 8px;
+            }
+        """)
+        list_frame.setFixedHeight(400)   # такая же высота, как у формы
+        list_inner = QVBoxLayout(list_frame)
+        list_inner.setContentsMargins(12, 12, 12, 12)
+
+        # Область с баджами
+        self.levels_container = QWidget()
+        self.levels_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.levels_container.setStyleSheet("background-color: transparent;")
+        self.levels_layout = QFlowLayout(self.levels_container)
+        self.levels_layout.setContentsMargins(0, 0, 0, 0)
+        self.levels_layout.setSpacing(6)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.levels_container)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { background-color: #F0F0F0; width: 8px; border-radius: 4px; }
+            QScrollBar::handle:vertical { background-color: #C4C9CC; border-radius: 4px; min-height: 30px; }
+            QScrollBar::handle:vertical:hover { background-color: #A0A5A9; }
+            QScrollBar:horizontal { background-color: #F0F0F0; height: 8px; border-radius: 4px; }
+            QScrollBar::handle:horizontal { background-color: #C4C9CC; border-radius: 4px; min-width: 30px; }
+            QScrollBar::handle:horizontal:hover { background-color: #A0A5A9; }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { height: 0px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        """)
+        list_inner.addWidget(scroll)
+
+        right_col.addWidget(list_frame)
+
+        # Добавляем колонки в горизонтальный layout
+        cols_layout.addLayout(left_col)
+        cols_layout.addLayout(right_col, 1)   # правая колонка растягивается по ширине
+
+        main_layout.addLayout(cols_layout)
+
+        # ---- растяжка снизу (центрирование по вертикали) ----
+        main_layout.addStretch()
+
+        # Инициализируем данные
         self.levels_data = [
             {'name': 'Низкий', 'boundary': 15},
             {'name': 'Средний', 'boundary': 30},
             {'name': 'Высокий', 'boundary': 45}
         ]
+        self.editing_level_name = None   # имя уровня, который сейчас редактируется через форму
         self._refresh_levels_display()
+
+        # Подключаем обновление состояния кнопки при изменении полей
+        self.level_name_edit.textChanged.connect(self._update_levels_ui_state)
+        self.level_boundary_spin.valueChanged.connect(self._update_levels_ui_state)
+        self._update_levels_ui_state()
+
         return tab
 
     def _create_scales_tab(self):
@@ -2097,13 +2163,15 @@ class SettingsWidget(QWidget):
                             key = q_idx*len(row_spins) + a_idx + 1
                             if key in weights: spin.setValue(weights[key])
 
-    # ========== Уровни и шкалы ==========
+    # ========== Уровни ==========
     def _refresh_levels_display(self):
+        """Перестраивает список баджей в правой панели."""
         self.levels_data.sort(key=lambda x: x['boundary'])
         while self.levels_layout.count():
             item = self.levels_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
         prev_boundary = 0
         for i, level in enumerate(self.levels_data):
             boundary = level['boundary']
@@ -2115,6 +2183,7 @@ class SettingsWidget(QWidget):
             badge.deleted.connect(lambda lvl=level: self._delete_level(lvl))
             self.levels_layout.addWidget(badge)
             prev_boundary = boundary
+
         self._sync_levels_with_old_format()
         self._refresh_scales_list()
 
@@ -2128,6 +2197,68 @@ class SettingsWidget(QWidget):
             elif i == 3: key = "high"
             else: key = f"level{i+1}"
             self.level_order.append(key)
+            
+    def _update_levels_ui_state(self):
+        """Проверяет, совпадает ли введённое имя с существующим уровнем, и меняет кнопку."""
+        name = self.level_name_edit.text().strip()
+        if not name:
+            self.level_action_btn.setText("Добавить уровень")
+            self.editing_level_name = None
+            return
+
+        # Ищем уровень с таким же именем (точное совпадение)
+        found = None
+        for lvl in self.levels_data:
+            if lvl['name'] == name:
+                found = lvl
+                break
+        if found:
+            self.level_action_btn.setText("Редактировать уровень")
+            self.editing_level_name = name
+        else:
+            self.level_action_btn.setText("Добавить уровень")
+            self.editing_level_name = None
+            
+    def _submit_level_form(self):
+        """Обрабатывает нажатие кнопки (добавление или редактирование)."""
+        name = self.level_name_edit.text().strip()
+        boundary = self.level_boundary_spin.value()
+        if not name:
+            self._show_error_message("Ошибка", "Введите название уровня.")
+            return
+
+        if self.editing_level_name is not None:
+            # Редактирование существующего уровня
+            for lvl in self.levels_data:
+                if lvl['name'] == self.editing_level_name:
+                    lvl['name'] = name
+                    lvl['boundary'] = boundary
+                    break
+            self.editing_level_name = None
+        else:
+            # Проверка, нет ли уже такого же имени (на случай, если состояние сбилось)
+            duplicate = any(lvl['name'] == name for lvl in self.levels_data)
+            if duplicate:
+                self._show_error_message("Ошибка", "Уровень с таким названием уже существует. Измените название или нажмите «Редактировать уровень».")
+                return
+            self.levels_data.append({'name': name, 'boundary': boundary})
+
+        # Очищаем поля и обновляем интерфейс
+        self.level_name_edit.clear()
+        self.level_boundary_spin.setValue(10)
+        self._refresh_levels_display()
+        self._update_levels_ui_state()
+        
+    def _edit_level(self, level, index):
+        """Редактирование уровня через диалог (по двойному клику)."""
+        dlg = EditLevelDialog(level['name'], level['boundary'], self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_name, new_boundary = dlg.get_data()
+            if new_name and new_boundary > 0:
+                level['name'] = new_name
+                level['boundary'] = new_boundary
+                self.levels_data.sort(key=lambda x: x['boundary'])
+                self._refresh_levels_display()
 
     def _add_level_from_form(self):
         name = self.level_name_edit.text().strip()
@@ -2156,6 +2287,7 @@ class SettingsWidget(QWidget):
                 self._refresh_levels_display()
 
     def _delete_level(self, level):
+        """Удаление уровня."""
         if len(self.levels_data) <= 1:
             self._show_error_message("Ошибка", "Должен быть хотя бы один уровень")
             return

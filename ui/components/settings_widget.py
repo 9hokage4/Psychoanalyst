@@ -1328,10 +1328,14 @@ class SettingsWidget(QWidget):
         content = QWidget()
         content_layout = QGridLayout(content)
         content_layout.setContentsMargins(24, 24, 24, 24)
-        content_layout.setHorizontalSpacing(16)
-        content_layout.setVerticalSpacing(20)
+        content_layout.setHorizontalSpacing(40)  # чуть больше пространства между колонками
+        content_layout.setVerticalSpacing(0)
 
-        # ---------- A1: Название теста ----------
+        # ---------- Левая колонка (A1, B1, C1, D1) ----------
+        left_layout = QVBoxLayout()
+        left_layout.setSpacing(20)   # равномерный интервал между блоками
+
+        # A1: Название теста
         name_label = QLabel("Название теста")
         name_label.setFont(get_font("form_label"))
         name_label.setStyleSheet("color: #707579;")
@@ -1344,13 +1348,10 @@ class SettingsWidget(QWidget):
             QLineEdit:focus { border-color: #3390EC; }
         """)
         self.test_name_edit.textChanged.connect(self._update_folder_display)
-        name_layout = QVBoxLayout()
-        name_layout.setSpacing(6)
-        name_layout.addWidget(name_label)
-        name_layout.addWidget(self.test_name_edit)
-        content_layout.addLayout(name_layout, 0, 0)
+        left_layout.addWidget(name_label)
+        left_layout.addWidget(self.test_name_edit)
 
-        # ---------- B1: Количество вопросов ----------
+        # B1: Количество вопросов
         questions_label = QLabel("Количество вопросов")
         questions_label.setFont(get_font("form_label"))
         questions_label.setStyleSheet("color: #707579;")
@@ -1367,13 +1368,10 @@ class SettingsWidget(QWidget):
             QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
         """)
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
-        questions_layout = QVBoxLayout()
-        questions_layout.setSpacing(6)
-        questions_layout.addWidget(questions_label)
-        questions_layout.addWidget(self.questions_spin)
-        content_layout.addLayout(questions_layout, 1, 0)
+        left_layout.addWidget(questions_label)
+        left_layout.addWidget(self.questions_spin)
 
-        # ---------- C1: Количество вариантов ответов ----------
+        # C1: Количество вариантов ответов
         answers_label = QLabel("Количество вариантов ответов")
         answers_label.setFont(get_font("form_label"))
         answers_label.setStyleSheet("color: #707579;")
@@ -1390,13 +1388,49 @@ class SettingsWidget(QWidget):
             QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
         """)
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
-        answers_layout = QVBoxLayout()
-        answers_layout.setSpacing(6)
-        answers_layout.addWidget(answers_label)
-        answers_layout.addWidget(self.answers_spin)
-        content_layout.addLayout(answers_layout, 2, 0)
+        left_layout.addWidget(answers_label)
+        left_layout.addWidget(self.answers_spin)
 
-        # ---------- A2: Описание теста ----------
+        # D1: Чекбокс
+        self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
+        self.shared_checkbox.setChecked(False)
+        hint = QLabel("Если активно — один вопрос может относиться к нескольким шкалам")
+        hint.setFont(get_font("hint"))
+        hint.setStyleSheet("color: #707579;")
+        hint.setContentsMargins(32, 0, 0, 0)
+        left_layout.addWidget(self.shared_checkbox)
+        left_layout.addWidget(hint)
+
+        # D1 (продолжение): Выбор папки
+        folder_label = QLabel("Папка для сохранения результатов")
+        folder_label.setFont(get_font("form_label"))
+        folder_label.setStyleSheet("color: #707579;")
+        left_layout.addWidget(folder_label)
+        self.folder_btn = QPushButton("Выбор папки")
+        self.folder_btn.setFixedHeight(40)
+        self.folder_btn.setFont(get_font("button_small"))
+        self.folder_btn.setStyleSheet("""
+            QPushButton { background-color: transparent; color: #3390EC; border: 1px solid #3390EC; border-radius: 6px; padding: 8px 16px; }
+            QPushButton:hover { background-color: #F4F4F5; }
+        """)
+        self.folder_btn.clicked.connect(self.select_folder)
+        self.folder_btn.setMaximumWidth(200)
+        left_layout.addWidget(self.folder_btn)
+
+        self.folder_path_label = QLabel("")
+        self.folder_path_label.setFont(get_font("hint"))
+        self.folder_path_label.setStyleSheet("color: #707579;")
+        self.folder_path_label.setWordWrap(True)
+        left_layout.addWidget(self.folder_path_label)
+
+        left_layout.addStretch()   # все элементы прижаты к верху
+
+        # ---------- Правая колонка (A2, веса) ----------
+        right_layout = QVBoxLayout()
+        right_layout.setSpacing(20)
+        self.right_layout = right_layout
+
+        # A2: Описание теста
         desc_label = QLabel("Описание теста")
         desc_label.setFont(get_font("form_label"))
         desc_label.setStyleSheet("color: #707579;")
@@ -1407,20 +1441,31 @@ class SettingsWidget(QWidget):
             QTextEdit { border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px 12px; font-size: 18px; background-color: white; color: #000000; }
             QTextEdit:focus { border-color: #3390EC; }
         """)
-        self.test_description_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        desc_layout = QVBoxLayout()
-        desc_layout.setSpacing(6)
-        desc_layout.addWidget(desc_label)
-        desc_layout.addWidget(self.test_description_edit, 1)
-        content_layout.addLayout(desc_layout, 0, 1)
+        self.test_description_edit.setFixedHeight(100)
+        right_layout.addWidget(desc_label)
+        right_layout.addWidget(self.test_description_edit)
 
-        # ---------- B2, C2: Веса ответов для каждого вопроса ----------
-        weights_group = QGroupBox("Веса ответов для каждого вопроса")
-        self.weights_group = weights_group
-        weights_group.setStyleSheet("""
-            QGroupBox { font-weight: bold; border: 1px solid #DFE1E5; border-radius: 8px; margin-top: 0px; padding-top: 12px; color: #212529; font-size: 14px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; color: #3390EC; font-size: 14px; }
-        """)
+        # -------------------------------------------------------------
+        # Секция "Веса ответов для каждого вопроса"
+        # -------------------------------------------------------------
+        weights_wrapper = QWidget()
+        self.weights_wrapper = weights_wrapper
+        self._weights_unified = True   # по умолчанию унифицированный режим
+        self.weights_group = weights_wrapper   # для обратной совместимости
+
+        wrapper_layout = QVBoxLayout(weights_wrapper)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(6)
+
+        # Заголовок с подсказкой
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 8, 0)
+        weights_title = QLabel("Веса ответов для каждого вопроса")
+        weights_title.setFont(get_font("form_label"))
+        weights_title.setStyleSheet("color: #707579;")
+        header_layout.addWidget(weights_title)
+        header_layout.addStretch()
+
         hint_btn = QPushButton("?")
         hint_btn.setFixedSize(20, 20)
         hint_btn.setStyleSheet("""
@@ -1432,34 +1477,13 @@ class SettingsWidget(QWidget):
                 font-size: 12px;
                 font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
+            QPushButton:hover { background-color: #2B80D9; }
         """)
         hint_btn.setToolTip("Укажите числовой вес для каждого варианта ответа.\nЭти значения используются при вычислении баллов шкалы.")
+        header_layout.addWidget(hint_btn)
+        wrapper_layout.addLayout(header_layout)
 
-        # --- ИСПРАВЛЕННАЯ ЧАСТЬ (начало) ---
-        # Сначала создаём ряд с кнопкой подсказки
-        weights_group_layout = QHBoxLayout()
-        weights_group_layout.setContentsMargins(0, 0, 0, 0)
-        weights_group_layout.addStretch()
-        weights_group_layout.addWidget(hint_btn)
-
-        # Основной вертикальный layout для содержимого (скролл + кнопки)
-        group_layout = QVBoxLayout()
-        group_layout.setContentsMargins(8, 8, 8, 8)
-        group_layout.setSpacing(0)
-
-        # Внешний контейнер, объединяющий подсказку и основной layout
-        group_container = QVBoxLayout()
-        group_container.setContentsMargins(0, 0, 0, 0)
-        group_container.setSpacing(0)
-        group_container.addLayout(weights_group_layout)   # подсказка сверху
-        group_container.addLayout(group_layout)           # основное содержимое
-        weights_group.setLayout(group_container)
-        # --- ИСПРАВЛЕННАЯ ЧАСТЬ (конец) ---
-
-        # Далее идёт наполнение group_layout (скролл и кнопки) – без изменений
+        # Контейнер для весов внутри скролла
         self.weights_container = QWidget()
         self.weights_container.setStyleSheet("background: transparent;")
         self.weights_layout = QVBoxLayout(self.weights_container)
@@ -1471,11 +1495,10 @@ class SettingsWidget(QWidget):
         scroll_weights.setWidgetResizable(True)
         scroll_weights.setWidget(self.weights_container)
         scroll_weights.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_weights.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
         scroll_weights.setMinimumHeight(60)
-        scroll_weights.setMaximumHeight(300)
+        scroll_weights.setMaximumHeight(16777215)
         scroll_weights.setStyleSheet("""
-            QScrollArea { border: none; background: transparent; }
+            QScrollArea {border: 1px solid #DFE1E5; border-radius: 8px; background: transparent;}
             QScrollBar:vertical { background-color: #F0F0F0; width: 8px; border-radius: 4px; }
             QScrollBar::handle:vertical { background-color: #C4C9CC; border-radius: 4px; min-height: 30px; }
             QScrollBar::handle:vertical:hover { background-color: #A0A5A9; }
@@ -1485,89 +1508,42 @@ class SettingsWidget(QWidget):
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { height: 0px; }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
         """)
-        group_layout.addWidget(scroll_weights)
+        wrapper_layout.addWidget(scroll_weights)   # без stretch
 
+        # Кнопка переключения режима
         btn_layout_weights = QHBoxLayout()
         btn_layout_weights.setContentsMargins(0, 8, 0, 0)
         btn_layout_weights.setSpacing(10)
-        self.cancel_unify_btn = QPushButton("Отмена")
-        self.cancel_unify_btn.setFixedHeight(32)
-        self.cancel_unify_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.cancel_unify_btn.setFixedWidth(self.cancel_unify_btn.fontMetrics().horizontalAdvance("Отмена") + 40)
-        self.cancel_unify_btn.setStyleSheet("""
+
+        self.toggle_weights_btn = QPushButton("Установить веса для каждого вопроса")
+        self.toggle_weights_btn.setFixedHeight(32)
+        self.toggle_weights_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.toggle_weights_btn.adjustSize()
+        self.toggle_weights_btn.setStyleSheet("""
             QPushButton { background-color: #FFFFFF; color: #3390EC; border: 1px solid #3390EC; border-radius: 8px; padding: 6px 12px; font-size: 17px; font-weight: 500; }
             QPushButton:hover { background-color: #F5F5F5; }
         """)
-        self.cancel_unify_btn.clicked.connect(self._cancel_unify_weights)
-        self.cancel_unify_btn.setVisible(False)
-        btn_layout_weights.addWidget(self.cancel_unify_btn)
+        self.toggle_weights_btn.clicked.connect(self._toggle_weights_mode)
+        btn_layout_weights.addWidget(self.toggle_weights_btn)
+        btn_layout_weights.addStretch()
+        wrapper_layout.addLayout(btn_layout_weights)
 
-        self.apply_all_btn = QPushButton("Применить ко всем вопросам")
-        self.apply_all_btn.setFixedHeight(32)
-        self.apply_all_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.apply_all_btn.setFixedWidth(self.apply_all_btn.fontMetrics().horizontalAdvance("Применить ко всем вопросам") + 40)
-        self.apply_all_btn.setStyleSheet("""
-            QPushButton { background-color: #FFFFFF; color: #3390EC; border: 1px solid #3390EC; border-radius: 8px; padding: 6px 12px; font-size: 17px; font-weight: 500; }
-            QPushButton:hover { background-color: #F5F5F5; }
-            QPushButton:disabled { background-color: #F5F5F5; color: #ADB5BD; border-color: #ADB5BD; }
-        """)
-        self.apply_all_btn.clicked.connect(self._apply_weights_to_all)
-        btn_layout_weights.addWidget(self.apply_all_btn)
-        group_layout.addLayout(btn_layout_weights)
+        right_layout.addWidget(weights_wrapper)   # без stretch, будет управляться в _refresh_weights_tab
+        # Пустой виджет‑распорка, который забирает свободное место в унифицированном режиме
+        self.bottom_stretch = QWidget()
+        self.bottom_stretch.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        right_layout.addWidget(self.bottom_stretch)
 
-        # B2, C2 занимают row=1, col=1, rowspan=2
-        content_layout.addWidget(weights_group, 1, 1, 2, 1)
-
-        # ---------- D1: Чекбокс в левой колонке ----------
-        checkbox_layout = QVBoxLayout()
-        checkbox_layout.setSpacing(4)
-        self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
-        self.shared_checkbox.setChecked(False)
-        checkbox_layout.addWidget(self.shared_checkbox)
-        hint = QLabel("Если активно — один вопрос может относиться к нескольким шкалам")
-        hint.setFont(get_font("hint"))
-        hint.setStyleSheet("color: #707579;")
-        hint.setContentsMargins(32, 0, 0, 0)
-        checkbox_layout.addWidget(hint)
-        content_layout.addLayout(checkbox_layout, 3, 0)
-
-        # ---------- D2: Кнопка "Выбор папки" и путь ----------
-        folder_layout = QHBoxLayout()
-        folder_layout.setContentsMargins(0, 0, 0, 0)
-        folder_layout.setSpacing(8)
-        self.folder_btn = QPushButton("Выбор папки")
-        self.folder_btn.setFixedHeight(40)
-        self.folder_btn.setFont(get_font("button_small"))
-        self.folder_btn.setStyleSheet("""
-            QPushButton { background-color: transparent; color: #3390EC; border: 1px solid #3390EC; border-radius: 6px; padding: 8px 16px; }
-            QPushButton:hover { background-color: #F4F4F5; }
-        """)
-        self.folder_btn.clicked.connect(self.select_folder)
-        self.folder_btn.setMaximumWidth(200)
-        folder_layout.addWidget(self.folder_btn)
-        self.folder_path_label = QLabel("")
-        self.folder_path_label.setFont(get_font("hint"))
-        self.folder_path_label.setStyleSheet("color: #707579;")
-        self.folder_path_label.setWordWrap(True)
-        folder_layout.addWidget(self.folder_path_label, 1)
-        folder_layout.addStretch()
-        content_layout.addLayout(folder_layout, 4, 0)
-
-        # Устанавливаем равную растяжку колонок
+        # ---------- Размещаем колонки в сетке ----------
+        content_layout.addLayout(left_layout, 0, 0)
+        content_layout.addLayout(right_layout, 0, 1)
         content_layout.setColumnStretch(0, 1)
         content_layout.setColumnStretch(1, 1)
-
-        content_layout.setRowStretch(0, 0)  # Название теста
-        content_layout.setRowStretch(1, 0)  # Кол-во вопросов
-        content_layout.setRowStretch(2, 0)  # Кол-во ответов
-        content_layout.setRowStretch(3, 0)  # Чекбокс
-        content_layout.setRowStretch(4, 0)  # Кнопка выбора папки
-        content_layout.setRowStretch(5, 1)  # Растяжка в самом низу левой колонки (если нужно)
 
         scroll.setWidget(content)
         outer_layout.addWidget(scroll)
 
-        # Инициализация весов
+        # Инициализация весов (настроит размеры в соответствии с _weights_unified)
         self._refresh_weights_tab()
         self._update_folder_display()
         return tab
@@ -1731,26 +1707,48 @@ class SettingsWidget(QWidget):
 
     # ========== Веса ==========
     def _refresh_weights_tab(self):
-        q_count = self.questions_spin.value()
-        a_count = self.answers_spin.value()
+        # Очистка контейнера
         while self.weights_layout.count():
             item = self.weights_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         self.weight_spins = []
-        if hasattr(self, '_weights_unified') and self._weights_unified:
+
+        q_count = self.questions_spin.value()
+        a_count = self.answers_spin.value()
+
+        if self._weights_unified:
             row, spins = self._create_unified_weights_row(q_count, a_count)
+            if hasattr(self, '_unified_values') and self._unified_values:
+                for spin, val in zip(spins, self._unified_values):
+                    spin.setValue(val)
             self.weights_layout.addWidget(row)
             self.weight_spins.append(spins)
-            self.apply_all_btn.setEnabled(False)
-            self.cancel_unify_btn.setVisible(True)
+            self.toggle_weights_btn.setText("Установить веса для каждого вопроса")
         else:
             for i in range(1, q_count + 1):
                 row, spins = self._create_question_row(i, a_count)
+                if hasattr(self, '_unified_values') and self._unified_values:
+                    for spin, val in zip(spins, self._unified_values):
+                        spin.setValue(val)
                 self.weights_layout.addWidget(row)
                 self.weight_spins.append(spins)
-            self.apply_all_btn.setEnabled(True)
-            self.cancel_unify_btn.setVisible(False)
+            self.toggle_weights_btn.setText("Вернуть общие веса")
+
+        # Настройка размеров scroll'а и растяжения в зависимости от режима
+        if self._weights_unified:
+            # Компактное содержимое, пустота снизу
+            self.weigths_scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            self.weigths_scroll_area.setFixedHeight(80)          # одна строка
+            # Включаем нижнюю распорку
+            self.bottom_stretch.setMaximumHeight(16777215)        # может расти
+        else:
+            # Детальная таблица занимает всё свободное место
+            self.weigths_scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.weigths_scroll_area.setMinimumHeight(60)
+            self.weigths_scroll_area.setMaximumHeight(16777215)
+            # Убираем нижнюю распорку (схлопываем в ноль)
+            self.bottom_stretch.setFixedHeight(0)
 
     def _create_question_row(self, question_num, answer_count):
         row = QWidget()
@@ -1758,7 +1756,7 @@ class SettingsWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         label = QLabel(f"Вопрос {question_num}")
-        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 100px; margin-left: 8px;")
         layout.addWidget(label)
         spins = []
         for j in range(1, answer_count + 1):
@@ -1784,7 +1782,7 @@ class SettingsWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         label = QLabel("Вопрос")
-        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 80px; margin-left: 8px;")
+        label.setStyleSheet("font-size: 18px; font-weight: 500; color: #000000; min-width: 100px; margin-left: 8px;")
         layout.addWidget(label)
         spins = []
         for j in range(1, answer_count + 1):
@@ -1804,41 +1802,19 @@ class SettingsWidget(QWidget):
         layout.addStretch()
         return row, spins
 
-    def _apply_weights_to_all(self):
-        if self.weights_layout.count() <= 1:
-            return
-        first_row = self.weights_layout.itemAt(0).widget()
-        first_row_spins = [child for child in first_row.findChildren(QSpinBox)]
-        while self.weights_layout.count() > 1:
-            item = self.weights_layout.takeAt(1)
-            if item.widget():
-                item.widget().deleteLater()
-        label = first_row.findChild(QLabel)
-        if label:
-            label.setText("Вопрос")
-        self._weights_unified = True
-        self.weights_group.setMaximumHeight(200)  # или подходящая высота для двух строк
-        self.apply_all_btn.setEnabled(False)
-        self.cancel_unify_btn.setVisible(True)
-        self.weight_spins = [first_row_spins]
-        scroll = getattr(self, "weights_scroll_area", None)
-        if scroll:
-            scroll.setMinimumHeight(60)
-            scroll.setMaximumHeight(60)
-        self.weights_layout.activate()
-        self.weights_container.updateGeometry()
-        self.weights_container.adjustSize()
-
-    def _cancel_unify_weights(self):
-        self._weights_unified = False
-        if hasattr(self, '_weights_unified'):
-            del self._weights_unified
+        
+    def _toggle_weights_mode(self):
+        if self._weights_unified:
+            # Сохраняем текущие значения унифицированной строки
+            if self.weight_spins:
+                self._unified_values = [spin.value() for spin in self.weight_spins[0]]
+            else:
+                self._unified_values = []
+        # Переключаем флаг
+        self._weights_unified = not self._weights_unified
+        # Перестраиваем таблицу
         self._refresh_weights_tab()
-        self.weights_group.setMaximumHeight(16777215)  # сброс ограничения
-        scroll = getattr(self, "weights_scroll_area", None)
-        if scroll:
-            scroll.setMinimumHeight(60)
-            scroll.setMaximumHeight(300)
+
 
     def on_questions_changed(self, value):
         if hasattr(self, 'weights_layout'):

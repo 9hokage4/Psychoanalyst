@@ -10,7 +10,7 @@ import pandas as pd
 from ui.components.table_widget import ExcelTable
 from utils.fonts import get_font, FontWeights
 from utils.worker import ProcessWorker
-
+from utils.message_box import MessageHelper
 
 class DragDropArea(QFrame):
     """Область для перетаскивания файлов (и клика)."""
@@ -361,7 +361,7 @@ class UploadWidget(QWidget):
         button_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Кнопка обработки
-        self.process_btn = QPushButton("ОБРАБОТАТЬ ДАННЫЕ")
+        self.process_btn = QPushButton("Обработать данные")
         self.process_btn.setEnabled(False)
         self.process_btn.setFont(get_font("button", size=16, weight=FontWeights.SEMIBOLD))
         self.process_btn.setStyleSheet("""
@@ -382,7 +382,7 @@ class UploadWidget(QWidget):
         self.process_btn.clicked.connect(self.start_processing)
 
         # Кнопка отмены (красная)
-        self.cancel_btn = QPushButton("✖ Отмена")
+        self.cancel_btn = QPushButton("Отмена")
         self.cancel_btn.setVisible(False)  # скрыта, пока файл не выбран
         self.cancel_btn.setFont(get_font("button", size=16))
         self.cancel_btn.setStyleSheet("""
@@ -398,9 +398,10 @@ class UploadWidget(QWidget):
             }
         """)
         self.cancel_btn.clicked.connect(self.cancel_selection)
-
-        button_row.addWidget(self.process_btn)
+        
         button_row.addWidget(self.cancel_btn)
+        button_row.addWidget(self.process_btn)
+        
 
         card_layout.addLayout(button_row)
 
@@ -458,11 +459,11 @@ class UploadWidget(QWidget):
     def start_processing(self):
         """Запускает обработку данных в фоновом режиме."""
         if self.current_df is None:
-            self._show_error_message("Ошибка", "Файл не загружен")
+            MessageHelper.show_error(self, "Ошибка", "Файл не загружен")
             return
 
         if self.current_config is None:
-            self._show_error_message(
+            MessageHelper.show_error(self,
                 "Ошибка",
                 "Конфигурация не задана.\n"
                 "Нажмите 'Изменить настройки' и настройте тест."
@@ -490,62 +491,15 @@ class UploadWidget(QWidget):
             # Передаём результат дальше
             self.processing_finished.emit(table_df, charts_data, summary_data, True, message)
         else:
-            self._show_error_message("Ошибка обработки", message)
+            MessageHelper.show_error(self,"Ошибка обработки", message)
 
     def on_processing_error(self, error_msg):
         """Обработчик ошибки обработки."""
         # Разблокируем кнопку
         self.process_btn.setEnabled(True)
         self.process_btn.setText("ОБРАБОТАТЬ ДАННЫЕ")
-        self._show_error_message("Ошибка", error_msg)
+        MessageHelper.show_error(self, "Ошибка", error_msg)
 
-    def _show_error_message(self, title, message):
-        """Показывает сообщение об ошибке в стиле SettingsDialog."""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(message)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        
-        # Стиль для кнопок QMessageBox
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background-color: #FFFFFF;
-                border-radius: 12px;
-            }
-            QMessageBox QLabel {
-                color: #000000;
-                font-size: 14px;
-            }
-            QPushButton {
-                background-color: #3390EC;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2B80D9;
-            }
-            QPushButton:pressed {
-                background-color: #1E6BC5;
-            }
-        """)
-        
-        icon_label = QLabel()
-        icon_pixmap = QPixmap("resources/icons/alert-triangle.svg")
-        if not icon_pixmap.isNull():
-            icon_label.setPixmap(icon_pixmap.scaled(48, 48,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation))
-        else:
-            icon_label.setPixmap(self.style().standardIcon(
-                QMessageBox.Style.Warning).pixmap(48, 48))
-        layout = msg_box.layout()
-        layout.addWidget(icon_label, 0, 0, 1, 1,
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        msg_box.exec()
 
     def set_config(self, config):
         """Устанавливает текущую конфигурацию и обновляет отображение."""

@@ -15,6 +15,7 @@ from utils.fonts import get_font, FontWeights
 from utils.resources import get_icon_path
 from utils.folder_manager import FolderManager
 from utils.message_box import MessageHelper
+from utils.resources import get_icon_path, get_icon_url
 
 class QFlowLayout(QLayout):
     """Flow layout для badge с переносом строк"""
@@ -138,34 +139,34 @@ class EditLevelDialog(QDialog):
         self.boundary_spin.setValue(boundary)
         self.boundary_spin.setFixedHeight(40)
         self.boundary_spin.setFont(get_font("numeric"))
-        self.boundary_spin.setStyleSheet("""
-            QSpinBox {
-                border: 1px solid #DFE1E5;
-                border-radius: 8px;
-                padding: 8px 24px 8px 12px;
-                font-size: 18px;
-                background-color: white;
-                color: #000000;
-            }
-            QSpinBox:focus {
-                border-color: #3390EC;
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                width: 20px;
-                border: none;
-                background: transparent;
-            }
-            QSpinBox::up-arrow {
-                image: url(resources/icons/chevron-up.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QSpinBox::down-arrow {
-                image: url(resources/icons/chevron-down.svg);
-                width: 12px;
-                height: 12px;
-            }
-        """)
+        self.boundary_spin.setStyleSheet(f"""
+    QSpinBox {{
+        border: 1px solid #DFE1E5;
+        border-radius: 8px;
+        padding: 8px 24px 8px 12px;
+        font-size: 18px;
+        background-color: white;
+        color: #000000;
+    }}
+    QSpinBox:focus {{
+        border-color: #3390EC;
+    }}
+    QSpinBox::up-button, QSpinBox::down-button {{
+        width: 20px;
+        border: none;
+        background: transparent;
+    }}
+    QSpinBox::up-arrow {{
+        image: {get_icon_url('chevron-up.svg')};
+        width: 12px;
+        height: 12px;
+    }}
+    QSpinBox::down-arrow {{
+        image: {get_icon_url('chevron-down.svg')};
+        width: 12px;
+        height: 12px;
+    }}
+""")
         layout.addWidget(bound_label)
         layout.addWidget(self.boundary_spin)
 
@@ -355,7 +356,7 @@ class LevelBadge(QWidget):
         self.delete_btn = QPushButton()
         self.delete_btn.setFixedSize(20, 20)
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.delete_btn.setIcon(QIcon("resources/icons/close.svg"))
+        self.delete_btn.setIcon(QIcon(get_icon_path("close.svg")))
         self.delete_btn.setIconSize(QSize(16, 16))
         self.delete_btn.setStyleSheet("""
             QPushButton {
@@ -462,7 +463,7 @@ class ScaleItem(QWidget):
         top_layout.addStretch()
 
         self.edit_btn = QPushButton()
-        self.edit_btn.setIcon(QIcon("resources/icons/edit.svg"))
+        self.edit_btn.setIcon(QIcon(get_icon_path("edit.svg")))
         self.edit_btn.setIconSize(QSize(32, 32))
         self.edit_btn.setFixedSize(40, 40)
         self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -480,7 +481,7 @@ class ScaleItem(QWidget):
         top_layout.addWidget(self.edit_btn)
 
         self.delete_btn = QPushButton()
-        self.delete_btn.setIcon(QIcon("resources/icons/trash.svg"))
+        self.delete_btn.setIcon(QIcon(get_icon_path("trash.svg")))
         self.delete_btn.setIconSize(QSize(32, 32))
         self.delete_btn.setFixedSize(40, 40)
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -740,7 +741,7 @@ class ScaleLevelWidget(QWidget):
         layout.addWidget(self.label, 1)
 
         edit_btn = QPushButton()
-        edit_btn.setIcon(QIcon("resources/icons/edit.svg"))
+        edit_btn.setIcon(QIcon(get_icon_path("edit.svg"))) 
         edit_btn.setIconSize(QSize(16, 16))
         edit_btn.setFixedSize(24, 24)
         edit_btn.setStyleSheet("border: none; background: transparent;")
@@ -748,7 +749,7 @@ class ScaleLevelWidget(QWidget):
         layout.addWidget(edit_btn)
 
         del_btn = QPushButton()
-        del_btn.setIcon(QIcon("resources/icons/close.svg"))
+        del_btn.setIcon(QIcon(get_icon_path("close.svg")))
         del_btn.setIconSize(QSize(16, 16))
         del_btn.setFixedSize(24, 24)
         del_btn.setStyleSheet("border: none; background: transparent;")
@@ -957,7 +958,7 @@ class AddLevelsToScaleDialog(QDialog):
         name = self.new_name_edit.text().strip()
         boundary = self.new_boundary_spin.value()
         if not name:
-            QMessageBox.warning(self, "Ошибка", "Введите название уровня.")
+            MessageHelper.show_error(self, "Ошибка", "Введите название уровня.")
             return
 
         parent = self.parent_scale_dialog
@@ -1328,10 +1329,10 @@ class SettingsWidget(QWidget):
         self.nav_buttons = []
         from ui.components.results_nav_button import ResultsNavButton
         btn_data = [
-            ("resources/icons/cog.svg", "Основные"),
-            ("resources/icons/chart-line.svg", "Уровни"),
-            ("resources/icons/charts.svg", "Шкалы"),
-        ]
+    (get_icon_path("cog.svg"), "Основные"),
+    (get_icon_path("chart-line.svg"), "Уровни"),
+    (get_icon_path("charts.svg"), "Шкалы"),
+]
         for icon, text in btn_data:
             btn = ResultsNavButton(icon, text)
             btn.setObjectName(f"settings_nav_{text}")
@@ -1505,13 +1506,13 @@ class SettingsWidget(QWidget):
         self.questions_spin.setValue(10)
         self.questions_spin.setFixedHeight(40)
         self.questions_spin.setFont(get_font("numeric"))
-        self.questions_spin.setStyleSheet("""
-            QSpinBox { border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px 24px 8px 12px; font-size: 18px; background-color: white; color: #000000; }
-            QSpinBox:focus { border-color: #3390EC; }
-            QSpinBox::up-button, QSpinBox::down-button { width: 20px; border: none; background: transparent; }
-            QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
-            QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
-        """)
+        self.questions_spin.setStyleSheet(f"""
+    QSpinBox {{ border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px 24px 8px 12px; font-size: 18px; background-color: white; color: #000000; }}
+    QSpinBox:focus {{ border-color: #3390EC; }}
+    QSpinBox::up-button, QSpinBox::down-button {{ width: 20px; border: none; background: transparent; }}
+    QSpinBox::up-arrow {{ image: {get_icon_url('chevron-up.svg')}; width: 12px; height: 12px; }}
+    QSpinBox::down-arrow {{ image: {get_icon_url('chevron-down.svg')}; width: 12px; height: 12px; }}
+""")
         self.questions_spin.valueChanged.connect(self.on_questions_changed)
         left_layout.addWidget(questions_label)
         left_layout.addWidget(self.questions_spin)
@@ -1525,19 +1526,23 @@ class SettingsWidget(QWidget):
         self.answers_spin.setValue(5)
         self.answers_spin.setFixedHeight(40)
         self.answers_spin.setFont(get_font("numeric"))
-        self.answers_spin.setStyleSheet("""
-            QSpinBox { border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px 24px 8px 12px; font-size: 18px; background-color: white; color: #000000; }
-            QSpinBox:focus { border-color: #3390EC; }
-            QSpinBox::up-button, QSpinBox::down-button { width: 20px; border: none; background: transparent; }
-            QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
-            QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
-        """)
+        self.answers_spin.setStyleSheet(f"""
+    QSpinBox {{ border: 1px solid #DFE1E5; border-radius: 8px; padding: 8px 24px 8px 12px; font-size: 18px; background-color: white; color: #000000; }}
+    QSpinBox:focus {{ border-color: #3390EC; }}
+    QSpinBox::up-button, QSpinBox::down-button {{ width: 20px; border: none; background: transparent; }}
+    QSpinBox::up-arrow {{ image: {get_icon_url('chevron-up.svg')}; width: 12px; height: 12px; }}
+    QSpinBox::down-arrow {{ image: {get_icon_url('chevron-down.svg')}; width: 12px; height: 12px; }}
+""")
         self.answers_spin.valueChanged.connect(self.on_answers_changed)
         left_layout.addWidget(answers_label)
         left_layout.addWidget(self.answers_spin)
 
         # D1: Чекбокс
-        self.shared_checkbox = AnimatedCheckBox("Вопросы для различных шкал одинаковы")
+        self.shared_checkbox = AnimatedCheckBox(
+    "Вопросы для различных шкал одинаковы",
+    unchecked_svg=get_icon_path("checkbox_unchecked.svg"),
+    checked_svg=get_icon_path("checkbox_checked.svg")
+)
         self.shared_checkbox.setChecked(False)
         hint = QLabel("Если активно — один вопрос может относиться к нескольким шкалам")
         hint.setFont(get_font("hint"))
@@ -1754,13 +1759,13 @@ class SettingsWidget(QWidget):
         self.level_boundary_spin.setRange(1, 10000)
         self.level_boundary_spin.setValue(10)
         self.level_boundary_spin.setFixedHeight(40)
-        self.level_boundary_spin.setStyleSheet("""
-            QSpinBox { border: 1px solid #DFE1E5; border-radius: 8px; padding: 6px 12px; font-size: 18px; background-color: white; color: #000000; }
-            QSpinBox:focus { border-color: #3390EC; }
-            QSpinBox::up-button, QSpinBox::down-button { width: 20px; border: none; background: transparent; }
-            QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
-            QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
-        """)
+        self.level_boundary_spin.setStyleSheet(f"""
+    QSpinBox {{ border: 1px solid #DFE1E5; border-radius: 8px; padding: 6px 12px; font-size: 18px; background-color: white; color: #000000; }}
+    QSpinBox:focus {{ border-color: #3390EC; }}
+    QSpinBox::up-button, QSpinBox::down-button {{ width: 20px; border: none; background: transparent; }}
+    QSpinBox::up-arrow {{ image: {get_icon_url('chevron-up.svg')}; width: 12px; height: 12px; }}
+    QSpinBox::down-arrow {{ image: {get_icon_url('chevron-down.svg')}; width: 12px; height: 12px; }}
+""")
         form_inner.addWidget(bound_label)
         form_inner.addWidget(self.level_boundary_spin)
 
@@ -1984,13 +1989,13 @@ class SettingsWidget(QWidget):
             spin.setRange(1, 100)
             spin.setValue(j)
             spin.setFixedHeight(40)
-            spin.setStyleSheet("""
-                QSpinBox { border: 1px solid #DFE1E5; border-radius: 8px; padding: 4px 8px; font-size: 18px; background-color: white; color: #000000; }
-                QSpinBox:focus { border-color: #3390EC; }
-                QSpinBox::up-button, QSpinBox::down-button { width: 20px; border: none; background: transparent; }
-                QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
-                QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
-            """)
+            spin.setStyleSheet(f"""
+    QSpinBox {{ border: 1px solid #DFE1E5; border-radius: 8px; padding: 4px 8px; font-size: 18px; background-color: white; color: #000000; }}
+    QSpinBox:focus {{ border-color: #3390EC; }}
+    QSpinBox::up-button, QSpinBox::down-button {{ width: 20px; border: none; background: transparent; }}
+    QSpinBox::up-arrow {{ image: {get_icon_url('chevron-up.svg')}; width: 12px; height: 12px; }}
+    QSpinBox::down-arrow {{ image: {get_icon_url('chevron-down.svg')}; width: 12px; height: 12px; }}
+""")
             layout.addWidget(spin)
             spins.append(spin)
         layout.addStretch()
@@ -2010,13 +2015,13 @@ class SettingsWidget(QWidget):
             spin.setRange(1, 100)
             spin.setValue(j)
             spin.setFixedHeight(40)
-            spin.setStyleSheet("""
-                QSpinBox { border: 1px solid #DFE1E5; border-radius: 8px; padding: 4px 8px; font-size: 18px; background-color: white; color: #000000; }
-                QSpinBox:focus { border-color: #3390EC; }
-                QSpinBox::up-button, QSpinBox::down-button { width: 20px; border: none; background: transparent; }
-                QSpinBox::up-arrow { image: url(resources/icons/chevron-up.svg); width: 12px; height: 12px; }
-                QSpinBox::down-arrow { image: url(resources/icons/chevron-down.svg); width: 12px; height: 12px; }
-            """)
+            spin.setStyleSheet(f"""
+    QSpinBox {{ border: 1px solid #DFE1E5; border-radius: 8px; padding: 4px 8px; font-size: 18px; background-color: white; color: #000000; }}
+    QSpinBox:focus {{ border-color: #3390EC; }}
+    QSpinBox::up-button, QSpinBox::down-button {{ width: 20px; border: none; background: transparent; }}
+    QSpinBox::up-arrow {{ image: {get_icon_url('chevron-up.svg')}; width: 12px; height: 12px; }}
+    QSpinBox::down-arrow {{ image: {get_icon_url('chevron-down.svg')}; width: 12px; height: 12px; }}
+""")
             layout.addWidget(spin)
             spins.append(spin)
         layout.addStretch()
@@ -2433,15 +2438,6 @@ class SettingsWidget(QWidget):
         self._refresh_levels_display()
         self.level_name_edit.clear()
 
-    def _edit_level(self, level, index):
-        dlg = EditLevelDialog(level['name'], level['boundary'], self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            new_name, new_boundary = dlg.get_data()
-            if new_name and new_boundary > 0:
-                level['name'] = new_name
-                level['boundary'] = new_boundary
-                self.levels_data.sort(key=lambda x: x['boundary'])
-                self._refresh_levels_display()
 
     def _delete_level(self, level):
         """Удаление уровня."""
@@ -2534,18 +2530,6 @@ class SettingsWidget(QWidget):
 
         self.folder_path_label.setText(f"📁 {test_folder}")
 
-    def _save_debug_config(self, scales_config, level_order, level_ru, answer_weights):
-        import json
-        from datetime import datetime
-        debug = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "scales_config": scales_config,
-            "level_order": level_order,
-            "level_ru": level_ru,
-            "answer_weights": answer_weights
-        }
-        with open("debug_config.json", "w", encoding="utf-8") as f:
-            json.dump(debug, f, indent=2, ensure_ascii=False)
 
     def set_config(self, config):
         self.config = config

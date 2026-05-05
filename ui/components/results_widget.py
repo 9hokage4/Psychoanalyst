@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, Color
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -20,10 +20,9 @@ from utils.fonts import get_font, FontWeights
 from ui.components.results_nav_button import ResultsNavButton
 from utils.excel_export import ExcelExporter, open_excel_file
 from utils.folder_manager import FolderManager
-import tempfile
-import os
 
 from utils.message_box import MessageHelper
+from utils.resources import get_icon_path
 
 
 # Цвета для шкал
@@ -61,7 +60,6 @@ class ResultsWidget(QWidget):
         self.excel_exporter = ExcelExporter()  # Экспортёр Excel
         self.output_folder_path = ""  # Путь к папке вывода (из настроек)
         self.folder_manager = FolderManager()  # Менеджер папок
-        self._last_error_message = ""  # Для отслеживания дубликатов ошибок
         self.setup_ui()
         self._load_processed_data()
         self._load_output_folder()  # Загружаем путь к папке
@@ -108,20 +106,20 @@ class ResultsWidget(QWidget):
         self.nav_buttons = []
 
         # Кнопки навигации
-        btn_table = ResultsNavButton("resources/icons/table.svg", "")
+        btn_table = ResultsNavButton(get_icon_path("table.svg"), "")
         btn_table.setChecked(True)
         btn_table.clicked.connect(lambda: self._switch_view(0))
         self.nav_buttons.append(btn_table)
 
-        btn_pie = ResultsNavButton("resources/icons/pie.svg", "")
+        btn_pie = ResultsNavButton(get_icon_path("pie.svg"), "")
         btn_pie.clicked.connect(lambda: self._switch_view(1))
         self.nav_buttons.append(btn_pie)
 
-        btn_bar = ResultsNavButton("resources/icons/bar.svg", "")
+        btn_bar = ResultsNavButton(get_icon_path("bar.svg"), "")
         btn_bar.clicked.connect(lambda: self._switch_view(2))
         self.nav_buttons.append(btn_bar)
 
-        btn_line = ResultsNavButton("resources/icons/line.svg", "")
+        btn_line = ResultsNavButton(get_icon_path("line.svg"), "")
         btn_line.clicked.connect(lambda: self._switch_view(3))
         self.nav_buttons.append(btn_line)
 
@@ -301,7 +299,7 @@ class ResultsWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        self.selector_label = QLabel("📊 Тип таблицы:")
+        self.selector_label = QLabel("Выберите лист:")
         self.selector_label.setFont(get_font("form_label"))
         self.selector_label.setStyleSheet("color: #707579; background-color: transparent;")
 
